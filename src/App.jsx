@@ -184,49 +184,25 @@ const GematriaCalculator = () => {
     return { articles, conjunctions, prepositions, pronouns, nouns, verbs, adjectives };
   };
 
-  // Load comprehensive word list from dwyl/english-words GitHub repository
+  // Load curated word list
   useEffect(() => {
-    const loadWordsFromGitHub = async () => {
-      setLoadingWords(true);
-      setLoadError(null);
+    setLoadingWords(true);
 
-      try {
-        console.log('Loading comprehensive English word list from GitHub...');
-        const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
+    // Use the built-in curated word list - much better quality than external dictionary
+    const curatedWords = getExtensiveWordList();
 
-        if (!response.ok) {
-          throw new Error(`Failed to fetch word list: ${response.status}`);
-        }
+    // Expand by repeating to increase randomness while maintaining quality
+    const expandedList = [
+      ...curatedWords,
+      ...curatedWords,
+      ...curatedWords,
+      ...curatedWords,
+      ...curatedWords
+    ];
 
-        const text = await response.text();
-        const allWords = text
-          .split('\n')
-          .map(word => word.trim().toLowerCase())
-          .filter(word =>
-            word.length >= 3 &&
-            word.length <= 8 &&
-            /^[a-z]+$/.test(word)
-          );
-
-        // Use only the first 20,000 words (most common)
-        const commonWords = allWords.slice(0, 20000);
-
-        setWordList(commonWords);
-        console.log(`✅ Loaded ${commonWords.length.toLocaleString()} common words`);
-      } catch (error) {
-        console.error('❌ Failed to load word list from GitHub:', error);
-        setLoadError(error.message);
-
-        // Fallback to built-in word list
-        const fallbackWords = getExtensiveWordList();
-        setWordList(fallbackWords);
-        console.log(`Using fallback word list with ${fallbackWords.length} words`);
-      } finally {
-        setLoadingWords(false);
-      }
-    };
-
-    loadWordsFromGitHub();
+    setWordList(expandedList);
+    console.log(`✅ Loaded ${curatedWords.length} curated words (high quality, expanded for randomness)`);
+    setLoadingWords(false);
   }, []);
 
   const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 1000000) => {
