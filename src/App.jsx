@@ -10,8 +10,7 @@ const GematriaCalculator = () => {
   const [generating, setGenerating] = useState(false);
   const [wordList, setWordList] = useState([]);
   const [loadingWords, setLoadingWords] = useState(false);
-  const [apiKey, setApiKey] = useState('');
-  const [showApiInput, setShowApiInput] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
@@ -185,85 +184,43 @@ const GematriaCalculator = () => {
     return { articles, conjunctions, prepositions, pronouns, nouns, verbs, adjectives };
   };
 
-  // Load word list on mount
+  // Load comprehensive word list from dwyl/english-words GitHub repository
   useEffect(() => {
-    setLoadingWords(true);
-    const words = getExtensiveWordList();
-    setWordList(words);
-    setLoadingWords(false);
-    console.log(`Loaded ${words.length} words from built-in list`);
-  }, []);
+    const loadWordsFromGitHub = async () => {
+      setLoadingWords(true);
+      setLoadError(null);
 
-  // Load words from Merriam-Webster API
-  const loadFromAPI = async (key) => {
-    setLoadingWords(true);
-    console.log('Starting Merriam-Webster API fetch...');
+      try {
+        console.log('Loading comprehensive English word list from GitHub...');
+        const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
 
-    try {
-      const allWords = new Set();
-
-      // Common starting patterns to get diverse words
-      const patterns = [
-        'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-        'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'
-      ];
-
-      let successCount = 0;
-      let failCount = 0;
-
-      for (const pattern of patterns) {
-        try {
-          const url = `https://www.dictionaryapi.com/api/v3/references/collegiate/json/${pattern}?key=${key}`;
-          console.log(`Fetching words starting with '${pattern}'...`);
-
-          const response = await fetch(url);
-          const data = await response.json();
-
-          if (Array.isArray(data)) {
-            data.forEach(entry => {
-              if (typeof entry === 'object' && entry.hwi && entry.hwi.hw) {
-                // Extract the headword and clean it
-                const word = entry.hwi.hw.replace(/\*/g, '').toLowerCase();
-                if (word.length >= 2 && word.length <= 12 && /^[a-z]+$/.test(word)) {
-                  allWords.add(word);
-                }
-              } else if (typeof entry === 'string') {
-                // Sometimes API returns suggestions as strings
-                const word = entry.toLowerCase();
-                if (word.length >= 2 && word.length <= 12 && /^[a-z]+$/.test(word)) {
-                  allWords.add(word);
-                }
-              }
-            });
-            successCount++;
-            console.log(`✓ Got words for '${pattern}' (${allWords.size} total so far)`);
-          }
-
-          // Small delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 100));
-        } catch (err) {
-          failCount++;
-          console.error(`Failed to fetch words for '${pattern}':`, err);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch word list: ${response.status}`);
         }
+
+        const text = await response.text();
+        const words = text
+          .split('\n')
+          .map(word => word.trim().toLowerCase())
+          .filter(word => word.length >= 2 && word.length <= 15 && /^[a-z]+$/.test(word));
+
+        setWordList(words);
+        console.log(`✅ Successfully loaded ${words.length.toLocaleString()} words from dwyl/english-words`);
+      } catch (error) {
+        console.error('❌ Failed to load word list from GitHub:', error);
+        setLoadError(error.message);
+
+        // Fallback to built-in word list
+        const fallbackWords = getExtensiveWordList();
+        setWordList(fallbackWords);
+        console.log(`Using fallback word list with ${fallbackWords.length} words`);
+      } finally {
+        setLoadingWords(false);
       }
+    };
 
-      const wordArray = Array.from(allWords);
-
-      if (wordArray.length > 100) {
-        setWordList(wordArray);
-        console.log(`✅ Successfully loaded ${wordArray.length} words from Merriam-Webster API`);
-        alert(`Successfully loaded ${wordArray.length} words from Merriam-Webster Dictionary!`);
-      } else {
-        throw new Error('API returned too few words, likely invalid API key');
-      }
-
-    } catch (error) {
-      console.error('❌ Failed to load from API:', error);
-      alert('Failed to load from Merriam-Webster API. Please check your API key. Using built-in word list instead.');
-    }
-
-    setLoadingWords(false);
-  };
+    loadWordsFromGitHub();
+  }, []);
 
   const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 500000) => {
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
@@ -441,50 +398,13 @@ The algorithm tried 500,000 random combinations - check the console to see how c
           <div className="p-6 md:p-8">
             {/* Unified Card */}
             <div className="mb-6 p-6 bg-white rounded-lg border border-zinc-300">
-              {/* API Key Input Section */}
-              <div className="mb-6 pb-6 border-b border-gray-200">
-                <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-sm md:text-base font-bold text-gray-900">
-                    🔑 Merriam-Webster Dictionary API (Optional)
-                  </h3>
-                  <button
-                    onClick={() => setShowApiInput(!showApiInput)}
-                    className="text-xs text-red-600 hover:text-red-700 font-semibold"
-                  >
-                    {showApiInput ? 'Hide' : 'Show'}
-                  </button>
-                </div>
-
-                {showApiInput && (
-                  <div className="space-y-2">
-                    <p className="text-xs text-gray-600">
-                      Get a free API key at <a href="https://dictionaryapi.com/" target="_blank" rel="noopener noreferrer" className="text-red-600 underline hover:text-red-700">dictionaryapi.com</a> to load thousands of words
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="text"
-                        value={apiKey}
-                        onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="Enter your API key"
-                        className="flex-1 px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 placeholder-gray-400"
-                      />
-                      <button
-                        onClick={() => apiKey && loadFromAPI(apiKey)}
-                        disabled={!apiKey || loadingWords}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed text-sm font-semibold"
-                      >
-                        Load
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
                   Generate Random Phrase with Target Repdigits
-                  {wordList.length > 0 && <span className="text-xs text-red-600 ml-2">({wordList.length.toLocaleString()} words loaded)</span>}
+                  {loadingWords && <span className="text-xs text-blue-600 ml-2">(Loading words...)</span>}
+                  {!loadingWords && wordList.length > 0 && <span className="text-xs text-green-600 ml-2">({wordList.length.toLocaleString()} words loaded)</span>}
+                  {loadError && <span className="text-xs text-orange-600 ml-2">(Using fallback list)</span>}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <div>
@@ -535,7 +455,7 @@ The algorithm tried 500,000 random combinations - check the console to see how c
                   disabled={generating || loadingWords}
                   className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
                 >
-                  {loadingWords ? 'Loading Dictionary...' : generating ? 'Generating...' : '✨ Generate Random Phrase'}
+                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : '✨ Generate Random Phrase'}
                 </button>
               </div>
 
