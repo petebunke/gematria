@@ -199,13 +199,30 @@ const GematriaCalculator = () => {
         }
 
         const text = await response.text();
-        const words = text
+        const allWords = text
           .split('\n')
           .map(word => word.trim().toLowerCase())
-          .filter(word => word.length >= 2 && word.length <= 15 && /^[a-z]+$/.test(word));
+          .filter(word =>
+            word.length >= 3 &&
+            word.length <= 10 &&
+            /^[a-z]+$/.test(word) &&
+            !word.includes('z') // Reduce obscure words (z is rare in common words)
+          );
 
-        setWordList(words);
-        console.log(`✅ Successfully loaded ${words.length.toLocaleString()} words from dwyl/english-words`);
+        // Prioritize common words (first 100k are generally more common)
+        const commonWords = allWords.slice(0, 100000);
+        const rareWords = allWords.slice(100000);
+
+        // Build weighted list: 70% common, 30% rare
+        const weightedList = [
+          ...commonWords,
+          ...commonWords, // Duplicate common words for higher probability
+          ...commonWords.slice(0, 50000), // Triple weight to most common
+          ...rareWords
+        ];
+
+        setWordList(weightedList);
+        console.log(`✅ Loaded ${allWords.length.toLocaleString()} words (${commonWords.length.toLocaleString()} common, weighted for quality)`);
       } catch (error) {
         console.error('❌ Failed to load word list from GitHub:', error);
         setLoadError(error.message);
