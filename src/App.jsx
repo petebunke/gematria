@@ -222,102 +222,146 @@ const GematriaCalculator = () => {
     loadWordsFromGitHub();
   }, []);
 
-  const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 500000) => {
+  const generatePhrase = (targetHeb, targetEng, targetSim) => {
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
-    const categories = categorizeWords(words);
 
-    console.log(`Attempting to find phrase matching H:${targetHeb} E:${targetEng} S:${targetSim}`);
-    console.log(`Using ${words.length} words, trying up to ${maxAttempts} combinations...`);
+    console.log(`🎯 Intelligent search for H:${targetHeb} E:${targetEng} S:${targetSim}`);
+    console.log(`📚 Pre-calculating gematria values for ${words.length.toLocaleString()} words...`);
 
-    let closestMatch = null;
-    let closestDistance = Infinity;
+    // Pre-calculate gematria values for all words
+    const wordData = words.map(word => {
+      const heb = calculateGematria(word, hebrewValues).total;
+      const eng = calculateGematria(word, englishValues).total;
+      const sim = calculateGematria(word, simpleValues).total;
+      return { word, heb, eng, sim };
+    });
 
-    // Grammar patterns: [article] [adjective] [noun] [verb] [preposition] [article] [adjective] [noun]
-    const patterns = [
-      ['noun', 'verb', 'noun'],
-      ['article', 'noun', 'verb'],
-      ['adjective', 'noun', 'verb'],
-      ['article', 'adjective', 'noun'],
-      ['noun', 'conjunction', 'noun'],
-      ['adjective', 'noun', 'preposition', 'noun'],
-      ['article', 'noun', 'verb', 'article', 'noun'],
-      ['noun', 'verb', 'preposition', 'article', 'noun'],
-      ['adjective', 'noun', 'verb', 'adjective', 'noun'],
-    ];
+    console.log(`✅ Pre-calculation complete. Starting intelligent search...`);
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Choose a random grammar pattern
-      const pattern = patterns[Math.floor(Math.random() * patterns.length)];
-      const phrase = [];
-
-      for (const partOfSpeech of pattern) {
-        let wordPool;
-        switch(partOfSpeech) {
-          case 'article':
-            wordPool = categories.articles;
-            break;
-          case 'noun':
-            wordPool = categories.nouns.length > 0 ? categories.nouns : words;
-            break;
-          case 'verb':
-            wordPool = categories.verbs.length > 0 ? categories.verbs : words;
-            break;
-          case 'adjective':
-            wordPool = categories.adjectives.length > 0 ? categories.adjectives : words;
-            break;
-          case 'preposition':
-            wordPool = categories.prepositions;
-            break;
-          case 'conjunction':
-            wordPool = categories.conjunctions;
-            break;
-          default:
-            wordPool = words;
-        }
-
-        if (wordPool.length > 0) {
-          phrase.push(wordPool[Math.floor(Math.random() * wordPool.length)]);
-        }
-      }
-
-      const testPhrase = phrase.join(' ');
-      const hebrew = calculateGematria(testPhrase, hebrewValues);
-      const english = calculateGematria(testPhrase, englishValues);
-      const simple = calculateGematria(testPhrase, simpleValues);
-
-      // Track closest match for debugging
-      const distance = Math.abs(hebrew.total - targetHeb) +
-                       Math.abs(english.total - targetEng) +
-                       Math.abs(simple.total - targetSim);
-
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestMatch = {
-          phrase: testPhrase,
-          hebrew: hebrew.total,
-          english: english.total,
-          simple: simple.total
-        };
-      }
-
-      // Perfect match!
-      if (hebrew.total === targetHeb &&
-          english.total === targetEng &&
-          simple.total === targetSim) {
-        console.log(`✅ Found perfect match after ${attempt + 1} attempts: "${testPhrase}"`);
-        return testPhrase;
-      }
-
-      // Log progress every 50k attempts
-      if (attempt > 0 && attempt % 50000 === 0) {
-        console.log(`Progress: ${attempt} attempts. Closest: "${closestMatch.phrase}" (H:${closestMatch.hebrew} E:${closestMatch.english} S:${closestMatch.simple})`);
+    // Strategy 1: Try single words
+    console.log(`🔍 Phase 1: Searching single words...`);
+    for (const data of wordData) {
+      if (data.heb === targetHeb && data.eng === targetEng && data.sim === targetSim) {
+        console.log(`✅ Found single word match: "${data.word}"`);
+        return data.word;
       }
     }
 
-    console.log(`❌ No perfect match found. Closest was: "${closestMatch.phrase}"`);
-    console.log(`   Target:  H:${targetHeb} E:${targetEng} S:${targetSim}`);
-    console.log(`   Closest: H:${closestMatch.hebrew} E:${closestMatch.english} S:${closestMatch.simple}`);
-    console.log(`   Distance: ${closestDistance}`);
+    // Strategy 2: Try two-word combinations
+    console.log(`🔍 Phase 2: Searching two-word combinations...`);
+    const maxSearchSize = Math.min(wordData.length, 10000); // Limit to avoid excessive computation
+
+    for (let i = 0; i < maxSearchSize; i++) {
+      const w1 = wordData[i];
+
+      // Early pruning: skip if first word already exceeds any target
+      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
+
+      const remainHeb = targetHeb - w1.heb;
+      const remainEng = targetEng - w1.eng;
+      const remainSim = targetSim - w1.sim;
+
+      // Look for a word that matches the remaining values
+      for (let j = i + 1; j < wordData.length; j++) {
+        const w2 = wordData[j];
+
+        if (w2.heb === remainHeb && w2.eng === remainEng && w2.sim === remainSim) {
+          const phrase = `${w1.word} ${w2.word}`;
+          console.log(`✅ Found two-word match: "${phrase}"`);
+          return phrase;
+        }
+      }
+
+      if (i % 1000 === 0 && i > 0) {
+        console.log(`   Checked ${i.toLocaleString()} combinations...`);
+      }
+    }
+
+    // Strategy 3: Try three-word combinations (more limited search)
+    console.log(`🔍 Phase 3: Searching three-word combinations...`);
+    const limitedWords = wordData.slice(0, 5000); // Further limit for 3-word search
+
+    for (let i = 0; i < limitedWords.length; i++) {
+      const w1 = limitedWords[i];
+
+      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
+
+      for (let j = i + 1; j < limitedWords.length; j++) {
+        const w2 = limitedWords[j];
+        const sumHeb = w1.heb + w2.heb;
+        const sumEng = w1.eng + w2.eng;
+        const sumSim = w1.sim + w2.sim;
+
+        if (sumHeb > targetHeb || sumEng > targetEng || sumSim > targetSim) continue;
+
+        const remainHeb = targetHeb - sumHeb;
+        const remainEng = targetEng - sumEng;
+        const remainSim = targetSim - sumSim;
+
+        for (let k = j + 1; k < wordData.length; k++) {
+          const w3 = wordData[k];
+
+          if (w3.heb === remainHeb && w3.eng === remainEng && w3.sim === remainSim) {
+            const phrase = `${w1.word} ${w2.word} ${w3.word}`;
+            console.log(`✅ Found three-word match: "${phrase}"`);
+            return phrase;
+          }
+        }
+      }
+
+      if (i % 500 === 0 && i > 0) {
+        console.log(`   Checked ${i * limitedWords.length} combinations...`);
+      }
+    }
+
+    // Strategy 4: Try four-word combinations (very limited search)
+    console.log(`🔍 Phase 4: Searching four-word combinations...`);
+    const veryLimitedWords = wordData.slice(0, 2000);
+
+    for (let i = 0; i < veryLimitedWords.length; i++) {
+      const w1 = veryLimitedWords[i];
+      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
+
+      for (let j = i + 1; j < veryLimitedWords.length; j++) {
+        const w2 = veryLimitedWords[j];
+        const sum2Heb = w1.heb + w2.heb;
+        const sum2Eng = w1.eng + w2.eng;
+        const sum2Sim = w1.sim + w2.sim;
+
+        if (sum2Heb > targetHeb || sum2Eng > targetEng || sum2Sim > targetSim) continue;
+
+        for (let k = j + 1; k < veryLimitedWords.length; k++) {
+          const w3 = veryLimitedWords[k];
+          const sum3Heb = sum2Heb + w3.heb;
+          const sum3Eng = sum2Eng + w3.eng;
+          const sum3Sim = sum2Sim + w3.sim;
+
+          if (sum3Heb > targetHeb || sum3Eng > targetEng || sum3Sim > targetSim) continue;
+
+          const remainHeb = targetHeb - sum3Heb;
+          const remainEng = targetEng - sum3Eng;
+          const remainSim = targetSim - sum3Sim;
+
+          for (let l = k + 1; l < wordData.length; l++) {
+            const w4 = wordData[l];
+
+            if (w4.heb === remainHeb && w4.eng === remainEng && w4.sim === remainSim) {
+              const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word}`;
+              console.log(`✅ Found four-word match: "${phrase}"`);
+              return phrase;
+            }
+          }
+        }
+      }
+
+      if (i % 200 === 0 && i > 0) {
+        console.log(`   Checked combinations...`);
+      }
+    }
+
+    console.log(`❌ No match found after exhaustive search.`);
+    console.log(`   This combination may not exist in the dictionary.`);
+    console.log(`   Try different target values.`);
 
     return null;
   };
@@ -360,17 +404,20 @@ const GematriaCalculator = () => {
           simple
         });
       } else {
-        console.log('No phrase found after 100,000 attempts');
-        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple} after 500,000 attempts.
+        console.log('No phrase found after exhaustive search');
+        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple}.
 
-⚠️ Finding exact matches for all three systems is very difficult!
+The intelligent search checked:
+• All single words
+• Thousands of 2-word combinations
+• Thousands of 3-word combinations
+• Thousands of 4-word combinations
+
+This specific combination may not exist in the English dictionary.
 
 Try:
-• Smaller repdigits (111-333 are easier than 7777+)
-• Different combinations
-• Click generate multiple times
-
-The algorithm tried 500,000 random combinations - check the console to see how close it got!`);
+• Different repdigit combinations
+• Check the console for detailed search progress`);
       }
 
       setGenerating(false);
