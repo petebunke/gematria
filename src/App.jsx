@@ -222,132 +222,134 @@ const GematriaCalculator = () => {
     loadWordsFromGitHub();
   }, []);
 
-  const generatePhrase = (targetHeb, targetEng, targetSim) => {
+  const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 1000000) => {
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
-    console.log(`🎯 Searching for H:${targetHeb} E:${targetEng} S:${targetSim}`);
-    console.log(`📚 Indexing ${words.length.toLocaleString()} words...`);
+    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim}`);
+    console.log(`📚 Pre-calculating ${words.length.toLocaleString()} words...`);
 
-    // Build hash map: key = "heb,eng,sim" -> value = array of words with those values
-    const hashMap = new Map();
-    const wordData = [];
+    // Pre-calculate all gematria values once
+    const wordData = words.map(word => ({
+      word,
+      heb: calculateGematria(word, hebrewValues).total,
+      eng: calculateGematria(word, englishValues).total,
+      sim: calculateGematria(word, simpleValues).total
+    }));
 
-    for (const word of words) {
-      const heb = calculateGematria(word, hebrewValues).total;
-      const eng = calculateGematria(word, englishValues).total;
-      const sim = calculateGematria(word, simpleValues).total;
+    // Build value-based indexes for smarter selection
+    const byHebrew = new Map();
+    const byEnglish = new Map();
+    const bySimple = new Map();
 
-      const data = { word, heb, eng, sim };
-      wordData.push(data);
+    wordData.forEach(data => {
+      if (!byHebrew.has(data.heb)) byHebrew.set(data.heb, []);
+      if (!byEnglish.has(data.eng)) byEnglish.set(data.eng, []);
+      if (!bySimple.has(data.sim)) bySimple.set(data.sim, []);
 
-      const key = `${heb},${eng},${sim}`;
-      if (!hashMap.has(key)) {
-        hashMap.set(key, []);
-      }
-      hashMap.get(key).push(word);
-    }
+      byHebrew.get(data.heb).push(data);
+      byEnglish.get(data.eng).push(data);
+      bySimple.get(data.sim).push(data);
+    });
 
-    console.log(`✅ Indexed complete. Searching...`);
+    console.log(`✅ Starting smart random search (${maxAttempts.toLocaleString()} attempts)...`);
 
-    // Phase 1: Single words
-    const key1 = `${targetHeb},${targetEng},${targetSim}`;
-    if (hashMap.has(key1)) {
-      const match = hashMap.get(key1)[0];
-      console.log(`✅ Found 1-word: "${match}"`);
-      return match;
-    }
+    let closestMatch = null;
+    let closestDistance = Infinity;
 
-    // Phase 2: Two words (search ALL words, O(n) with hash lookup)
-    console.log(`🔍 Phase 2: Two-word combinations (${wordData.length.toLocaleString()} possibilities)...`);
-    for (let i = 0; i < wordData.length; i++) {
-      const w1 = wordData[i];
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Randomly choose phrase length (2-5 words, weighted toward shorter)
+      const rand = Math.random();
+      let numWords;
+      if (rand < 0.4) numWords = 2;
+      else if (rand < 0.7) numWords = 3;
+      else if (rand < 0.9) numWords = 4;
+      else numWords = 5;
 
-      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
+      const selectedWords = [];
+      let totalHeb = 0, totalEng = 0, totalSim = 0;
 
-      const remainHeb = targetHeb - w1.heb;
-      const remainEng = targetEng - w1.eng;
-      const remainSim = targetSim - w1.sim;
-      const key2 = `${remainHeb},${remainEng},${remainSim}`;
+      // Build phrase word by word
+      for (let i = 0; i < numWords; i++) {
+        const isLastWord = (i === numWords - 1);
 
-      if (hashMap.has(key2)) {
-        const w2 = hashMap.get(key2)[0];
-        console.log(`✅ Found 2-word: "${w1.word} ${w2}"`);
-        return `${w1.word} ${w2}`;
-      }
+        if (isLastWord) {
+          // For last word, try to match exact remaining values
+          const needHeb = targetHeb - totalHeb;
+          const needEng = targetEng - totalEng;
+          const needSim = targetSim - totalSim;
 
-      if (i % 10000 === 0 && i > 0) {
-        console.log(`   Checked ${i.toLocaleString()}...`);
-      }
-    }
+          // Look for exact match in our indexes
+          const candidates = byHebrew.get(needHeb) || [];
+          const perfectMatch = candidates.find(w =>
+            w.eng === needEng && w.sim === needSim
+          );
 
-    // Phase 3: Three words (first 20k words)
-    console.log(`🔍 Phase 3: Three-word combinations...`);
-    const limit3 = Math.min(20000, wordData.length);
-
-    for (let i = 0; i < limit3; i++) {
-      const w1 = wordData[i];
-      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
-
-      for (let j = i + 1; j < limit3; j++) {
-        const w2 = wordData[j];
-        const sumH = w1.heb + w2.heb;
-        const sumE = w1.eng + w2.eng;
-        const sumS = w1.sim + w2.sim;
-
-        if (sumH >= targetHeb || sumE >= targetEng || sumS >= targetSim) continue;
-
-        const key3 = `${targetHeb - sumH},${targetEng - sumE},${targetSim - sumS}`;
-        if (hashMap.has(key3)) {
-          const w3 = hashMap.get(key3)[0];
-          console.log(`✅ Found 3-word: "${w1.word} ${w2.word} ${w3}"`);
-          return `${w1.word} ${w2.word} ${w3}`;
-        }
-      }
-
-      if (i % 2000 === 0 && i > 0) {
-        console.log(`   Checked ${i.toLocaleString()}...`);
-      }
-    }
-
-    // Phase 4: Four words (first 8k words)
-    console.log(`🔍 Phase 4: Four-word combinations...`);
-    const limit4 = Math.min(8000, wordData.length);
-
-    for (let i = 0; i < limit4; i++) {
-      const w1 = wordData[i];
-      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
-
-      for (let j = i + 1; j < limit4; j++) {
-        const w2 = wordData[j];
-        const sum2H = w1.heb + w2.heb;
-        const sum2E = w1.eng + w2.eng;
-        const sum2S = w1.sim + w2.sim;
-
-        if (sum2H >= targetHeb || sum2E >= targetEng || sum2S >= targetSim) continue;
-
-        for (let k = j + 1; k < limit4; k++) {
-          const w3 = wordData[k];
-          const sum3H = sum2H + w3.heb;
-          const sum3E = sum2E + w3.eng;
-          const sum3S = sum2S + w3.sim;
-
-          if (sum3H >= targetHeb || sum3E >= targetEng || sum3S >= targetSim) continue;
-
-          const key4 = `${targetHeb - sum3H},${targetEng - sum3E},${targetSim - sum3S}`;
-          if (hashMap.has(key4)) {
-            const w4 = hashMap.get(key4)[0];
-            console.log(`✅ Found 4-word: "${w1.word} ${w2.word} ${w3.word} ${w4}"`);
-            return `${w1.word} ${w2.word} ${w3.word} ${w4}`;
+          if (perfectMatch) {
+            selectedWords.push(perfectMatch.word);
+            const phrase = selectedWords.join(' ');
+            console.log(`✅ Found match after ${attempt + 1} attempts: "${phrase}"`);
+            return phrase;
           }
+
+          // No perfect match for last word, pick random word
+          const randomWord = wordData[Math.floor(Math.random() * wordData.length)];
+          selectedWords.push(randomWord.word);
+          totalHeb += randomWord.heb;
+          totalEng += randomWord.eng;
+          totalSim += randomWord.sim;
+        } else {
+          // For non-last words, pick randomly but avoid exceeding targets
+          let attempts = 0;
+          let picked = null;
+
+          while (attempts < 100) {
+            const candidate = wordData[Math.floor(Math.random() * wordData.length)];
+
+            // Soft constraint: prefer words that don't exceed any target
+            if (totalHeb + candidate.heb < targetHeb &&
+                totalEng + candidate.eng < targetEng &&
+                totalSim + candidate.sim < targetSim) {
+              picked = candidate;
+              break;
+            }
+            attempts++;
+          }
+
+          // If no good candidate found after 100 tries, just pick randomly
+          if (!picked) {
+            picked = wordData[Math.floor(Math.random() * wordData.length)];
+          }
+
+          selectedWords.push(picked.word);
+          totalHeb += picked.heb;
+          totalEng += picked.eng;
+          totalSim += picked.sim;
         }
       }
 
-      if (i % 1000 === 0 && i > 0) {
-        console.log(`   Checked ${i.toLocaleString()}...`);
+      // Track closest match
+      const distance = Math.abs(totalHeb - targetHeb) +
+                       Math.abs(totalEng - targetEng) +
+                       Math.abs(totalSim - targetSim);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestMatch = {
+          phrase: selectedWords.join(' '),
+          heb: totalHeb,
+          eng: totalEng,
+          sim: totalSim
+        };
+      }
+
+      // Log progress
+      if (attempt > 0 && attempt % 100000 === 0) {
+        console.log(`   ${attempt.toLocaleString()} attempts. Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim}, distance:${closestDistance})`);
       }
     }
 
-    console.log(`❌ No match found. Try different values.`);
+    console.log(`❌ No perfect match found after ${maxAttempts.toLocaleString()} attempts.`);
+    console.log(`   Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim})`);
     return null;
   };
 
@@ -389,20 +391,20 @@ const GematriaCalculator = () => {
           simple
         });
       } else {
-        console.log('No phrase found after exhaustive search');
-        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple}.
+        console.log('No phrase found after smart random search');
+        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple} after 1,000,000 attempts.
 
-The intelligent search checked:
-• All single words
-• Thousands of 2-word combinations
-• Thousands of 3-word combinations
-• Thousands of 4-word combinations
+The algorithm:
+• Pre-calculated all word values
+• Tried 1 million random combinations
+• Used intelligent last-word matching
+• Avoided exceeding target values
 
-This specific combination may not exist in the English dictionary.
+Check the console to see the closest match found.
 
 Try:
 • Different repdigit combinations
-• Check the console for detailed search progress`);
+• Click generate again (new random seed)`);
       }
 
       setGenerating(false);
