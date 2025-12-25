@@ -204,25 +204,15 @@ const GematriaCalculator = () => {
           .map(word => word.trim().toLowerCase())
           .filter(word =>
             word.length >= 3 &&
-            word.length <= 10 &&
-            /^[a-z]+$/.test(word) &&
-            !word.includes('z') // Reduce obscure words (z is rare in common words)
+            word.length <= 8 &&
+            /^[a-z]+$/.test(word)
           );
 
-        // Prioritize common words (first 100k are generally more common)
-        const commonWords = allWords.slice(0, 100000);
-        const rareWords = allWords.slice(100000);
+        // Use only the first 20,000 words (most common)
+        const commonWords = allWords.slice(0, 20000);
 
-        // Build weighted list: 70% common, 30% rare
-        const weightedList = [
-          ...commonWords,
-          ...commonWords, // Duplicate common words for higher probability
-          ...commonWords.slice(0, 50000), // Triple weight to most common
-          ...rareWords
-        ];
-
-        setWordList(weightedList);
-        console.log(`✅ Loaded ${allWords.length.toLocaleString()} words (${commonWords.length.toLocaleString()} common, weighted for quality)`);
+        setWordList(commonWords);
+        console.log(`✅ Loaded ${commonWords.length.toLocaleString()} common words`);
       } catch (error) {
         console.error('❌ Failed to load word list from GitHub:', error);
         setLoadError(error.message);
