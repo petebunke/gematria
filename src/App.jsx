@@ -225,144 +225,129 @@ const GematriaCalculator = () => {
   const generatePhrase = (targetHeb, targetEng, targetSim) => {
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
-    console.log(`🎯 Intelligent search for H:${targetHeb} E:${targetEng} S:${targetSim}`);
-    console.log(`📚 Pre-calculating gematria values for ${words.length.toLocaleString()} words...`);
+    console.log(`🎯 Searching for H:${targetHeb} E:${targetEng} S:${targetSim}`);
+    console.log(`📚 Indexing ${words.length.toLocaleString()} words...`);
 
-    // Pre-calculate gematria values for all words
-    const wordData = words.map(word => {
+    // Build hash map: key = "heb,eng,sim" -> value = array of words with those values
+    const hashMap = new Map();
+    const wordData = [];
+
+    for (const word of words) {
       const heb = calculateGematria(word, hebrewValues).total;
       const eng = calculateGematria(word, englishValues).total;
       const sim = calculateGematria(word, simpleValues).total;
-      return { word, heb, eng, sim };
-    });
 
-    console.log(`✅ Pre-calculation complete. Starting intelligent search...`);
+      const data = { word, heb, eng, sim };
+      wordData.push(data);
 
-    // Strategy 1: Try single words
-    console.log(`🔍 Phase 1: Searching single words...`);
-    for (const data of wordData) {
-      if (data.heb === targetHeb && data.eng === targetEng && data.sim === targetSim) {
-        console.log(`✅ Found single word match: "${data.word}"`);
-        return data.word;
+      const key = `${heb},${eng},${sim}`;
+      if (!hashMap.has(key)) {
+        hashMap.set(key, []);
       }
+      hashMap.get(key).push(word);
     }
 
-    // Strategy 2: Try two-word combinations
-    console.log(`🔍 Phase 2: Searching two-word combinations...`);
-    const maxSearchSize = Math.min(wordData.length, 10000); // Limit to avoid excessive computation
+    console.log(`✅ Indexed complete. Searching...`);
 
-    for (let i = 0; i < maxSearchSize; i++) {
+    // Phase 1: Single words
+    const key1 = `${targetHeb},${targetEng},${targetSim}`;
+    if (hashMap.has(key1)) {
+      const match = hashMap.get(key1)[0];
+      console.log(`✅ Found 1-word: "${match}"`);
+      return match;
+    }
+
+    // Phase 2: Two words (search ALL words, O(n) with hash lookup)
+    console.log(`🔍 Phase 2: Two-word combinations (${wordData.length.toLocaleString()} possibilities)...`);
+    for (let i = 0; i < wordData.length; i++) {
       const w1 = wordData[i];
 
-      // Early pruning: skip if first word already exceeds any target
-      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
+      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
 
       const remainHeb = targetHeb - w1.heb;
       const remainEng = targetEng - w1.eng;
       const remainSim = targetSim - w1.sim;
+      const key2 = `${remainHeb},${remainEng},${remainSim}`;
 
-      // Look for a word that matches the remaining values
-      for (let j = i + 1; j < wordData.length; j++) {
+      if (hashMap.has(key2)) {
+        const w2 = hashMap.get(key2)[0];
+        console.log(`✅ Found 2-word: "${w1.word} ${w2}"`);
+        return `${w1.word} ${w2}`;
+      }
+
+      if (i % 10000 === 0 && i > 0) {
+        console.log(`   Checked ${i.toLocaleString()}...`);
+      }
+    }
+
+    // Phase 3: Three words (first 20k words)
+    console.log(`🔍 Phase 3: Three-word combinations...`);
+    const limit3 = Math.min(20000, wordData.length);
+
+    for (let i = 0; i < limit3; i++) {
+      const w1 = wordData[i];
+      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
+
+      for (let j = i + 1; j < limit3; j++) {
         const w2 = wordData[j];
+        const sumH = w1.heb + w2.heb;
+        const sumE = w1.eng + w2.eng;
+        const sumS = w1.sim + w2.sim;
 
-        if (w2.heb === remainHeb && w2.eng === remainEng && w2.sim === remainSim) {
-          const phrase = `${w1.word} ${w2.word}`;
-          console.log(`✅ Found two-word match: "${phrase}"`);
-          return phrase;
+        if (sumH >= targetHeb || sumE >= targetEng || sumS >= targetSim) continue;
+
+        const key3 = `${targetHeb - sumH},${targetEng - sumE},${targetSim - sumS}`;
+        if (hashMap.has(key3)) {
+          const w3 = hashMap.get(key3)[0];
+          console.log(`✅ Found 3-word: "${w1.word} ${w2.word} ${w3}"`);
+          return `${w1.word} ${w2.word} ${w3}`;
+        }
+      }
+
+      if (i % 2000 === 0 && i > 0) {
+        console.log(`   Checked ${i.toLocaleString()}...`);
+      }
+    }
+
+    // Phase 4: Four words (first 8k words)
+    console.log(`🔍 Phase 4: Four-word combinations...`);
+    const limit4 = Math.min(8000, wordData.length);
+
+    for (let i = 0; i < limit4; i++) {
+      const w1 = wordData[i];
+      if (w1.heb >= targetHeb || w1.eng >= targetEng || w1.sim >= targetSim) continue;
+
+      for (let j = i + 1; j < limit4; j++) {
+        const w2 = wordData[j];
+        const sum2H = w1.heb + w2.heb;
+        const sum2E = w1.eng + w2.eng;
+        const sum2S = w1.sim + w2.sim;
+
+        if (sum2H >= targetHeb || sum2E >= targetEng || sum2S >= targetSim) continue;
+
+        for (let k = j + 1; k < limit4; k++) {
+          const w3 = wordData[k];
+          const sum3H = sum2H + w3.heb;
+          const sum3E = sum2E + w3.eng;
+          const sum3S = sum2S + w3.sim;
+
+          if (sum3H >= targetHeb || sum3E >= targetEng || sum3S >= targetSim) continue;
+
+          const key4 = `${targetHeb - sum3H},${targetEng - sum3E},${targetSim - sum3S}`;
+          if (hashMap.has(key4)) {
+            const w4 = hashMap.get(key4)[0];
+            console.log(`✅ Found 4-word: "${w1.word} ${w2.word} ${w3.word} ${w4}"`);
+            return `${w1.word} ${w2.word} ${w3.word} ${w4}`;
+          }
         }
       }
 
       if (i % 1000 === 0 && i > 0) {
-        console.log(`   Checked ${i.toLocaleString()} combinations...`);
+        console.log(`   Checked ${i.toLocaleString()}...`);
       }
     }
 
-    // Strategy 3: Try three-word combinations (more limited search)
-    console.log(`🔍 Phase 3: Searching three-word combinations...`);
-    const limitedWords = wordData.slice(0, 5000); // Further limit for 3-word search
-
-    for (let i = 0; i < limitedWords.length; i++) {
-      const w1 = limitedWords[i];
-
-      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
-
-      for (let j = i + 1; j < limitedWords.length; j++) {
-        const w2 = limitedWords[j];
-        const sumHeb = w1.heb + w2.heb;
-        const sumEng = w1.eng + w2.eng;
-        const sumSim = w1.sim + w2.sim;
-
-        if (sumHeb > targetHeb || sumEng > targetEng || sumSim > targetSim) continue;
-
-        const remainHeb = targetHeb - sumHeb;
-        const remainEng = targetEng - sumEng;
-        const remainSim = targetSim - sumSim;
-
-        for (let k = j + 1; k < wordData.length; k++) {
-          const w3 = wordData[k];
-
-          if (w3.heb === remainHeb && w3.eng === remainEng && w3.sim === remainSim) {
-            const phrase = `${w1.word} ${w2.word} ${w3.word}`;
-            console.log(`✅ Found three-word match: "${phrase}"`);
-            return phrase;
-          }
-        }
-      }
-
-      if (i % 500 === 0 && i > 0) {
-        console.log(`   Checked ${i * limitedWords.length} combinations...`);
-      }
-    }
-
-    // Strategy 4: Try four-word combinations (very limited search)
-    console.log(`🔍 Phase 4: Searching four-word combinations...`);
-    const veryLimitedWords = wordData.slice(0, 2000);
-
-    for (let i = 0; i < veryLimitedWords.length; i++) {
-      const w1 = veryLimitedWords[i];
-      if (w1.heb > targetHeb || w1.eng > targetEng || w1.sim > targetSim) continue;
-
-      for (let j = i + 1; j < veryLimitedWords.length; j++) {
-        const w2 = veryLimitedWords[j];
-        const sum2Heb = w1.heb + w2.heb;
-        const sum2Eng = w1.eng + w2.eng;
-        const sum2Sim = w1.sim + w2.sim;
-
-        if (sum2Heb > targetHeb || sum2Eng > targetEng || sum2Sim > targetSim) continue;
-
-        for (let k = j + 1; k < veryLimitedWords.length; k++) {
-          const w3 = veryLimitedWords[k];
-          const sum3Heb = sum2Heb + w3.heb;
-          const sum3Eng = sum2Eng + w3.eng;
-          const sum3Sim = sum2Sim + w3.sim;
-
-          if (sum3Heb > targetHeb || sum3Eng > targetEng || sum3Sim > targetSim) continue;
-
-          const remainHeb = targetHeb - sum3Heb;
-          const remainEng = targetEng - sum3Eng;
-          const remainSim = targetSim - sum3Sim;
-
-          for (let l = k + 1; l < wordData.length; l++) {
-            const w4 = wordData[l];
-
-            if (w4.heb === remainHeb && w4.eng === remainEng && w4.sim === remainSim) {
-              const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word}`;
-              console.log(`✅ Found four-word match: "${phrase}"`);
-              return phrase;
-            }
-          }
-        }
-      }
-
-      if (i % 200 === 0 && i > 0) {
-        console.log(`   Checked combinations...`);
-      }
-    }
-
-    console.log(`❌ No match found after exhaustive search.`);
-    console.log(`   This combination may not exist in the dictionary.`);
-    console.log(`   Try different target values.`);
-
+    console.log(`❌ No match found. Try different values.`);
     return null;
   };
 
