@@ -811,7 +811,7 @@ const GematriaCalculator = () => {
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Generate Phrase with Target Repdigits{' '}
+                  Generate Phrase With Repdigits{' '}
                   <span className="relative inline-block">
                     <span
                       className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
@@ -821,7 +821,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/1111, XXXX/666/111, and XXXX/6666/1111, or go random!
+                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or go random!
                     </div>
                   </span>
                 </h3>
@@ -941,7 +941,7 @@ const GematriaCalculator = () => {
                       {results.hebrew.total}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
                     {results.input} = {formatBreakdown(results.hebrew.breakdown)} = {results.hebrew.total}
                   </p>
                 </div>
@@ -956,7 +956,7 @@ const GematriaCalculator = () => {
                       {results.english.total}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
                     {results.input} = {formatBreakdown(results.english.breakdown)} = {results.english.total}
                   </p>
                 </div>
@@ -971,7 +971,7 @@ const GematriaCalculator = () => {
                       {results.simple.total}
                     </span>
                   </div>
-                  <p className="text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
