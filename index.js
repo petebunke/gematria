@@ -268,13 +268,16 @@ const GematriaCalculator = () => {
   const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 500000) => {
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
     const categories = categorizeWords(words);
-    
+
     console.log(`Attempting to find phrase matching H:${targetHeb} E:${targetEng} S:${targetSim}`);
     console.log(`Using ${words.length} words, trying up to ${maxAttempts} combinations...`);
-    
+
     let closestMatch = null;
     let closestDistance = Infinity;
-    
+
+    // All letters of the alphabet for random starting letter selection
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
+
     // Grammar patterns: [article] [adjective] [noun] [verb] [preposition] [article] [adjective] [noun]
     const patterns = [
       ['noun', 'verb', 'noun'],
@@ -287,14 +290,19 @@ const GematriaCalculator = () => {
       ['noun', 'verb', 'preposition', 'article', 'noun'],
       ['adjective', 'noun', 'verb', 'adjective', 'noun'],
     ];
-    
+
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Randomly select a starting letter to ensure distribution across alphabet
+      const startingLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+
       // Choose a random grammar pattern
       const pattern = patterns[Math.floor(Math.random() * patterns.length)];
       const phrase = [];
-      
-      for (const partOfSpeech of pattern) {
+
+      for (let i = 0; i < pattern.length; i++) {
+        const partOfSpeech = pattern[i];
         let wordPool;
+
         switch(partOfSpeech) {
           case 'article':
             wordPool = categories.articles;
@@ -317,7 +325,17 @@ const GematriaCalculator = () => {
           default:
             wordPool = words;
         }
-        
+
+        // For the first word (not articles), prefer words starting with the selected letter
+        // This ensures better distribution across the alphabet
+        if (i === 0 && partOfSpeech !== 'article' && wordPool.length > 0) {
+          const letterWords = wordPool.filter(w => w.startsWith(startingLetter));
+          if (letterWords.length > 0) {
+            // 70% chance to use a word starting with the selected letter
+            wordPool = Math.random() < 0.7 ? letterWords : wordPool;
+          }
+        }
+
         if (wordPool.length > 0) {
           phrase.push(wordPool[Math.floor(Math.random() * wordPool.length)]);
         }
