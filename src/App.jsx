@@ -602,6 +602,44 @@ const GematriaCalculator = () => {
       );
     }
 
+    // If STILL no match, try XXX/666/111 fallback again
+    if (!phrase) {
+      console.log('🔄 Third attempt failed. Retrying XXX/666/111 fallback...');
+      const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+      const randomThreeDigit = threeDigitOptions[Math.floor(Math.random() * threeDigitOptions.length)];
+
+      finalHebrew = randomThreeDigit;
+      finalEnglish = '666';
+      finalSimple = '111';
+
+      phrase = await generatePhrase(
+        parseInt(finalHebrew),
+        parseInt(finalEnglish),
+        parseInt(finalSimple),
+        1000000,
+        5000
+      );
+    }
+
+    // If STILL no match, try XXXX/6666/1111 fallback again
+    if (!phrase) {
+      console.log('🔄 Fourth attempt failed. Retrying XXXX/6666/1111 fallback...');
+      const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+      const randomFourDigit = fourDigitOptions[Math.floor(Math.random() * fourDigitOptions.length)];
+
+      finalHebrew = randomFourDigit;
+      finalEnglish = '6666';
+      finalSimple = '1111';
+
+      phrase = await generatePhrase(
+        parseInt(finalHebrew),
+        parseInt(finalEnglish),
+        parseInt(finalSimple),
+        1000000,
+        5000
+      );
+    }
+
     console.log('Generation complete. Result:', phrase);
 
     if (phrase) {
