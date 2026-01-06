@@ -305,21 +305,38 @@ const GematriaCalculator = () => {
           // Combine: all frequency words + 30k variety words, removing duplicates
           const combinedWords = [...new Set([...frequencyWords, ...varietyWords])];
 
-          setWordList(combinedWords);
-          console.log(`✅ Loaded ${combinedWords.length.toLocaleString()} total words (${frequencyWords.length} common + ${varietyWords.length} variety)`);
+          // Thoroughly shuffle the combined list using Fisher-Yates algorithm to avoid bias
+          const finalShuffled = [...combinedWords];
+          for (let i = finalShuffled.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [finalShuffled[i], finalShuffled[j]] = [finalShuffled[j], finalShuffled[i]];
+          }
+
+          setWordList(finalShuffled);
+          console.log(`✅ Loaded ${finalShuffled.length.toLocaleString()} total words (${frequencyWords.length} common + ${varietyWords.length} variety), thoroughly shuffled`);
         } else {
-          // If comprehensive list fails, just use frequency words
-          setWordList(frequencyWords);
-          console.log(`✅ Using ${frequencyWords.length.toLocaleString()} frequency-sorted words`);
+          // If comprehensive list fails, shuffle frequency words to avoid bias
+          const shuffledFreq = [...frequencyWords];
+          for (let i = shuffledFreq.length - 1; i > 0; i--) {
+            const j = Math.floor(Math.random() * (i + 1));
+            [shuffledFreq[i], shuffledFreq[j]] = [shuffledFreq[j], shuffledFreq[i]];
+          }
+          setWordList(shuffledFreq);
+          console.log(`✅ Using ${shuffledFreq.length.toLocaleString()} frequency words, shuffled`);
         }
       } catch (error) {
         console.error('Failed to load external dictionary:', error);
         setLoadError(error.message);
 
-        // Fallback to built-in curated list
+        // Fallback to built-in curated list and shuffle it
         const fallback = getExtensiveWordList();
-        setWordList(fallback);
-        console.log(`Using fallback: ${fallback.length} curated words`);
+        const shuffledFallback = [...fallback];
+        for (let i = shuffledFallback.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledFallback[i], shuffledFallback[j]] = [shuffledFallback[j], shuffledFallback[i]];
+        }
+        setWordList(shuffledFallback);
+        console.log(`Using fallback: ${shuffledFallback.length} curated words, shuffled`);
       } finally {
         setLoadingWords(false);
       }
@@ -357,6 +374,26 @@ const GematriaCalculator = () => {
       byHebrew.get(data.heb).push(data);
       byEnglish.get(data.eng).push(data);
       bySimple.get(data.sim).push(data);
+    });
+
+    // Shuffle each value bucket to avoid bias toward specific words
+    byHebrew.forEach((arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    });
+    byEnglish.forEach((arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    });
+    bySimple.forEach((arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
     });
 
     // Dynamically adjust phrase length based on target values
@@ -909,27 +946,11 @@ const GematriaCalculator = () => {
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
-            <div className="flex items-center justify-between">
-              <div className="flex-1"></div>
-              <div className="flex items-center justify-center gap-3 flex-1">
-                <Calculator className="w-8 h-8 text-red-500" />
-                <h1 className="text-2xl md:text-4xl font-bold text-white">
-                  Gematria Generator
-                </h1>
-              </div>
-              <div className="flex-1 flex justify-end">
-                <button
-                  onClick={downloadPhraseTable}
-                  disabled={generatedPhrases.length === 0}
-                  className="flex items-center gap-2 px-3 py-2 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
-                  title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
-                >
-                  <Download className="w-4 h-4" />
-                  <span className="hidden md:inline">
-                    {generatedPhrases.length > 0 ? `${generatedPhrases.length}` : 'Download'}
-                  </span>
-                </button>
-              </div>
+            <div className="flex items-center justify-center gap-3">
+              <Calculator className="w-8 h-8 text-red-500" />
+              <h1 className="text-2xl md:text-4xl font-bold text-white">
+                Gematria Generator
+              </h1>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
               Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria.
@@ -939,7 +960,20 @@ const GematriaCalculator = () => {
           {/* Input Section */}
           <div className="p-6 md:p-8">
             {/* Unified Card */}
-            <div className="mb-6 p-6 bg-white rounded border border-zinc-300">
+            <div className="mb-6 p-6 bg-white rounded border border-zinc-300 relative">
+              {/* Download Button */}
+              <button
+                onClick={downloadPhraseTable}
+                disabled={generatedPhrases.length === 0}
+                className="absolute top-3 right-3 flex items-center gap-2 px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+                title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden md:inline">
+                  {generatedPhrases.length > 0 ? `${generatedPhrases.length}` : 'Download'}
+                </span>
+              </button>
+
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
@@ -953,7 +987,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111, XXXX/666/111, and XXXX/6666/1111, or random!
+                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or random!
                     </div>
                   </span>
                 </h3>
