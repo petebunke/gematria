@@ -208,8 +208,11 @@ const GematriaCalculator = () => {
             /^[a-z]+$/.test(word)
           );
 
-        // Take first 20,000 words only (most common alphabetically)
-        const commonWords = allWords.slice(0, 20000);
+        // Shuffle words to get diverse distribution across alphabet
+        const shuffled = allWords.sort(() => Math.random() - 0.5);
+
+        // Take first 20,000 words from shuffled list
+        const commonWords = shuffled.slice(0, 20000);
 
         setWordList(commonWords);
         console.log(`✅ Loaded ${commonWords.length.toLocaleString()} words`);
