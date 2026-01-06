@@ -522,50 +522,106 @@ Try:
       return;
     }
 
-    // Get all letters from the input (preserve spaces between words)
-    const words = input.toLowerCase().trim().split(/\s+/);
-    const allLetters = words.join('').split('');
-
-    // Shuffle the letters using Fisher-Yates algorithm
-    for (let i = allLetters.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
+    if (wordList.length === 0) {
+      alert('Word list is still loading. Please wait a moment and try again.');
+      return;
     }
 
-    // Try to redistribute into similar word count
-    const avgWordLength = Math.floor(allLetters.length / words.length);
-    const anagramWords = [];
-    let currentIndex = 0;
+    // Get all letters from the input
+    const inputLetters = input.toLowerCase().replace(/[^a-z]/g, '').split('').sort();
 
-    for (let i = 0; i < words.length && currentIndex < allLetters.length; i++) {
-      const isLastWord = i === words.length - 1;
-      const wordLength = isLastWord
-        ? allLetters.length - currentIndex
-        : Math.max(2, avgWordLength + Math.floor(Math.random() * 3) - 1);
+    if (inputLetters.length === 0) {
+      alert('Please enter a phrase with at least one letter!');
+      return;
+    }
 
-      const word = allLetters.slice(currentIndex, currentIndex + wordLength).join('');
-      if (word.length > 0) {
-        anagramWords.push(word);
+    console.log(`Finding anagram for: "${input}" (${inputLetters.length} letters)`);
+
+    // Helper function to check if a word can be made from available letters
+    const canMakeWord = (word, availableLetters) => {
+      const letterCopy = [...availableLetters];
+      for (const char of word) {
+        const index = letterCopy.indexOf(char);
+        if (index === -1) return false;
+        letterCopy.splice(index, 1);
       }
-      currentIndex += wordLength;
+      return letterCopy;
+    };
+
+    // Try to find an anagram using actual words
+    const maxAttempts = 1000;
+    let bestAnagram = null;
+    let bestRemainingCount = inputLetters.length;
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      let remainingLetters = [...inputLetters];
+      const selectedWords = [];
+
+      // Keep trying to find words until we use all letters or can't find any more
+      while (remainingLetters.length > 0) {
+        // Find all words that can be made from remaining letters
+        const possibleWords = wordList.filter(word => {
+          const result = canMakeWord(word, remainingLetters);
+          return result !== false;
+        });
+
+        if (possibleWords.length === 0) break;
+
+        // Randomly select a word, preferring longer words to use up letters faster
+        const weights = possibleWords.map(w => Math.pow(w.length, 1.5));
+        const totalWeight = weights.reduce((a, b) => a + b, 0);
+        let random = Math.random() * totalWeight;
+        let selectedWord = possibleWords[0];
+
+        for (let i = 0; i < possibleWords.length; i++) {
+          random -= weights[i];
+          if (random <= 0) {
+            selectedWord = possibleWords[i];
+            break;
+          }
+        }
+
+        // Use this word
+        selectedWords.push(selectedWord);
+        remainingLetters = canMakeWord(selectedWord, remainingLetters);
+      }
+
+      // Check if this is the best solution so far
+      if (remainingLetters.length < bestRemainingCount) {
+        bestRemainingCount = remainingLetters.length;
+        bestAnagram = selectedWords.join(' ');
+      }
+
+      // Perfect match!
+      if (remainingLetters.length === 0) {
+        break;
+      }
     }
 
-    const anagram = anagramWords.join(' ');
-    setInput(anagram);
+    if (bestAnagram) {
+      if (bestRemainingCount === 0) {
+        console.log(`✅ Found perfect anagram: "${bestAnagram}"`);
+      } else {
+        console.log(`⚠️ Found partial anagram: "${bestAnagram}" (${bestRemainingCount} letters unused)`);
+        alert(`Found close anagram using most letters!\n\nOriginal: ${input}\nAnagram: ${bestAnagram}\n\n${bestRemainingCount} letter(s) couldn't be used. Try a different phrase or click again for another variation.`);
+      }
 
-    // Auto-calculate the new anagram
-    const hebrew = calculateGematria(anagram, hebrewValues);
-    const english = calculateGematria(anagram, englishValues);
-    const simple = calculateGematria(anagram, simpleValues);
+      setInput(bestAnagram);
 
-    setResults({
-      input: anagram,
-      hebrew,
-      english,
-      simple
-    });
+      // Auto-calculate the new anagram
+      const hebrew = calculateGematria(bestAnagram, hebrewValues);
+      const english = calculateGematria(bestAnagram, englishValues);
+      const simple = calculateGematria(bestAnagram, simpleValues);
 
-    console.log(`Generated anagram: "${anagram}"`);
+      setResults({
+        input: bestAnagram,
+        hebrew,
+        english,
+        simple
+      });
+    } else {
+      alert('Could not find any valid word combinations for this phrase. Try a different phrase with more common letters.');
+    }
   };
 
   return (
@@ -593,9 +649,6 @@ Try:
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
                   Generate Random Phrase with Target Repdigits
-                  {loadingWords && <span className="text-xs text-blue-600 ml-2">(Loading words...)</span>}
-                  {!loadingWords && wordList.length > 0 && <span className="text-xs text-green-600 ml-2">({wordList.length.toLocaleString()} words loaded - Try 777/666/111 or 7777/6666/1111)</span>}
-                  {loadError && <span className="text-xs text-orange-600 ml-2">(Using fallback list)</span>}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <div>
@@ -646,14 +699,14 @@ Try:
                   disabled={generating || loadingWords}
                   className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
                 >
-                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : '✨ Generate Random Phrase'}
+                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Random Phrase'}
                 </button>
               </div>
 
               {/* Manual Input Section */}
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Calculate Custom Phrase
+                  Calculate Custom Phrase and Generate Anagrams
                 </h3>
                 <div className="space-y-4">
                   <div>
@@ -678,9 +731,9 @@ Try:
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-base md:text-lg"
                     >
-                      🔀 Generate Anagram
+                      Generate Anagram
                     </button>
                   </div>
                 </div>
