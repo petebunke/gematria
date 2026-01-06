@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria Generator</title>
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
+        'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
+        sans-serif;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useRef } = React;
+
+    // Lucide icons as SVG components
+    const Calculator = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <rect x="4" y="2" width="16" height="20" rx="2"/>
+        <line x1="8" y1="6" x2="16" y2="6"/>
+        <line x1="16" y1="10" x2="16" y2="10.01"/>
+        <line x1="12" y1="10" x2="12" y2="10.01"/>
+        <line x1="8" y1="10" x2="8" y2="10.01"/>
+        <line x1="16" y1="14" x2="16" y2="14.01"/>
+        <line x1="12" y1="14" x2="12" y2="14.01"/>
+        <line x1="8" y1="14" x2="8" y2="14.01"/>
+        <line x1="16" y1="18" x2="16" y2="18.01"/>
+        <line x1="12" y1="18" x2="12" y2="18.01"/>
+        <line x1="8" y1="18" x2="8" y2="18.01"/>
+      </svg>
+    );
+
+    const Zap = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    );
+
+    const Brain = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+        <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+      </svg>
+    );
+
+    const AlertCircle = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="12" y1="8" x2="12" y2="12"/>
+        <line x1="12" y1="16" x2="12.01" y2="16"/>
+      </svg>
+    );
+
+    const CheckCircle = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+        <polyline points="22 4 12 14.01 9 11.01"/>
+      </svg>
+    );
+
+    const Infinity = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <path d="M18.178 8c2.21 0 4 1.79 4 4s-1.79 4-4 4c-1.473 0-2.673-.668-3.383-1.618L12 11.618 9.205 14.382C8.495 15.332 7.295 16 5.822 16c-2.21 0-4-1.79-4-4s1.79-4 4-4c1.473 0 2.673.668 3.383 1.618L12 12.382l2.795-2.764C15.505 8.668 16.705 8 18.178 8z"/>
+      </svg>
+    );
+
+    const RefreshCw = ({ className }) => (
+      <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+        <polyline points="23 4 23 10 17 10"/>
+        <polyline points="1 20 1 14 7 14"/>
+        <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+      </svg>
+    );
+
+    const GematriaCalculator = () => {
+      const [input, setInput] = useState('');
+      const [results, setResults] = useState(null);
+      const [targetHebrew, setTargetHebrew] = useState('555');
+      const [targetEnglish, setTargetEnglish] = useState('666');
+      const [targetSimple, setTargetSimple] = useState('111');
+      const [generating, setGenerating] = useState(false);
+      const [progress, setProgress] = useState('');
+      const [attemptCount, setAttemptCount] = useState(0);
+      const [foundPhrases, setFoundPhrases] = useState([]);
+      
+      const cancelGeneration = useRef(false);
+
+      const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999', 
+                         '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+
+      const hebrewValues = {
+        a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+        j: 600, k: 10, l: 20, m: 30, n: 40, o: 50, p: 60, q: 70,
+        r: 80, s: 90, t: 100, u: 200, v: 700, w: 900, x: 300,
+        y: 400, z: 500
+      };
+
+      const englishValues = {
+        a: 6, b: 12, c: 18, d: 24, e: 30, f: 36, g: 42, h: 48,
+        i: 54, j: 60, k: 66, l: 72, m: 78, n: 84, o: 90, p: 96,
+        q: 102, r: 108, s: 114, t: 120, u: 126, v: 132, w: 138,
+        x: 144, y: 150, z: 156
+      };
+
+      const simpleValues = {
+        a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+        j: 10, k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17,
+        r: 18, s: 19, t: 20, u: 21, v: 22, w: 23, x: 24, y: 25,
+        z: 26
+      };
+
+      const calculateGematria = (text, values) => {
+        const breakdown = [];
+        let total = 0;
+        const cleanText = text.toLowerCase().replace(/[^a-z]/g, '');
+        
+        for (let char of cleanText) {
+          const value = values[char] || 0;
+          breakdown.push({ char, value });
+          total += value;
+        }
+        
+        return { total, breakdown };
+      };
+
+      const handleCalculate = () => {
+        if (!input.trim()) return;
+
+        const hebrew = calculateGematria(input, hebrewValues);
+        const english = calculateGematria(input, englishValues);
+        const simple = calculateGematria(input, simpleValues);
+
+        setResults({
+          input: input.trim(),
+          hebrew,
+          english,
+          simple
+        });
+      };
+
+      const formatBreakdown = (breakdown) => {
+        return breakdown.map(({ char, value }) => `${char}${value}`).join(' + ');
+      };
+
+      const getWordDatabase = () => {
+        const database = {
+          articles: ['a', 'an', 'the'],
+          
+          pronouns: ['i', 'you', 'he', 'she', 'it', 'we', 'they', 'me', 'him', 'her', 'us', 'them', 
+                     'my', 'your', 'his', 'its', 'our', 'their'],
+          
+          prepositions: ['to', 'of', 'in', 'for', 'on', 'with', 'at', 'by', 'from', 'about', 'as',
+                         'into', 'through', 'over', 'after', 'under', 'between'],
+          
+          conjunctions: ['and', 'or', 'but', 'if', 'when', 'while', 'because', 'so', 'yet'],
+          
+          verbs: ['be', 'is', 'are', 'was', 'were', 'been', 'have', 'has', 'had', 'do', 'does', 'did',
+                  'make', 'made', 'take', 'took', 'give', 'gave', 'find', 'found', 'tell', 'told',
+                  'call', 'called', 'keep', 'kept', 'show', 'shown', 'hear', 'heard', 'play', 'played',
+                  'run', 'ran', 'move', 'moved', 'live', 'lived', 'die', 'died', 'rise', 'rose',
+                  'fall', 'fell', 'grow', 'grew', 'turn', 'turned', 'walk', 'walked', 'talk', 'talked',
+                  'say', 'said', 'see', 'saw', 'go', 'went', 'come', 'came', 'know', 'knew',
+                  'think', 'thought', 'feel', 'felt', 'try', 'tried', 'leave', 'left', 'seem', 'seemed',
+                  'fade', 'faded', 'feed', 'fed', 'need', 'needed', 'heal', 'healed', 'steal', 'stole'],
+          
+          nouns: ['god', 'man', 'woman', 'child', 'life', 'time', 'year', 'day', 'night', 'work', 
+                  'hand', 'eye', 'eyes', 'head', 'face', 'soul', 'mind', 'body', 'love', 'hate', 
+                  'fear', 'hope', 'joy', 'power', 'world', 'earth', 'water', 'fire', 'light', 'dark',
+                  'death', 'birth', 'heart', 'spirit', 'angel', 'devil', 'king', 'queen', 'lord',
+                  'beast', 'bird', 'fish', 'tree', 'food', 'dream', 'truth', 'faith', 'peace', 'war',
+                  'sun', 'moon', 'star', 'stars', 'wind', 'rain', 'snow', 'sky', 'sea',
+                  'lake', 'cake', 'snake', 'ice', 'rice', 'ace', 'face', 'race', 'place', 'space',
+                  'grace', 'seed', 'need', 'deed', 'weed', 'chef', 'beef', 'leaf', 'thief', 'chief',
+                  'shade', 'blade', 'trade', 'beach', 'peach', 'meal', 'seal', 'steel', 'wheel',
+                  'hill', 'mill', 'skill', 'magic', 'flame', 'frame', 'name', 'game', 'fame'],
+          
+          adjectives: ['good', 'bad', 'new', 'old', 'big', 'small', 'great', 'little', 'high', 'low',
+                       'long', 'short', 'strong', 'weak', 'hot', 'cold', 'warm', 'cool', 'fast', 'slow',
+                       'rich', 'poor', 'happy', 'sad', 'glad', 'wise', 'wild', 'kind', 'dark', 'bright',
+                       'clear', 'free', 'safe', 'real', 'fake', 'true', 'false', 'nice', 'fine', 'soft',
+                       'hard', 'deep', 'holy', 'dead', 'alive', 'young', 'fair', 'pale', 'still'],
+          
+          highValue: ['joy', 'wax', 'vow', 'way', 'yawn', 'wavy', 'why', 'yew', 'vex', 'oxy', 'jury',
+                      'very', 'ivy', 'navy', 'heavy', 'envy', 'story', 'glory', 'worry', 'sorry',
+                      'away', 'pray', 'stay', 'play', 'gray', 'may', 'day', 'say', 'pay', 'bay',
+                      'try', 'cry', 'dry', 'fly', 'sky', 'buy', 'spy', 'sly']
+        };
+        
+        const allWords = [];
+        for (const [type, words] of Object.entries(database)) {
+          words.forEach(word => {
+            allWords.push({
+              word,
+              type,
+              h: calculateGematria(word, hebrewValues).total,
+              e: calculateGematria(word, englishValues).total,
+              s: calculateGematria(word, simpleValues).total
+            });
+          });
+        }
+        
+        return { database, allWords };
+      };
+
+      const grammarPatterns = [
+        ['article', 'adjective', 'noun'],
+        ['article', 'noun', 'verb'],
+        ['pronoun', 'verb', 'noun'],
+        ['noun', 'verb', 'noun'],
+        ['adjective', 'noun', 'verb'],
+        ['article', 'noun', 'preposition', 'noun'],
+        ['pronoun', 'verb', 'adjective'],
+        ['article', 'adjective', 'noun', 'verb'],
+        ['noun', 'conjunction', 'noun'],
+        ['adjective', 'conjunction', 'adjective'],
+        ['verb', 'article', 'noun'],
+        ['preposition', 'article', 'noun'],
+      ];
+
+      const generateUntilFound = async (targetH, targetE, targetS) => {
+        const { database, allWords } = getWordDatabase();
+        console.log(`🎯 Target: H:${targetH} E:${targetE} S:${targetS}`);
+        console.log(`📚 Word database: ${allWords.length} words`);
+        
+        let bestMatch = { phrase: '', distance: Infinity, h: 0, e: 0, s: 0 };
+        let totalAttempts = 0;
+        const chunkSize = 5000;
+        const MAX_ATTEMPTS = 5000000;
+        
+        while (totalAttempts < MAX_ATTEMPTS) {
+          if (cancelGeneration.current) {
+            console.log('❌ Generation cancelled by user or new search started');
+            return { cancelled: true };
+          }
+          
+          await new Promise(resolve => setTimeout(resolve, 0));
+          
+          for (let i = 0; i < chunkSize && totalAttempts < MAX_ATTEMPTS; i++) {
+            totalAttempts++;
+            
+            const pattern = grammarPatterns[Math.floor(Math.random() * grammarPatterns.length)];
+            const phraseWords = [];
+            
+            for (const partType of pattern) {
+              const wordsOfType = allWords.filter(w => w.type === partType);
+              if (wordsOfType.length > 0) {
+                phraseWords.push(wordsOfType[Math.floor(Math.random() * wordsOfType.length)]);
+              }
+            }
+            
+            if (phraseWords.length === 0) continue;
+            
+            const h = phraseWords.reduce((sum, w) => sum + w.h, 0);
+            const e = phraseWords.reduce((sum, w) => sum + w.e, 0);
+            const s = phraseWords.reduce((sum, w) => sum + w.s, 0);
+            
+            if (h === targetH && e === targetE && s === targetS) {
+              const phrase = phraseWords.map(w => w.word).join(' ');
+              console.log(`✅ FOUND after ${totalAttempts.toLocaleString()} attempts: "${phrase}"`);
+              return { phrase, attempts: totalAttempts };
+            }
+            
+            const distance = Math.abs(h - targetH) + Math.abs(e - targetE) + Math.abs(s - targetS);
+            if (distance < bestMatch.distance) {
+              const phrase = phraseWords.map(w => w.word).join(' ');
+              bestMatch = { phrase, distance, h, e, s };
+            }
+          }
+          
+          setAttemptCount(totalAttempts);
+          if (totalAttempts % 50000 === 0) {
+            setProgress(`${totalAttempts.toLocaleString()} attempts... Best: "${bestMatch.phrase}" (H:${bestMatch.h} E:${bestMatch.e} S:${bestMatch.s})`);
+            console.log(`Progress: ${totalAttempts.toLocaleString()} | Best distance: ${bestMatch.distance}`);
+          }
+        }
+        
+        console.log(`⚠️ Reached ${MAX_ATTEMPTS.toLocaleString()} attempts limit`);
+        console.log(`Best match: "${bestMatch.phrase}" (H:${bestMatch.h} E:${bestMatch.e} S:${bestMatch.s}) Distance: ${bestMatch.distance}`);
+        return { phrase: null, bestMatch, attempts: totalAttempts };
+      };
+
+      const handleGeneratePhrase = async () => {
+        cancelGeneration.current = true;
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        cancelGeneration.current = false;
+        setGenerating(true);
+        setProgress('Starting generation...');
+        setAttemptCount(0);
+        
+        const targetH = parseInt(targetHebrew);
+        const targetE = parseInt(targetEnglish);
+        const targetS = parseInt(targetSimple);
+        
+        try {
+          const result = await generateUntilFound(targetH, targetE, targetS);
+          
+          if (result.cancelled) {
+            setProgress('Generation cancelled');
+            setGenerating(false);
+            return;
+          }
+          
+          if (result.phrase) {
+            setInput(result.phrase);
+            setFoundPhrases(prev => [...prev, result.phrase]);
+            
+            const hebrew = calculateGematria(result.phrase, hebrewValues);
+            const english = calculateGematria(result.phrase, englishValues);
+            const simple = calculateGematria(result.phrase, simpleValues);
+            
+            setResults({
+              input: result.phrase,
+              hebrew,
+              english,
+              simple
+            });
+            
+            setProgress(`✅ Found in ${result.attempts.toLocaleString()} attempts!`);
+          } else {
+            const { bestMatch, attempts } = result;
+            setProgress(`❌ No match found in ${attempts.toLocaleString()} attempts. Best: "${bestMatch.phrase}" (H:${bestMatch.h} E:${bestMatch.e} S:${bestMatch.s}) Distance: ${bestMatch.distance}`);
+          }
+        } catch (error) {
+          console.error('Generation error:', error);
+          setProgress(`Error: ${error.message}`);
+        } finally {
+          setGenerating(false);
+        }
+      };
+
+      const handleStopGeneration = () => {
+        cancelGeneration.current = true;
+        setProgress('Stopping...');
+      };
+
+      return (
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 md:p-8">
+          <div className="max-w-4xl mx-auto">
+            <div className="bg-slate-800/80 backdrop-blur-sm rounded-2xl shadow-2xl overflow-hidden border border-purple-500/30">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-purple-900/50 to-pink-900/50 border-b border-purple-500/30 p-6 md:p-8">
+                <div className="flex items-center justify-center gap-3">
+                  <Zap className="w-8 h-8 text-purple-400" />
+                  <h1 className="text-2xl md:text-4xl font-bold text-white">
+                    Gematria Generator
+                  </h1>
+                  <Brain className="w-8 h-8 text-pink-400" />
+                </div>
+                <p className="text-purple-200 text-center mt-2 text-sm md:text-base">
+                  AI-powered phrase generation • 5M attempts • Grammar patterns
+                </p>
+              </div>
+
+              <div className="p-6 md:p-8 space-y-6">
+                {/* Generator */}
+                <div className="bg-gradient-to-br from-slate-700/50 to-purple-900/30 rounded-xl p-6 border border-purple-500/20">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    <Infinity className="w-6 h-6 text-purple-400" />
+                    Generate Repdigit Phrases
+                  </h3>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    <div>
+                      <label className="block text-sm font-semibold text-purple-200 mb-2">
+                        Hebrew
+                      </label>
+                      <select
+                        value={targetHebrew}
+                        onChange={(e) => setTargetHebrew(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                      >
+                        {repdigits.map(num => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-purple-200 mb-2">
+                        English
+                      </label>
+                      <select
+                        value={targetEnglish}
+                        onChange={(e) => setTargetEnglish(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                      >
+                        {repdigits.map(num => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold text-purple-200 mb-2">
+                        Simple
+                      </label>
+                      <select
+                        value={targetSimple}
+                        onChange={(e) => setTargetSimple(e.target.value)}
+                        className="w-full px-3 py-2 bg-slate-900 border border-purple-500/30 rounded-lg text-white focus:outline-none focus:border-purple-500"
+                      >
+                        {repdigits.map(num => (
+                          <option key={num} value={num}>{num}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Validation Info */}
+                  {(() => {
+                    const h = parseInt(targetHebrew);
+                    const e = parseInt(targetEnglish);
+                    const s = parseInt(targetSimple);
+                    const expectedE = s * 6;
+                    const isValid = Math.abs(e - expectedE) <= 30;
+                    
+                    if (!isValid) {
+                      return (
+                        <div className="mb-4 p-3 bg-yellow-900/30 border border-yellow-500/50 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
+                          <div className="text-sm text-yellow-200">
+                            <p className="font-semibold">⚠️ Difficult combination - may not find match</p>
+                            <p className="text-xs mt-1">English ({e}) should ≈ Simple ({s}) × 6 = {expectedE}</p>
+                          </div>
+                        </div>
+                      );
+                    } else if (h > 5000 || e > 5000) {
+                      return (
+                        <div className="mb-4 p-3 bg-orange-900/30 border border-orange-500/50 rounded-lg flex items-start gap-2">
+                          <AlertCircle className="w-5 h-5 text-orange-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-orange-200">
+                            Very high values - may take several minutes or hit 5M limit.
+                          </p>
+                        </div>
+                      );
+                    } else {
+                      return (
+                        <div className="mb-4 p-3 bg-green-900/30 border border-green-500/50 rounded-lg flex items-start gap-2">
+                          <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+                          <p className="text-sm text-green-200">
+                            Good combination! Each click generates a different phrase.
+                          </p>
+                        </div>
+                      );
+                    }
+                  })()}
+
+                  {/* Found Phrases History */}
+                  {foundPhrases.length > 0 && (
+                    <div className="mb-4 p-3 bg-purple-900/30 border border-purple-500/50 rounded-lg">
+                      <p className="text-xs text-purple-300 font-semibold mb-2">Recently Found ({foundPhrases.length}):</p>
+                      <div className="space-y-1 max-h-32 overflow-y-auto">
+                        {foundPhrases.slice().reverse().map((phrase, idx) => (
+                          <p key={idx} className="text-xs text-purple-200 font-mono">• {phrase}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Progress Display */}
+                  {progress && (
+                    <div className="mb-4 p-4 bg-blue-900/30 border border-blue-500/50 rounded-lg">
+                      <p className="text-sm text-blue-200 font-mono break-words">{progress}</p>
+                      {attemptCount > 0 && (
+                        <div className="mt-2">
+                          <div className="flex justify-between text-xs text-blue-300 mb-1">
+                            <span>{attemptCount.toLocaleString()}</span>
+                            <span>5,000,000</span>
+                          </div>
+                          <div className="bg-blue-800/30 rounded-full h-2 overflow-hidden">
+                            <div 
+                              className="h-full bg-gradient-to-r from-blue-400 to-cyan-400 transition-all duration-300" 
+                              style={{width: `${Math.min((attemptCount / 5000000) * 100, 100)}%`}}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {!generating ? (
+                    <button
+                      onClick={handleGeneratePhrase}
+                      className="w-full bg-gradient-to-r from-purple-600 to-pink-600 text-white font-bold py-3 px-6 rounded-lg hover:from-purple-700 hover:to-pink-700 transition duration-300 shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <RefreshCw className="w-5 h-5" />
+                      Generate New Phrase
+                    </button>
+                  ) : (
+                    <button
+                      onClick={handleStopGeneration}
+                      className="w-full bg-gradient-to-r from-red-600 to-orange-600 text-white font-bold py-3 px-6 rounded-lg hover:from-red-700 hover:to-orange-700 transition duration-300 shadow-lg flex items-center justify-center gap-2"
+                    >
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Stop Generation
+                    </button>
+                  )}
+                </div>
+
+                {/* Manual Calculator */}
+                <div className="bg-slate-700/50 rounded-xl p-6 border border-purple-500/20">
+                  <h3 className="text-xl font-bold text-white mb-4">Calculate Custom Phrase</h3>
+                  <div className="space-y-4">
+                    <input
+                      type="text"
+                      value={input}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
+                      placeholder="Enter any word or phrase..."
+                      className="w-full px-4 py-3 bg-slate-900 border border-purple-500/30 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-purple-500"
+                    />
+                    <button
+                      onClick={handleCalculate}
+                      className="w-full bg-slate-600 text-white font-bold py-3 rounded-lg hover:bg-slate-500 transition"
+                    >
+                      Calculate
+                    </button>
+                  </div>
+                </div>
+
+                {/* Results */}
+                {results && (
+                  <div className="space-y-4">
+                    <h2 className="text-2xl font-bold text-white text-center border-b border-purple-500/30 pb-3">
+                      "{results.input}"
+                    </h2>
+
+                    <div className="bg-gradient-to-br from-red-900/40 to-orange-900/40 p-6 rounded-xl border border-red-500/30">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-xl font-bold text-white">Hebrew Gematria</h3>
+                        <span className="text-3xl font-bold text-orange-400">{results.hebrew.total}</span>
+                      </div>
+                      <p className="text-xs text-gray-300 font-mono break-words">
+                        {formatBreakdown(results.hebrew.breakdown)}
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-blue-900/40 to-cyan-900/40 p-6 rounded-xl border border-blue-500/30">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-xl font-bold text-white">English Gematria</h3>
+                        <span className="text-3xl font-bold text-cyan-400">{results.english.total}</span>
+                      </div>
+                      <p className="text-xs text-gray-300 font-mono break-words">
+                        {formatBreakdown(results.english.breakdown)}
+                      </p>
+                    </div>
+
+                    <div className="bg-gradient-to-br from-green-900/40 to-emerald-900/40 p-6 rounded-xl border border-green-500/30">
+                      <div className="flex justify-between items-center mb-2">
+                        <h3 className="text-xl font-bold text-white">Simple Gematria</h3>
+                        <span className="text-3xl font-bold text-emerald-400">{results.simple.total}</span>
+                      </div>
+                      <p className="text-xs text-gray-300 font-mono break-words">
+                        {formatBreakdown(results.simple.breakdown)}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className="bg-slate-900/50 border-t border-purple-500/20 p-4 text-center">
+                <p className="text-xs text-purple-300">
+                  5M max attempts • Diverse generation • Grammar patterns • No search stacking
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<GematriaCalculator />);
+  </script>
+</body>
+</html>
