@@ -565,11 +565,49 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting random repdigit phrase generation...');
-    const phrase = await generatePhrase(
+    let phrase = await generatePhrase(
       parseInt(randomHebrew),
       parseInt(randomEnglish),
       parseInt(randomSimple)
     );
+
+    let finalHebrew = randomHebrew;
+    let finalEnglish = randomEnglish;
+    let finalSimple = randomSimple;
+
+    // If first attempt failed, try XXX/666/111 fallback
+    if (!phrase) {
+      console.log('🔄 First attempt failed. Trying XXX/666/111 fallback...');
+      const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+      const randomThreeDigit = threeDigitOptions[Math.floor(Math.random() * threeDigitOptions.length)];
+
+      finalHebrew = randomThreeDigit;
+      finalEnglish = '666';
+      finalSimple = '111';
+
+      phrase = await generatePhrase(
+        parseInt(finalHebrew),
+        parseInt(finalEnglish),
+        parseInt(finalSimple)
+      );
+    }
+
+    // If still no match, try XXXX/6666/1111 fallback
+    if (!phrase) {
+      console.log('🔄 Second attempt failed. Trying XXXX/6666/1111 fallback...');
+      const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+      const randomFourDigit = fourDigitOptions[Math.floor(Math.random() * fourDigitOptions.length)];
+
+      finalHebrew = randomFourDigit;
+      finalEnglish = '6666';
+      finalSimple = '1111';
+
+      phrase = await generatePhrase(
+        parseInt(finalHebrew),
+        parseInt(finalEnglish),
+        parseInt(finalSimple)
+      );
+    }
 
     console.log('Generation complete. Result:', phrase);
 
@@ -614,11 +652,11 @@ const GematriaCalculator = () => {
 
       setGenerating(false);
     } else {
-      console.log('No phrase found (timeout or max attempts reached)');
+      console.log('No phrase found after all attempts');
       setGenerating(false); // Enable button immediately
       setErrorModal({
         show: true,
-        message: `Couldn't find a phrase matching Hebrew = ${randomHebrew}, English = ${randomEnglish}, Simple = ${randomSimple} after 1 million attempts. Please try a different combination!`
+        message: `Couldn't find a phrase matching any random repdigit combination after multiple attempts. Please try again!`
       });
     }
   };
@@ -959,11 +997,11 @@ const GematriaCalculator = () => {
             <button
               onClick={() => {
                 setErrorModal({ show: false, message: '' });
-                handleGeneratePhrase();
+                setGenerating(false);
               }}
               className="w-full bg-white text-red-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300"
             >
-              Generate Another Phrase
+              Close
             </button>
           </div>
         </div>
