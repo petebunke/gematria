@@ -256,11 +256,13 @@ const GematriaCalculator = () => {
     loadWords();
   }, []);
 
-  const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 1000000) => {
+  const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 1000000, timeoutMs = 10000) => {
+    const startTime = Date.now();
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
     console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim}`);
     console.log(`📚 Pre-calculating ${words.length.toLocaleString()} words...`);
+    console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds`);
 
     // Pre-calculate all gematria values once
     const wordData = words.map(word => ({
@@ -285,13 +287,38 @@ const GematriaCalculator = () => {
       bySimple.get(data.sim).push(data);
     });
 
-    console.log(`✅ Starting smart random search (${maxAttempts.toLocaleString()} attempts)...`);
+    // Dynamically adjust phrase length based on target values
+    const avgTarget = (targetHeb + targetEng + targetSim) / 3;
+    let minWords, maxWords;
+    if (avgTarget < 500) {
+      minWords = 2; maxWords = 5;
+    } else if (avgTarget < 1500) {
+      minWords = 3; maxWords = 7;
+    } else if (avgTarget < 3000) {
+      minWords = 4; maxWords = 10;
+    } else if (avgTarget < 5000) {
+      minWords = 5; maxWords = 12;
+    } else {
+      minWords = 6; maxWords = 15;
+    }
+
+    console.log(`✅ Starting smart random search (${maxAttempts.toLocaleString()} attempts, ${minWords}-${maxWords} words)...`);
 
     let closestMatch = null;
     let closestDistance = Infinity;
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Check timeout every 10,000 attempts to prevent blocking
+      if (attempt % 10000 === 0) {
+        const elapsed = Date.now() - startTime;
+        if (elapsed > timeoutMs) {
+          console.log(`⏱️ Timeout after ${(elapsed / 1000).toFixed(1)}s and ${attempt.toLocaleString()} attempts`);
+          console.log(`   Best match: "${closestMatch?.phrase}" (H:${closestMatch?.heb} E:${closestMatch?.eng} S:${closestMatch?.sim})`);
+          return null; // Return null to indicate timeout
+        }
+      }
+
       // Randomly select a starting letter to ensure distribution across alphabet
       const startingLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
 
@@ -300,13 +327,9 @@ const GematriaCalculator = () => {
         console.log(`Attempt ${attempt}: selected starting letter '${startingLetter}'`);
       }
 
-      // Randomly choose phrase length (2-5 words, weighted toward shorter)
-      const rand = Math.random();
-      let numWords;
-      if (rand < 0.4) numWords = 2;
-      else if (rand < 0.7) numWords = 3;
-      else if (rand < 0.9) numWords = 4;
-      else numWords = 5;
+      // Randomly choose phrase length based on dynamic range
+      const range = maxWords - minWords;
+      const numWords = minWords + Math.floor(Math.random() * (range + 1));
 
       const selectedWords = [];
       let totalHeb = 0, totalEng = 0, totalSim = 0;
@@ -470,20 +493,23 @@ const GematriaCalculator = () => {
           simple
         });
       } else {
-        console.log('No phrase found after smart random search');
-        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple} after 1,000,000 attempts.
+        console.log('No phrase found (timeout or max attempts reached)');
+        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple}.
+
+Search stopped after 10 seconds or 1 million attempts (whichever came first).
 
 The algorithm:
 • Pre-calculated all word values
-• Tried 1 million random combinations
 • Used intelligent last-word matching
+• Dynamically adjusted phrase length based on targets
 • Avoided exceeding target values
 
 Check the console to see the closest match found.
 
 Try:
 • Different repdigit combinations
-• Click generate again (new random seed)`);
+• Click generate again (new random combinations)
+• Lower targets are easier to find`);
       }
 
       setGenerating(false);
