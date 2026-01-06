@@ -495,7 +495,7 @@ const GematriaCalculator = () => {
         });
       } else {
         console.log('No phrase found (timeout or max attempts reached)');
-        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple} after 1 million attempts. Please try a different combination!`);
+        alert(`Could not find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`);
       }
 
       setGenerating(false);
@@ -615,15 +615,15 @@ const GematriaCalculator = () => {
       <div className="max-w-4xl mx-auto">
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
-          <div className="bg-black border-b border-zinc-800 p-6 md:p-8">
+          <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
             <div className="flex items-center justify-center gap-3">
               <Calculator className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
-                Gematria Calculator
+                Gematria Generator
               </h1>
             </div>
-            <p className="text-gray-400 text-center mt-2 text-sm md:text-base">
-              Discover Hebrew, English, and Simple Gematria values
+            <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
+              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria
             </p>
           </div>
 
@@ -697,7 +697,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={handleGeneratePhrase}
                   disabled={generating || loadingWords}
-                  className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
+                  className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
                 >
                   {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase'}
                 </button>
@@ -718,7 +718,7 @@ const GematriaCalculator = () => {
                       value={input}
                       onChange={(e) => setInput(e.target.value)}
                       onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
-                      placeholder="e.g., muertos"
+                      placeholder=""
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                     />
                   </div>
