@@ -498,7 +498,7 @@ const GematriaCalculator = () => {
         console.log('No phrase found (timeout or max attempts reached)');
         setErrorModal({
           show: true,
-          message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Try a different combination!`
+          message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
         });
       }
 
@@ -807,11 +807,11 @@ const GematriaCalculator = () => {
       {/* Error Modal */}
       {errorModal.show && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75 transition-opacity duration-200"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity duration-300"
           onClick={() => setErrorModal({ show: false, message: '' })}
         >
           <div
-            className="relative max-w-md w-full bg-red-600 text-white rounded-lg shadow-2xl p-6 transition-all duration-200 scale-100"
+            className="relative max-w-md w-full bg-red-600 text-white rounded-lg shadow-2xl p-6 transition-all duration-300 scale-100"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -821,9 +821,18 @@ const GematriaCalculator = () => {
             >
               ×
             </button>
-            <p className="text-base md:text-lg pr-6">
+            <p className="text-base md:text-lg mb-4">
               {errorModal.message}
             </p>
+            <button
+              onClick={() => {
+                setErrorModal({ show: false, message: '' });
+                handleGeneratePhrase();
+              }}
+              className="w-full bg-white text-red-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300"
+            >
+              Generate Another Phrase
+            </button>
           </div>
         </div>
       )}
