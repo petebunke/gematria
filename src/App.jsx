@@ -12,6 +12,7 @@ const GematriaCalculator = () => {
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [errorModal, setErrorModal] = useState({ show: false, message: '' });
 
   const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
@@ -495,7 +496,10 @@ const GematriaCalculator = () => {
         });
       } else {
         console.log('No phrase found (timeout or max attempts reached)');
-        alert(`Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts, please try a different combination!`);
+        setErrorModal({
+          show: true,
+          message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Try a different combination!`
+        });
       }
 
       setGenerating(false);
@@ -612,7 +616,7 @@ const GematriaCalculator = () => {
 
   return (
     <div className="min-h-screen bg-black p-4 md:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-4xl mx-auto mb-4">
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
@@ -799,6 +803,30 @@ const GematriaCalculator = () => {
           </div>
         </div>
       </div>
+
+      {/* Error Modal */}
+      {errorModal.show && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-75 transition-opacity duration-200"
+          onClick={() => setErrorModal({ show: false, message: '' })}
+        >
+          <div
+            className="relative max-w-md w-full bg-red-600 text-white rounded-lg shadow-2xl p-6 transition-all duration-200 scale-100"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              onClick={() => setErrorModal({ show: false, message: '' })}
+              className="absolute top-3 right-3 text-white hover:text-gray-200 text-2xl font-bold leading-none transition-colors"
+              aria-label="Close"
+            >
+              ×
+            </button>
+            <p className="text-base md:text-lg pr-6">
+              {errorModal.message}
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
