@@ -118,33 +118,117 @@ const GematriaCalculator = () => {
       return a.simple - b.simple;
     });
 
-    // Create CSV content
-    const headers = ['Phrase', 'Hebrew', 'English', 'Simple', 'Combination', 'Source', 'Timestamp'];
-    const rows = sorted.map(p => [
-      `"${p.phrase}"`,
-      p.hebrew,
-      p.english,
-      p.simple,
-      `${p.hebrew}/${p.english}/${p.simple}`,
-      p.source,
-      new Date(p.timestamp).toLocaleString()
-    ]);
+    // Create HTML content for PDF
+    const htmlContent = `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Gematria Generated Phrases - ${new Date().toLocaleDateString()}</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 {
+      color: #dc2626;
+      border-bottom: 3px solid #dc2626;
+      padding-bottom: 10px;
+      margin-bottom: 20px;
+    }
+    .meta {
+      color: #666;
+      margin-bottom: 30px;
+      font-size: 14px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+    th {
+      background-color: #dc2626;
+      color: white;
+      padding: 12px;
+      text-align: left;
+      font-weight: bold;
+    }
+    td {
+      padding: 10px 12px;
+      border-bottom: 1px solid #ddd;
+    }
+    tr:nth-child(even) {
+      background-color: #f9f9f9;
+    }
+    tr:hover {
+      background-color: #f5f5f5;
+    }
+    .phrase {
+      font-weight: 600;
+      color: #1f2937;
+    }
+    .numbers {
+      font-family: monospace;
+      color: #dc2626;
+    }
+    .source {
+      text-transform: capitalize;
+      color: #4b5563;
+    }
+    @media print {
+      body { padding: 10px; }
+      tr { page-break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <h1>Gematria Generated Phrases</h1>
+  <div class="meta">
+    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+    <p><strong>Total Phrases:</strong> ${sorted.length}</p>
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th>Phrase</th>
+        <th>Hebrew</th>
+        <th>English</th>
+        <th>Simple</th>
+        <th>Combination</th>
+        <th>Source</th>
+        <th>Timestamp</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${sorted.map(p => `
+        <tr>
+          <td class="phrase">${p.phrase}</td>
+          <td class="numbers">${p.hebrew}</td>
+          <td class="numbers">${p.english}</td>
+          <td class="numbers">${p.simple}</td>
+          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}</td>
+          <td class="source">${p.source}</td>
+          <td>${new Date(p.timestamp).toLocaleString()}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
+</body>
+</html>
+    `;
 
-    const csv = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
+    // Open in new window for printing/saving as PDF
+    const printWindow = window.open('', '_blank');
+    printWindow.document.write(htmlContent);
+    printWindow.document.close();
 
-    // Create download
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `gematria-phrases-${new Date().toISOString().split('T')[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    // Trigger print dialog after content loads
+    printWindow.onload = () => {
+      printWindow.focus();
+      printWindow.print();
+    };
   };
 
   const formatBreakdown = (breakdown) => {
