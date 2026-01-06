@@ -858,8 +858,8 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or go random!
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or random!
                     </div>
                   </span>
                 </h3>
