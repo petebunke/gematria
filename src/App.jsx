@@ -1,20 +1,5 @@
 import React, { useState, useEffect } from 'react';
-
-// Star of David icon component
-const StarOfDavid = ({ className }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    viewBox="0 0 32 32"
-    className={className}
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinejoin="miter"
-  >
-    <path d="M16 4 L22 15 L10 15 Z" />
-    <path d="M16 28 L10 17 L22 17 Z" />
-  </svg>
-);
+import { Calculator } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -22,7 +7,8 @@ const GematriaCalculator = () => {
   const [targetHebrew, setTargetHebrew] = useState('111');
   const [targetEnglish, setTargetEnglish] = useState('222');
   const [targetSimple, setTargetSimple] = useState('333');
-  const [generating, setGenerating] = useState(false);
+  const [generatingTargeted, setGeneratingTargeted] = useState(false);
+  const [generatingRandom, setGeneratingRandom] = useState(false);
   const [wordList, setWordList] = useState([]);
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -484,7 +470,7 @@ const GematriaCalculator = () => {
       return;
     }
 
-    setGenerating(true);
+    setGeneratingTargeted(true);
 
     // Small delay to let UI update
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -532,10 +518,10 @@ const GematriaCalculator = () => {
         }
       }
 
-      setGenerating(false);
+      setGeneratingTargeted(false);
     } else {
       console.log('No phrase found (timeout or max attempts reached)');
-      setGenerating(false); // Enable button immediately
+      setGeneratingTargeted(false); // Enable button immediately
       setErrorModal({
         show: true,
         message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
@@ -559,7 +545,7 @@ const GematriaCalculator = () => {
 
     console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
 
-    setGenerating(true);
+    setGeneratingRandom(true);
 
     // Small delay to let UI update
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -650,10 +636,10 @@ const GematriaCalculator = () => {
         }
       }
 
-      setGenerating(false);
+      setGeneratingRandom(false);
     } else {
       console.log('No phrase found after all attempts');
-      setGenerating(false); // Enable button immediately
+      setGeneratingRandom(false); // Enable button immediately
       setErrorModal({
         show: true,
         message: `Couldn't find a phrase matching any random repdigit combination after multiple attempts. Please try again!`
@@ -776,7 +762,7 @@ const GematriaCalculator = () => {
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
             <div className="flex items-center justify-center gap-3">
-              <StarOfDavid className="w-8 h-8 text-red-500" />
+              <Calculator className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Gematria Generator
               </h1>
@@ -854,17 +840,17 @@ const GematriaCalculator = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={handleGeneratePhrase}
-                    disabled={generating || loadingWords}
+                    disabled={generatingTargeted || loadingWords}
                     className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
                   >
-                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase'}
+                    {loadingWords ? 'Loading Word List...' : generatingTargeted ? 'Generating...' : 'Generate Phrase'}
                   </button>
                   <button
                     onClick={handleGenerateRandomRepdigits}
-                    disabled={generating || loadingWords}
-                    className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                    disabled={generatingRandom || loadingWords}
+                    className="w-full bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-500 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
                   >
-                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Random Repdigits'}
+                    {loadingWords ? 'Loading Word List...' : generatingRandom ? 'Generating...' : 'Generate Random Phrase'}
                   </button>
                 </div>
               </div>
@@ -897,7 +883,7 @@ const GematriaCalculator = () => {
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-500 transition duration-300 shadow-lg text-base md:text-lg"
                     >
                       Generate Anagram
                     </button>
@@ -974,7 +960,8 @@ const GematriaCalculator = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity duration-300"
           onClick={() => {
             setErrorModal({ show: false, message: '' });
-            setGenerating(false); // Ensure button is re-enabled
+            setGeneratingTargeted(false);
+            setGeneratingRandom(false);
           }}
         >
           <div
@@ -984,7 +971,8 @@ const GematriaCalculator = () => {
             <button
               onClick={() => {
                 setErrorModal({ show: false, message: '' });
-                setGenerating(false); // Ensure button is re-enabled
+                setGeneratingTargeted(false);
+                setGeneratingRandom(false);
               }}
               className="absolute top-3 right-3 text-white hover:text-gray-200 text-2xl font-bold leading-none transition-colors"
               aria-label="Close"
@@ -997,7 +985,8 @@ const GematriaCalculator = () => {
             <button
               onClick={() => {
                 setErrorModal({ show: false, message: '' });
-                setGenerating(false);
+                setGeneratingTargeted(false);
+                setGeneratingRandom(false);
               }}
               className="w-full bg-white text-red-600 font-bold py-3 px-6 rounded-lg hover:bg-gray-100 transition duration-300"
             >
