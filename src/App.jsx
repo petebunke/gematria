@@ -556,7 +556,7 @@ const GematriaCalculator = () => {
       parseInt(randomEnglish),
       parseInt(randomSimple),
       1000000,
-      2500 // 2.5 second timeout for random generation
+      5000 // 5 second timeout for random generation
     );
 
     let finalHebrew = randomHebrew;
@@ -579,7 +579,7 @@ const GematriaCalculator = () => {
         parseInt(finalEnglish),
         parseInt(finalSimple),
         1000000,
-        2500
+        5000
       );
     }
 
@@ -598,7 +598,7 @@ const GematriaCalculator = () => {
         parseInt(finalEnglish),
         parseInt(finalSimple),
         1000000,
-        2500
+        5000
       );
     }
 
