@@ -495,7 +495,7 @@ const GematriaCalculator = () => {
         });
       } else {
         console.log('No phrase found (timeout or max attempts reached)');
-        alert(`Could not find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`);
+        alert(`Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts, please try a different combination!`);
       }
 
       setGenerating(false);
@@ -623,7 +623,7 @@ const GematriaCalculator = () => {
               </h1>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
-              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria
+              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria.
             </p>
           </div>
 
@@ -643,11 +643,9 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    {showTooltip && (
-                      <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600">
-                        Try combinations ending in 666/111 or 6666/1111.
-                      </div>
-                    )}
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                      Try combinations ending in 666/111 or 6666/1111.
+                    </div>
                   </span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -796,7 +794,7 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 p-4 text-center text-xs md:text-sm text-gray-500">
+          <div className="bg-black border-t border-zinc-800 p-3 text-center text-xs md:text-sm text-gray-500">
             <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
