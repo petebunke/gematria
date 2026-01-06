@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator } from 'lucide-react';
+import { Calculator, Copy, Check } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -14,6 +14,7 @@ const GematriaCalculator = () => {
   const [loadError, setLoadError] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
+  const [copied, setCopied] = useState(false);
 
   const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
@@ -76,6 +77,18 @@ const GematriaCalculator = () => {
       english,
       simple
     });
+  };
+
+  const handleCopy = async () => {
+    if (!input.trim()) return;
+
+    try {
+      await navigator.clipboard.writeText(input);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
   };
 
   const formatBreakdown = (breakdown) => {
@@ -935,14 +948,24 @@ const GematriaCalculator = () => {
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                       Enter a word or phrase:
                     </label>
-                    <input
-                      type="text"
-                      value={input}
-                      onChange={(e) => setInput(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
-                      placeholder=""
-                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
-                    />
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
+                        placeholder=""
+                        className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
+                      />
+                      <button
+                        onClick={handleCopy}
+                        disabled={!input.trim()}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Copy to clipboard"
+                      >
+                        {copied ? <Check className="w-5 h-5 text-green-500" /> : <Copy className="w-5 h-5" />}
+                      </button>
+                    </div>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     <button
