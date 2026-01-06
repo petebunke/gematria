@@ -516,6 +516,58 @@ Try:
     }, 100);
   };
 
+  const handleGenerateAnagram = () => {
+    if (!input.trim()) {
+      alert('Please enter a phrase first!');
+      return;
+    }
+
+    // Get all letters from the input (preserve spaces between words)
+    const words = input.toLowerCase().trim().split(/\s+/);
+    const allLetters = words.join('').split('');
+
+    // Shuffle the letters using Fisher-Yates algorithm
+    for (let i = allLetters.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allLetters[i], allLetters[j]] = [allLetters[j], allLetters[i]];
+    }
+
+    // Try to redistribute into similar word count
+    const avgWordLength = Math.floor(allLetters.length / words.length);
+    const anagramWords = [];
+    let currentIndex = 0;
+
+    for (let i = 0; i < words.length && currentIndex < allLetters.length; i++) {
+      const isLastWord = i === words.length - 1;
+      const wordLength = isLastWord
+        ? allLetters.length - currentIndex
+        : Math.max(2, avgWordLength + Math.floor(Math.random() * 3) - 1);
+
+      const word = allLetters.slice(currentIndex, currentIndex + wordLength).join('');
+      if (word.length > 0) {
+        anagramWords.push(word);
+      }
+      currentIndex += wordLength;
+    }
+
+    const anagram = anagramWords.join(' ');
+    setInput(anagram);
+
+    // Auto-calculate the new anagram
+    const hebrew = calculateGematria(anagram, hebrewValues);
+    const english = calculateGematria(anagram, englishValues);
+    const simple = calculateGematria(anagram, simpleValues);
+
+    setResults({
+      input: anagram,
+      hebrew,
+      english,
+      simple
+    });
+
+    console.log(`Generated anagram: "${anagram}"`);
+  };
+
   return (
     <div className="min-h-screen bg-black p-4 md:p-8">
       <div className="max-w-4xl mx-auto">
@@ -542,7 +594,7 @@ Try:
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
                   Generate Random Phrase with Target Repdigits
                   {loadingWords && <span className="text-xs text-blue-600 ml-2">(Loading words...)</span>}
-                  {!loadingWords && wordList.length > 0 && <span className="text-xs text-green-600 ml-2">({wordList.length.toLocaleString()} words loaded)</span>}
+                  {!loadingWords && wordList.length > 0 && <span className="text-xs text-green-600 ml-2">({wordList.length.toLocaleString()} words loaded - Try 777/666/111 or 7777/6666/1111)</span>}
                   {loadError && <span className="text-xs text-orange-600 ml-2">(Using fallback list)</span>}
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -617,12 +669,20 @@ Try:
                       className="w-full px-4 py-3 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                     />
                   </div>
-                  <button
-                    onClick={handleCalculate}
-                    className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-base md:text-lg"
-                  >
-                    Calculate
-                  </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <button
+                      onClick={handleCalculate}
+                      className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-base md:text-lg"
+                    >
+                      Calculate
+                    </button>
+                    <button
+                      onClick={handleGenerateAnagram}
+                      className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition duration-300 shadow-lg text-base md:text-lg"
+                    >
+                      🔀 Generate Anagram
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -684,7 +744,7 @@ Try:
 
           {/* Footer */}
           <div className="bg-black border-t border-zinc-800 p-4 text-center text-xs md:text-sm text-gray-500">
-            <p>Repdigits: 111, 222, 333, 444, 555, 666, 777, 888, 999, 1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999</p>
+            <p>Based on gematrix.org. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
       </div>
