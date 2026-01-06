@@ -496,10 +496,12 @@ const GematriaCalculator = () => {
         });
       } else {
         console.log('No phrase found (timeout or max attempts reached)');
+        setGenerating(false); // Enable button immediately
         setErrorModal({
           show: true,
           message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
         });
+        return;
       }
 
       setGenerating(false);
@@ -798,7 +800,7 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 p-3 text-center text-xs md:text-sm text-gray-500">
+          <div className="bg-black border-t border-zinc-800 pt-5 pb-3 text-center text-xs md:text-sm text-gray-500">
             <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
