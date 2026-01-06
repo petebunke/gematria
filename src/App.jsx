@@ -191,15 +191,16 @@ const GematriaCalculator = () => {
       setLoadError(null);
 
       try {
-        console.log('Loading word list from GitHub...');
-        const response = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
+        console.log('Loading word frequency list...');
+        // Use word frequency list - most common words first
+        const response = await fetch('https://raw.githubusercontent.com/first20hours/google-10000-english/master/google-10000-english-usa-no-swears.txt');
 
         if (!response.ok) {
           throw new Error(`Failed to fetch: ${response.status}`);
         }
 
         const text = await response.text();
-        const allWords = text
+        const frequencyWords = text
           .split('\n')
           .map(word => word.trim().toLowerCase())
           .filter(word =>
@@ -208,14 +209,37 @@ const GematriaCalculator = () => {
             /^[a-z]+$/.test(word)
           );
 
-        // Shuffle words to get diverse distribution across alphabet
-        const shuffled = allWords.sort(() => Math.random() - 0.5);
+        console.log(`📚 Loaded ${frequencyWords.length.toLocaleString()} common words (frequency-sorted)`);
 
-        // Take first 20,000 words from shuffled list
-        const commonWords = shuffled.slice(0, 20000);
+        // Also load comprehensive alphabetical list for variety
+        console.log('Loading comprehensive dictionary for variety...');
+        const alphaResponse = await fetch('https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt');
 
-        setWordList(commonWords);
-        console.log(`✅ Loaded ${commonWords.length.toLocaleString()} words`);
+        if (alphaResponse.ok) {
+          const alphaText = await alphaResponse.text();
+          const allWords = alphaText
+            .split('\n')
+            .map(word => word.trim().toLowerCase())
+            .filter(word =>
+              word.length >= 2 &&
+              word.length <= 12 &&
+              /^[a-z]+$/.test(word)
+            );
+
+          // Shuffle and take 30,000 from comprehensive list
+          const shuffled = allWords.sort(() => Math.random() - 0.5);
+          const varietyWords = shuffled.slice(0, 30000);
+
+          // Combine: all frequency words + 30k variety words, removing duplicates
+          const combinedWords = [...new Set([...frequencyWords, ...varietyWords])];
+
+          setWordList(combinedWords);
+          console.log(`✅ Loaded ${combinedWords.length.toLocaleString()} total words (${frequencyWords.length} common + ${varietyWords.length} variety)`);
+        } else {
+          // If comprehensive list fails, just use frequency words
+          setWordList(frequencyWords);
+          console.log(`✅ Using ${frequencyWords.length.toLocaleString()} frequency-sorted words`);
+        }
       } catch (error) {
         console.error('Failed to load external dictionary:', error);
         setLoadError(error.message);
