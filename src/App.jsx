@@ -1,5 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator } from 'lucide-react';
+
+// Star of David icon component
+const StarOfDavid = ({ className }) => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 32 32"
+    className={className}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinejoin="miter"
+  >
+    <path d="M16 4 L22 15 L10 15 Z" />
+    <path d="M16 28 L10 17 L22 17 Z" />
+  </svg>
+);
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -544,11 +559,6 @@ const GematriaCalculator = () => {
 
     console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
 
-    // Update the UI to show selected targets
-    setTargetHebrew(randomHebrew);
-    setTargetEnglish(randomEnglish);
-    setTargetSimple(randomSimple);
-
     setGenerating(true);
 
     // Small delay to let UI update
@@ -571,6 +581,11 @@ const GematriaCalculator = () => {
 
       console.log(`Found phrase: "${phrase}"`);
       console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+
+      // Update the dropdowns to match the generated phrase's actual values
+      setTargetHebrew(hebrew.total.toString());
+      setTargetEnglish(english.total.toString());
+      setTargetSimple(simple.total.toString());
 
       setResults({
         input: phrase,
@@ -723,7 +738,7 @@ const GematriaCalculator = () => {
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
             <div className="flex items-center justify-center gap-3">
-              <Calculator className="w-8 h-8 text-red-500" />
+              <StarOfDavid className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Gematria Generator
               </h1>
@@ -798,7 +813,7 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                 </div>
-                <div className="space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <button
                     onClick={handleGeneratePhrase}
                     disabled={generating || loadingWords}
@@ -811,7 +826,7 @@ const GematriaCalculator = () => {
                     disabled={generating || loadingWords}
                     className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
                   >
-                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase with Random Repdigits'}
+                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Random Repdigits'}
                   </button>
                 </div>
               </div>
@@ -855,7 +870,7 @@ const GematriaCalculator = () => {
 
             {/* Results Section */}
             {results && (
-              <div className="mt-8 space-y-6">
+              <div className="mt-8 mb-8 space-y-6">
                 <h2 className="text-xl md:text-2xl font-bold text-white text-center pb-4 border-b border-zinc-800">
                   Results for "{results.input}"
                 </h2>
