@@ -11,6 +11,7 @@ const GematriaCalculator = () => {
   const [wordList, setWordList] = useState([]);
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [showTooltip, setShowTooltip] = useState(false);
 
   const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
@@ -494,22 +495,7 @@ const GematriaCalculator = () => {
         });
       } else {
         console.log('No phrase found (timeout or max attempts reached)');
-        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple}.
-
-Search stopped after 10 seconds or 1 million attempts (whichever came first).
-
-The algorithm:
-• Pre-calculated all word values
-• Used intelligent last-word matching
-• Dynamically adjusted phrase length based on targets
-• Avoided exceeding target values
-
-Check the console to see the closest match found.
-
-Try:
-• Different repdigit combinations
-• Click generate again (new random combinations)
-• Lower targets are easier to find`);
+        alert(`Could not find a phrase matching Hebrew=${targetHebrew}, English=${targetEnglish}, Simple=${targetSimple} after 1 million attempts. Please try a different combination!`);
       }
 
       setGenerating(false);
@@ -648,12 +634,20 @@ Try:
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Generate Random Phrase with Target Repdigits{' '}
-                  <span
-                    className="inline-block cursor-help text-gray-400 hover:text-gray-600"
-                    title="Try combinations ending in 666/111 or 6666/1111."
-                  >
-                    ⓘ
+                  Generate Phrase with Target Repdigits{' '}
+                  <span className="relative inline-block">
+                    <span
+                      className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
+                      onMouseEnter={() => setShowTooltip(true)}
+                      onMouseLeave={() => setShowTooltip(false)}
+                    >
+                      ⓘ
+                    </span>
+                    {showTooltip && (
+                      <div className="absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600">
+                        Try combinations ending in 666/111 or 6666/1111.
+                      </div>
+                    )}
                   </span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
@@ -705,14 +699,14 @@ Try:
                   disabled={generating || loadingWords}
                   className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-base"
                 >
-                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Random Phrase'}
+                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase'}
                 </button>
               </div>
 
               {/* Manual Input Section */}
               <div>
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Calculate Custom Phrase and Generate Anagrams
+                  Calculate Phrase Value and Generate Anagrams
                 </h3>
                 <div className="space-y-4">
                   <div>
@@ -733,7 +727,7 @@ Try:
                       onClick={handleCalculate}
                       className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg text-base md:text-lg"
                     >
-                      Calculate
+                      Calculate Value
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
