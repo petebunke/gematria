@@ -306,47 +306,91 @@
         return { phrase: null, bestMatch, attempts: totalAttempts };
       };
 
+      // Preset format combinations for fallbacks (no repeats)
+      const presetFormats = [
+        { h: '666', e: '666', s: '111', name: 'XXX/666/111' },
+        { h: '1111', e: '666', s: '111', name: 'XXXX/666/111' },
+        { h: '6666', e: '6666', s: '1111', name: 'XXXX/6666/1111' },
+      ];
+
       const handleGeneratePhrase = async () => {
         cancelGeneration.current = true;
         await new Promise(resolve => setTimeout(resolve, 100));
-        
+
         cancelGeneration.current = false;
         setGenerating(true);
-        setProgress('Starting generation...');
+        setProgress('Starting generation with fallback formats...');
         setAttemptCount(0);
-        
-        const targetH = parseInt(targetHebrew);
-        const targetE = parseInt(targetEnglish);
-        const targetS = parseInt(targetSimple);
-        
-        try {
-          const result = await generateUntilFound(targetH, targetE, targetS);
-          
-          if (result.cancelled) {
-            setProgress('Generation cancelled');
-            setGenerating(false);
-            return;
+
+        // Build list of formats to try (user selection first, then presets)
+        const userFormat = { h: targetHebrew, e: targetEnglish, s: targetSimple, name: 'User Selection' };
+        const formatsToTry = [userFormat];
+        const triedKeys = new Set();
+        triedKeys.add(`${targetHebrew}-${targetEnglish}-${targetSimple}`);
+
+        // Add preset formats that haven't been tried
+        for (const preset of presetFormats) {
+          const key = `${preset.h}-${preset.e}-${preset.s}`;
+          if (!triedKeys.has(key)) {
+            formatsToTry.push(preset);
+            triedKeys.add(key);
           }
-          
-          if (result.phrase) {
-            setInput(result.phrase);
-            setFoundPhrases(prev => [...prev, result.phrase]);
-            
-            const hebrew = calculateGematria(result.phrase, hebrewValues);
-            const english = calculateGematria(result.phrase, englishValues);
-            const simple = calculateGematria(result.phrase, simpleValues);
-            
+        }
+
+        try {
+          let finalResult = null;
+          let successFormat = null;
+          let totalAttemptsAcrossFormats = 0;
+
+          for (const format of formatsToTry) {
+            if (cancelGeneration.current) break;
+
+            setProgress(`Trying format ${format.name}: H:${format.h} E:${format.e} S:${format.s}...`);
+            console.log(`🎯 Trying format ${format.name}: H:${format.h} E:${format.e} S:${format.s}`);
+
+            const result = await generateUntilFound(
+              parseInt(format.h),
+              parseInt(format.e),
+              parseInt(format.s)
+            );
+
+            totalAttemptsAcrossFormats += result.attempts || 0;
+
+            if (result.cancelled) {
+              setProgress('Generation cancelled');
+              setGenerating(false);
+              return;
+            }
+
+            if (result.phrase) {
+              finalResult = result;
+              successFormat = format;
+              // Update dropdowns to reflect successful format
+              setTargetHebrew(format.h);
+              setTargetEnglish(format.e);
+              setTargetSimple(format.s);
+              break;
+            }
+          }
+
+          if (finalResult && finalResult.phrase) {
+            setInput(finalResult.phrase);
+            setFoundPhrases(prev => [...prev, finalResult.phrase]);
+
+            const hebrew = calculateGematria(finalResult.phrase, hebrewValues);
+            const english = calculateGematria(finalResult.phrase, englishValues);
+            const simple = calculateGematria(finalResult.phrase, simpleValues);
+
             setResults({
-              input: result.phrase,
+              input: finalResult.phrase,
               hebrew,
               english,
               simple
             });
-            
-            setProgress(`✅ Found in ${result.attempts.toLocaleString()} attempts!`);
+
+            setProgress(`✅ Found using ${successFormat.name} in ${finalResult.attempts.toLocaleString()} attempts!`);
           } else {
-            const { bestMatch, attempts } = result;
-            setProgress(`❌ No match found in ${attempts.toLocaleString()} attempts. Best: "${bestMatch.phrase}" (H:${bestMatch.h} E:${bestMatch.e} S:${bestMatch.s}) Distance: ${bestMatch.distance}`);
+            setProgress(`❌ No match found after trying all formats (${formatsToTry.map(f => f.name).join(', ')}). Try clicking again!`);
           }
         } catch (error) {
           console.error('Generation error:', error);
@@ -382,11 +426,14 @@
               <div className="p-6 md:p-8 space-y-6">
                 {/* Generator */}
                 <div className="bg-gradient-to-br from-slate-700/50 to-purple-900/30 rounded-xl p-6 border border-purple-500/20">
-                  <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                  <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
                     <Infinity className="w-6 h-6 text-purple-400" />
                     Generate Repdigit Phrases
                   </h3>
-                  
+                  <p className="text-sm text-purple-300 mb-4">
+                    Try repdigit combinations like XXX/666/111, XXXX/666/111, XXXX/6666/1111, or random!
+                  </p>
+
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div>
                       <label className="block text-sm font-semibold text-purple-200 mb-2">
@@ -418,7 +465,7 @@
                     </div>
                     <div>
                       <label className="block text-sm font-semibold text-purple-200 mb-2">
-                        Simple
+                        English (Simplified)
                       </label>
                       <select
                         value={targetSimple}
@@ -573,7 +620,7 @@
 
                     <div className="bg-gradient-to-br from-green-900/40 to-emerald-900/40 p-6 rounded-xl border border-green-500/30">
                       <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-xl font-bold text-white">Simple Gematria</h3>
+                        <h3 className="text-xl font-bold text-white">English (Simplified) Gematria</h3>
                         <span className="text-3xl font-bold text-emerald-400">{results.simple.total}</span>
                       </div>
                       <p className="text-xs text-gray-300 font-mono break-words">
