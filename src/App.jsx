@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Copy, Check } from 'lucide-react';
+import { Calculator, Copy, Check, Download } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -15,6 +15,7 @@ const GematriaCalculator = () => {
   const [showTooltip, setShowTooltip] = useState(false);
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
+  const [generatedPhrases, setGeneratedPhrases] = useState([]);
 
   const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
@@ -89,6 +90,61 @@ const GematriaCalculator = () => {
     } catch (err) {
       console.error('Failed to copy:', err);
     }
+  };
+
+  const trackGeneratedPhrase = (phrase, hebrew, english, simple, source) => {
+    const newEntry = {
+      phrase,
+      hebrew,
+      english,
+      simple,
+      source, // 'targeted', 'random', or 'anagram'
+      timestamp: new Date().toISOString()
+    };
+
+    setGeneratedPhrases(prev => [...prev, newEntry]);
+  };
+
+  const downloadPhraseTable = () => {
+    if (generatedPhrases.length === 0) {
+      alert('No phrases generated yet!');
+      return;
+    }
+
+    // Sort by combination (Hebrew, English, Simple)
+    const sorted = [...generatedPhrases].sort((a, b) => {
+      if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
+      if (a.english !== b.english) return a.english - b.english;
+      return a.simple - b.simple;
+    });
+
+    // Create CSV content
+    const headers = ['Phrase', 'Hebrew', 'English', 'Simple', 'Combination', 'Source', 'Timestamp'];
+    const rows = sorted.map(p => [
+      `"${p.phrase}"`,
+      p.hebrew,
+      p.english,
+      p.simple,
+      `${p.hebrew}/${p.english}/${p.simple}`,
+      p.source,
+      new Date(p.timestamp).toLocaleString()
+    ]);
+
+    const csv = [
+      headers.join(','),
+      ...rows.map(row => row.join(','))
+    ].join('\n');
+
+    // Create download
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gematria-phrases-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const formatBreakdown = (breakdown) => {
@@ -513,6 +569,9 @@ const GematriaCalculator = () => {
         simple
       });
 
+      // Track generated phrase
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, 'targeted');
+
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
         try {
@@ -676,6 +735,9 @@ const GematriaCalculator = () => {
         simple
       });
 
+      // Track generated phrase
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, 'random');
+
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
         try {
@@ -833,6 +895,9 @@ const GematriaCalculator = () => {
         english,
         simple
       });
+
+      // Track generated phrase
+      trackGeneratedPhrase(bestAnagram, hebrew.total, english.total, simple.total, 'anagram');
     } else {
       alert('Could not find any valid word combinations for this phrase. Try a different phrase with more common letters.');
     }
@@ -844,11 +909,27 @@ const GematriaCalculator = () => {
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
-            <div className="flex items-center justify-center gap-3">
-              <Calculator className="w-8 h-8 text-red-500" />
-              <h1 className="text-2xl md:text-4xl font-bold text-white">
-                Gematria Generator
-              </h1>
+            <div className="flex items-center justify-between">
+              <div className="flex-1"></div>
+              <div className="flex items-center justify-center gap-3 flex-1">
+                <Calculator className="w-8 h-8 text-red-500" />
+                <h1 className="text-2xl md:text-4xl font-bold text-white">
+                  Gematria Generator
+                </h1>
+              </div>
+              <div className="flex-1 flex justify-end">
+                <button
+                  onClick={downloadPhraseTable}
+                  disabled={generatedPhrases.length === 0}
+                  className="flex items-center gap-2 px-3 py-2 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
+                  title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
+                >
+                  <Download className="w-4 h-4" />
+                  <span className="hidden md:inline">
+                    {generatedPhrases.length > 0 ? `${generatedPhrases.length}` : 'Download'}
+                  </span>
+                </button>
+              </div>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
               Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria.
