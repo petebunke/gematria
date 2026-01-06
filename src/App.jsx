@@ -648,7 +648,13 @@ Try:
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Generate Random Phrase with Target Repdigits
+                  Generate Random Phrase with Target Repdigits{' '}
+                  <span
+                    className="inline-block cursor-help text-gray-400 hover:text-gray-600"
+                    title="Try combinations ending in 666/111 or 6666/1111."
+                  >
+                    ⓘ
+                  </span>
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
                   <div>
@@ -797,7 +803,7 @@ Try:
 
           {/* Footer */}
           <div className="bg-black border-t border-zinc-800 p-4 text-center text-xs md:text-sm text-gray-500">
-            <p>Based on gematrix.org. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
+            <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
       </div>
