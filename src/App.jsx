@@ -845,7 +845,7 @@ const GematriaCalculator = () => {
           {/* Input Section */}
           <div className="p-6 md:p-8">
             {/* Unified Card */}
-            <div className="mb-6 p-6 bg-white rounded-lg border border-zinc-300">
+            <div className="mb-6 p-6 bg-white rounded border border-zinc-300">
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
