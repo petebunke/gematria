@@ -262,8 +262,12 @@ const GematriaCalculator = () => {
 
     let closestMatch = null;
     let closestDistance = Infinity;
+    const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      // Randomly select a starting letter to ensure distribution across alphabet
+      const startingLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
+
       // Randomly choose phrase length (2-5 words, weighted toward shorter)
       const rand = Math.random();
       let numWords;
@@ -299,7 +303,16 @@ const GematriaCalculator = () => {
           }
 
           // No perfect match for last word, pick random word
-          const randomWord = wordData[Math.floor(Math.random() * wordData.length)];
+          // For first word, prefer words starting with the selected letter
+          let pool = wordData;
+          if (i === 0) {
+            const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
+            if (letterWords.length > 0 && Math.random() < 0.7) {
+              pool = letterWords;
+            }
+          }
+
+          const randomWord = pool[Math.floor(Math.random() * pool.length)];
           selectedWords.push(randomWord.word);
           totalHeb += randomWord.heb;
           totalEng += randomWord.eng;
@@ -309,8 +322,17 @@ const GematriaCalculator = () => {
           let attempts = 0;
           let picked = null;
 
+          // For first word, prefer words starting with the selected letter
+          let pool = wordData;
+          if (i === 0) {
+            const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
+            if (letterWords.length > 0 && Math.random() < 0.7) {
+              pool = letterWords;
+            }
+          }
+
           while (attempts < 100) {
-            const candidate = wordData[Math.floor(Math.random() * wordData.length)];
+            const candidate = pool[Math.floor(Math.random() * pool.length)];
 
             // Soft constraint: prefer words that don't exceed any target
             if (totalHeb + candidate.heb < targetHeb &&
@@ -322,9 +344,9 @@ const GematriaCalculator = () => {
             attempts++;
           }
 
-          // If no good candidate found after 100 tries, just pick randomly
+          // If no good candidate found after 100 tries, just pick randomly from pool
           if (!picked) {
-            picked = wordData[Math.floor(Math.random() * wordData.length)];
+            picked = pool[Math.floor(Math.random() * pool.length)];
           }
 
           selectedWords.push(picked.word);
