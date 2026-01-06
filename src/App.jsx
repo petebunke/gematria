@@ -258,7 +258,7 @@ const GematriaCalculator = () => {
     loadWords();
   }, []);
 
-  const generatePhrase = (targetHeb, targetEng, targetSim, maxAttempts = 1000000, timeoutMs = 10000) => {
+  const generatePhrase = async (targetHeb, targetEng, targetSim, maxAttempts = 1000000, timeoutMs = 10000) => {
     const startTime = Date.now();
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
@@ -311,7 +311,7 @@ const GematriaCalculator = () => {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Check timeout every 10,000 attempts to prevent blocking
+      // Check timeout every 10,000 attempts and yield to browser to prevent UI blocking
       if (attempt % 10000 === 0) {
         const elapsed = Date.now() - startTime;
         if (elapsed > timeoutMs) {
@@ -319,6 +319,8 @@ const GematriaCalculator = () => {
           console.log(`   Best match: "${closestMatch?.phrase}" (H:${closestMatch?.heb} E:${closestMatch?.eng} S:${closestMatch?.sim})`);
           return null; // Return null to indicate timeout
         }
+        // Yield to browser to allow UI interactions (links, hovers, etc.)
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       // Randomly select a starting letter to ensure distribution across alphabet
@@ -457,7 +459,7 @@ const GematriaCalculator = () => {
     return null;
   };
 
-  const handleGeneratePhrase = () => {
+  const handleGeneratePhrase = async () => {
     console.log('Generate button clicked');
     console.log(`Word list size: ${wordList.length}`);
     console.log(`Targets - Hebrew: ${targetHebrew}, English: ${targetEnglish}, Simple: ${targetSimple}`);
@@ -469,43 +471,61 @@ const GematriaCalculator = () => {
 
     setGenerating(true);
 
-    setTimeout(() => {
-      console.log('Starting phrase generation...');
-      const phrase = generatePhrase(
-        parseInt(targetHebrew),
-        parseInt(targetEnglish),
-        parseInt(targetSimple)
-      );
+    // Small delay to let UI update
+    await new Promise(resolve => setTimeout(resolve, 100));
 
-      console.log('Generation complete. Result:', phrase);
+    console.log('Starting phrase generation...');
+    const phrase = await generatePhrase(
+      parseInt(targetHebrew),
+      parseInt(targetEnglish),
+      parseInt(targetSimple)
+    );
 
-      if (phrase) {
-        setInput(phrase);
-        const hebrew = calculateGematria(phrase, hebrewValues);
-        const english = calculateGematria(phrase, englishValues);
-        const simple = calculateGematria(phrase, simpleValues);
+    console.log('Generation complete. Result:', phrase);
 
-        console.log(`Found phrase: "${phrase}"`);
-        console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+    if (phrase) {
+      setInput(phrase);
+      const hebrew = calculateGematria(phrase, hebrewValues);
+      const english = calculateGematria(phrase, englishValues);
+      const simple = calculateGematria(phrase, simpleValues);
 
-        setResults({
-          input: phrase,
-          hebrew,
-          english,
-          simple
-        });
-      } else {
-        console.log('No phrase found (timeout or max attempts reached)');
-        setGenerating(false); // Enable button immediately
-        setErrorModal({
-          show: true,
-          message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
-        });
-        return;
+      console.log(`Found phrase: "${phrase}"`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+
+      setResults({
+        input: phrase,
+        hebrew,
+        english,
+        simple
+      });
+
+      // Silent notification for 666/666/111 matches
+      if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
+        try {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phrase,
+              hebrew: hebrew.total,
+              english: english.total,
+              simple: simple.total
+            })
+          }).catch(() => {}); // Silently fail if API unavailable
+        } catch (error) {
+          // Silently ignore errors
+        }
       }
 
       setGenerating(false);
-    }, 100);
+    } else {
+      console.log('No phrase found (timeout or max attempts reached)');
+      setGenerating(false); // Enable button immediately
+      setErrorModal({
+        show: true,
+        message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
+      });
+    }
   };
 
   const handleGenerateAnagram = () => {
@@ -800,7 +820,7 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 pt-5 pb-3 text-center text-xs md:text-sm text-gray-500">
+          <div className="bg-black border-t border-zinc-800 pt-8 pb-3 text-center text-xs md:text-sm text-gray-500">
             <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
