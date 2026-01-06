@@ -268,6 +268,11 @@ const GematriaCalculator = () => {
       // Randomly select a starting letter to ensure distribution across alphabet
       const startingLetter = alphabet[Math.floor(Math.random() * alphabet.length)];
 
+      // Debug logging for first few attempts
+      if (attempt < 5) {
+        console.log(`Attempt ${attempt}: selected starting letter '${startingLetter}'`);
+      }
+
       // Randomly choose phrase length (2-5 words, weighted toward shorter)
       const rand = Math.random();
       let numWords;
@@ -307,13 +312,22 @@ const GematriaCalculator = () => {
           let pool = wordData;
           if (i === 0) {
             const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
+            if (attempt < 5) {
+              console.log(`  Found ${letterWords.length} words starting with '${startingLetter}'`);
+            }
             if (letterWords.length > 0 && Math.random() < 0.7) {
               pool = letterWords;
+              if (attempt < 5) {
+                console.log(`  Using filtered pool of ${pool.length} words`);
+              }
             }
           }
 
           const randomWord = pool[Math.floor(Math.random() * pool.length)];
           selectedWords.push(randomWord.word);
+          if (attempt < 5 && i === 0) {
+            console.log(`  Selected first word (last): '${randomWord.word}'`);
+          }
           totalHeb += randomWord.heb;
           totalEng += randomWord.eng;
           totalSim += randomWord.sim;
@@ -326,8 +340,14 @@ const GematriaCalculator = () => {
           let pool = wordData;
           if (i === 0) {
             const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
+            if (attempt < 5) {
+              console.log(`  Found ${letterWords.length} words starting with '${startingLetter}'`);
+            }
             if (letterWords.length > 0 && Math.random() < 0.7) {
               pool = letterWords;
+              if (attempt < 5) {
+                console.log(`  Using filtered pool of ${pool.length} words`);
+              }
             }
           }
 
@@ -350,6 +370,9 @@ const GematriaCalculator = () => {
           }
 
           selectedWords.push(picked.word);
+          if (attempt < 5 && i === 0) {
+            console.log(`  Selected first word: '${picked.word}'`);
+          }
           totalHeb += picked.heb;
           totalEng += picked.eng;
           totalSim += picked.sim;
