@@ -859,7 +859,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or random!
+                      Try repdigit combinations like XXX/666/111, XXXX/666/111, and XXXX/6666/1111, or random!
                     </div>
                   </span>
                 </h3>
@@ -918,7 +918,7 @@ const GematriaCalculator = () => {
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
-                    className="w-full bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-500 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                    className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
                   >
                     {loadingWords ? 'Loading Word List...' : generatingRandom ? 'Generating...' : 'Generate Random Phrase'}
                   </button>
@@ -953,7 +953,7 @@ const GematriaCalculator = () => {
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-zinc-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-500 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg text-base md:text-lg"
                     >
                       Generate Anagram
                     </button>
