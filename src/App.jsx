@@ -960,20 +960,7 @@ const GematriaCalculator = () => {
           {/* Input Section */}
           <div className="p-6 md:p-8">
             {/* Unified Card */}
-            <div className="mb-6 p-6 bg-white rounded border border-zinc-300 relative">
-              {/* Download Button */}
-              <button
-                onClick={downloadPhraseTable}
-                disabled={generatedPhrases.length === 0}
-                className="absolute top-3 right-3 flex items-center gap-2 px-3 py-2 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors text-sm"
-                title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
-              >
-                <Download className="w-4 h-4" />
-                <span className="hidden md:inline">
-                  {generatedPhrases.length > 0 ? `${generatedPhrases.length}` : 'Download'}
-                </span>
-              </button>
-
+            <div className="mb-6 p-6 bg-white rounded border border-zinc-300">
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
@@ -1097,6 +1084,19 @@ const GematriaCalculator = () => {
                     </button>
                   </div>
                 </div>
+              </div>
+
+              {/* Download Button */}
+              <div className="mt-4 pt-4 border-t border-gray-200">
+                <button
+                  onClick={downloadPhraseTable}
+                  disabled={generatedPhrases.length === 0}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
+                  title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
+                >
+                  <Download className="w-5 h-5" />
+                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                </button>
               </div>
             </div>
 
