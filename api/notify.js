@@ -5,29 +5,49 @@ export default async function handler(req, res) {
   }
 
   try {
-    const { phrase, hebrew, english, simple } = req.body;
+    const { phrase, hebrew, english, simple, isRareRandomHit } = req.body;
 
-    // Verify this is a 666/666/111 match
-    if (hebrew !== 666 || english !== 666 || simple !== 111) {
-      return res.status(400).json({ error: 'Not a valid 666/666/111 match' });
+    let emailData;
+
+    if (isRareRandomHit) {
+      // Rare random hit - not one of the fallback patterns
+      emailData = {
+        from: 'Gematria Generator <onboarding@resend.dev>',
+        to: ['petebunke@gmail.com'],
+        subject: '🌟 Rare Random Repdigit Match Found!',
+        html: `
+          <h2>A user found a rare random repdigit combination!</h2>
+          <p>This was found on the FIRST random attempt (not a fallback pattern).</p>
+          <p><strong>Phrase:</strong> "${phrase}"</p>
+          <ul>
+            <li><strong>Hebrew Gematria:</strong> ${hebrew}</li>
+            <li><strong>English Gematria:</strong> ${english}</li>
+            <li><strong>Simple Gematria:</strong> ${simple}</li>
+          </ul>
+          <p><em>Generated at ${new Date().toISOString()}</em></p>
+        `,
+      };
+    } else if (hebrew === 666 && english === 666 && simple === 111) {
+      // 666/666/111 match
+      emailData = {
+        from: 'Gematria Generator <onboarding@resend.dev>',
+        to: ['petebunke@gmail.com'],
+        subject: '🎯 666/666/111 Match Found!',
+        html: `
+          <h2>A user found a 666/666/111 match!</h2>
+          <p><strong>Phrase:</strong> "${phrase}"</p>
+          <ul>
+            <li><strong>Hebrew Gematria:</strong> ${hebrew}</li>
+            <li><strong>English Gematria:</strong> ${english}</li>
+            <li><strong>Simple Gematria:</strong> ${simple}</li>
+          </ul>
+          <p><em>Generated at ${new Date().toISOString()}</em></p>
+        `,
+      };
+    } else {
+      // Invalid notification type
+      return res.status(400).json({ error: 'Invalid notification type' });
     }
-
-    // Send email using Resend API (free tier available)
-    const emailData = {
-      from: 'Gematria Generator <onboarding@resend.dev>',
-      to: ['petebunke@gmail.com'],
-      subject: '🎯 666/666/111 Match Found!',
-      html: `
-        <h2>A user found a 666/666/111 match!</h2>
-        <p><strong>Phrase:</strong> "${phrase}"</p>
-        <ul>
-          <li><strong>Hebrew Gematria:</strong> ${hebrew}</li>
-          <li><strong>English Gematria:</strong> ${english}</li>
-          <li><strong>Simple Gematria:</strong> ${simple}</li>
-        </ul>
-        <p><em>Generated at ${new Date().toISOString()}</em></p>
-      `,
-    };
 
     // Use Resend API if key is available
     if (process.env.RESEND_API_KEY) {

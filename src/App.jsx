@@ -554,12 +554,15 @@ const GematriaCalculator = () => {
     let phrase = await generatePhrase(
       parseInt(randomHebrew),
       parseInt(randomEnglish),
-      parseInt(randomSimple)
+      parseInt(randomSimple),
+      1000000,
+      5000 // 5 second timeout for random generation
     );
 
     let finalHebrew = randomHebrew;
     let finalEnglish = randomEnglish;
     let finalSimple = randomSimple;
+    let usedFirstAttempt = !!phrase; // Track if first attempt succeeded
 
     // If first attempt failed, try XXX/666/111 fallback
     if (!phrase) {
@@ -574,7 +577,9 @@ const GematriaCalculator = () => {
       phrase = await generatePhrase(
         parseInt(finalHebrew),
         parseInt(finalEnglish),
-        parseInt(finalSimple)
+        parseInt(finalSimple),
+        1000000,
+        5000
       );
     }
 
@@ -591,7 +596,9 @@ const GematriaCalculator = () => {
       phrase = await generatePhrase(
         parseInt(finalHebrew),
         parseInt(finalEnglish),
-        parseInt(finalSimple)
+        parseInt(finalSimple),
+        1000000,
+        5000
       );
     }
 
@@ -631,6 +638,31 @@ const GematriaCalculator = () => {
               simple: simple.total
             })
           }).catch(() => {}); // Silently fail if API unavailable
+        } catch (error) {
+          // Silently ignore errors
+        }
+      }
+
+      // Check if this was a non-fallback success (first attempt worked)
+      // Fallback patterns: XXX/666/111, XXXX/666/111, XXXX/6666/1111
+      const isFallbackPattern =
+        (english.total === 666 && simple.total === 111) ||
+        (english.total === 6666 && simple.total === 1111);
+
+      if (usedFirstAttempt && !isFallbackPattern) {
+        // This is a rare non-fallback random hit! Send notification
+        try {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phrase,
+              hebrew: hebrew.total,
+              english: english.total,
+              simple: simple.total,
+              isRareRandomHit: true
+            })
+          }).catch(() => {});
         } catch (error) {
           // Silently ignore errors
         }
@@ -789,7 +821,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-red-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-red-600 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try combinations like XXX/666/1111, XXXX/666/111, and XXXX/6666/1111.
+                      Try repdigit combinations like XXX/666/1111, XXXX/666/111, and XXXX/6666/1111, or click random.
                     </div>
                   </span>
                 </h3>
