@@ -528,6 +528,86 @@ const GematriaCalculator = () => {
     }
   };
 
+  const handleGenerateRandomRepdigits = async () => {
+    console.log('Random repdigit generation button clicked');
+    console.log(`Word list size: ${wordList.length}`);
+
+    if (wordList.length === 0) {
+      alert('Word list is empty! Please wait for words to load or reload the page.');
+      return;
+    }
+
+    // Randomly select repdigits for each system
+    const randomHebrew = repdigits[Math.floor(Math.random() * repdigits.length)];
+    const randomEnglish = repdigits[Math.floor(Math.random() * repdigits.length)];
+    const randomSimple = repdigits[Math.floor(Math.random() * repdigits.length)];
+
+    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
+
+    // Update the UI to show selected targets
+    setTargetHebrew(randomHebrew);
+    setTargetEnglish(randomEnglish);
+    setTargetSimple(randomSimple);
+
+    setGenerating(true);
+
+    // Small delay to let UI update
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    console.log('Starting random repdigit phrase generation...');
+    const phrase = await generatePhrase(
+      parseInt(randomHebrew),
+      parseInt(randomEnglish),
+      parseInt(randomSimple)
+    );
+
+    console.log('Generation complete. Result:', phrase);
+
+    if (phrase) {
+      setInput(phrase);
+      const hebrew = calculateGematria(phrase, hebrewValues);
+      const english = calculateGematria(phrase, englishValues);
+      const simple = calculateGematria(phrase, simpleValues);
+
+      console.log(`Found phrase: "${phrase}"`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+
+      setResults({
+        input: phrase,
+        hebrew,
+        english,
+        simple
+      });
+
+      // Silent notification for 666/666/111 matches
+      if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
+        try {
+          fetch('/api/notify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phrase,
+              hebrew: hebrew.total,
+              english: english.total,
+              simple: simple.total
+            })
+          }).catch(() => {}); // Silently fail if API unavailable
+        } catch (error) {
+          // Silently ignore errors
+        }
+      }
+
+      setGenerating(false);
+    } else {
+      console.log('No phrase found (timeout or max attempts reached)');
+      setGenerating(false); // Enable button immediately
+      setErrorModal({
+        show: true,
+        message: `Couldn't find a phrase matching Hebrew = ${randomHebrew}, English = ${randomEnglish}, Simple = ${randomSimple} after 1 million attempts. Please try a different combination!`
+      });
+    }
+  };
+
   const handleGenerateAnagram = () => {
     if (!input.trim()) {
       alert('Please enter a phrase first!');
@@ -718,13 +798,22 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                 </div>
-                <button
-                  onClick={handleGeneratePhrase}
-                  disabled={generating || loadingWords}
-                  className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
-                >
-                  {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase'}
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={handleGeneratePhrase}
+                    disabled={generating || loadingWords}
+                    className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                  >
+                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase'}
+                  </button>
+                  <button
+                    onClick={handleGenerateRandomRepdigits}
+                    disabled={generating || loadingWords}
+                    className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                  >
+                    {loadingWords ? 'Loading Word List...' : generating ? 'Generating...' : 'Generate Phrase with Random Repdigits'}
+                  </button>
+                </div>
               </div>
 
               {/* Manual Input Section */}
@@ -830,14 +919,20 @@ const GematriaCalculator = () => {
       {errorModal.show && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 transition-opacity duration-300"
-          onClick={() => setErrorModal({ show: false, message: '' })}
+          onClick={() => {
+            setErrorModal({ show: false, message: '' });
+            setGenerating(false); // Ensure button is re-enabled
+          }}
         >
           <div
             className="relative max-w-md w-full bg-red-600 text-white rounded-lg shadow-2xl p-6 transition-all duration-300 scale-100"
             onClick={(e) => e.stopPropagation()}
           >
             <button
-              onClick={() => setErrorModal({ show: false, message: '' })}
+              onClick={() => {
+                setErrorModal({ show: false, message: '' });
+                setGenerating(false); // Ensure button is re-enabled
+              }}
               className="absolute top-3 right-3 text-white hover:text-gray-200 text-2xl font-bold leading-none transition-colors"
               aria-label="Close"
             >
