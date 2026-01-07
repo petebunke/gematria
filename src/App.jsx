@@ -794,6 +794,11 @@ const GematriaCalculator = () => {
 
     console.log('Starting random repdigit phrase generation...');
     const enabledFlags = { heb: hebrewEnabled, eng: englishEnabled, sim: simpleEnabled, aiq: aiqBekarEnabled };
+    const enabledCount = [hebrewEnabled, englishEnabled, simpleEnabled, aiqBekarEnabled].filter(Boolean).length;
+
+    // Longer timeout when fewer systems are enabled (should be easier to find)
+    const firstTimeout = enabledCount <= 2 ? 8000 : enabledCount === 3 ? 5000 : 3000;
+
     let phrase = await generatePhrase(
       parseInt(randomHebrew),
       parseInt(randomEnglish),
@@ -801,68 +806,45 @@ const GematriaCalculator = () => {
       parseInt(randomAiqBekar),
       enabledFlags,
       1000000,
-      3000 // 3 second timeout for random generation (quick attempt)
+      firstTimeout
     );
 
     let finalHebrew = randomHebrew;
     let finalEnglish = randomEnglish;
     let finalSimple = randomSimple;
     let finalAiqBekar = randomAiqBekar;
-    let usedFirstAttempt = !!phrase; // Track if first attempt succeeded
-
-    // Track tried combinations to avoid repeats
-    const triedCombos = new Set();
-    const comboKey = (h, e, s, a) => `${h}/${e}/${s}/${a}`;
-    triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple, randomAiqBekar));
 
     const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
     const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Known successful H/E/S combinations (only used if those systems are enabled)
-    const knownCombos3Digit = [
-      { heb: '111', eng: '666', sim: '111' },
-      { heb: '222', eng: '666', sim: '111' },
-      { heb: '333', eng: '666', sim: '111' },
-      { heb: '444', eng: '666', sim: '111' },
-      { heb: '555', eng: '666', sim: '111' },
-      { heb: '777', eng: '666', sim: '111' },
-      { heb: '888', eng: '666', sim: '111' },
-      { heb: '999', eng: '666', sim: '111' },
-      { heb: '1111', eng: '666', sim: '111' },
-    ];
+    // Only use known H/E/S combos fallback when ALL THREE of H, E, S are enabled
+    const useKnownCombos = hebrewEnabled && englishEnabled && simpleEnabled;
 
-    const knownCombos4Digit = [
-      { heb: '2222', eng: '6666', sim: '1111' },
-      { heb: '3333', eng: '6666', sim: '1111' },
-      { heb: '4444', eng: '6666', sim: '1111' },
-      { heb: '5555', eng: '6666', sim: '1111' },
-      { heb: '6666', eng: '6666', sim: '1111' },
-      { heb: '7777', eng: '6666', sim: '1111' },
-      { heb: '8888', eng: '6666', sim: '1111' },
-      { heb: '9999', eng: '6666', sim: '1111' },
-    ];
+    if (!phrase && useKnownCombos) {
+      // Known successful H/E/S combinations
+      const knownCombos3Digit = [
+        { heb: '111', eng: '666', sim: '111' },
+        { heb: '222', eng: '666', sim: '111' },
+        { heb: '333', eng: '666', sim: '111' },
+        { heb: '444', eng: '666', sim: '111' },
+        { heb: '555', eng: '666', sim: '111' },
+        { heb: '777', eng: '666', sim: '111' },
+        { heb: '888', eng: '666', sim: '111' },
+        { heb: '999', eng: '666', sim: '111' },
+        { heb: '1111', eng: '666', sim: '111' },
+      ];
 
-    // Helper: get targets for enabled systems, use 0 for disabled (ignored anyway)
-    const getTargets = (combo, aiq) => ({
-      heb: enabledFlags.heb ? parseInt(combo.heb) : 0,
-      eng: enabledFlags.eng ? parseInt(combo.eng) : 0,
-      sim: enabledFlags.sim ? parseInt(combo.sim) : 0,
-      aiq: enabledFlags.aiq ? parseInt(aiq) : 0
-    });
-
-    // Fallback 1: 3-digit combos - only iterate enabled systems
-    if (!phrase) {
-      console.log('🔄 First attempt failed. Trying 3-digit fallback combos...');
+      console.log('🔄 First attempt failed. Trying known H/E/S combos...');
       const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
       const shuffledAiq = [...threeDigit].sort(() => Math.random() - 0.5);
+      const aiqOptions = aiqBekarEnabled ? shuffledAiq.slice(0, 3) : ['111'];
 
-      // If Aiq is disabled, only try one iteration (value doesn't matter)
-      const aiqOptions = enabledFlags.aiq ? shuffledAiq : ['111'];
-
-      outer1: for (const combo of shuffledCombos.slice(0, 5)) { // Limit iterations for speed
-        for (const aiq of aiqOptions.slice(0, 5)) {
-          const t = getTargets(combo, aiq);
-          phrase = await generatePhrase(t.heb, t.eng, t.sim, t.aiq, enabledFlags, 1000000, 8000);
+      outer1: for (const combo of shuffledCombos.slice(0, 3)) {
+        for (const aiq of aiqOptions) {
+          phrase = await generatePhrase(
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+            enabledFlags, 1000000, 6000
+          );
           if (phrase) {
             finalHebrew = combo.heb;
             finalEnglish = combo.eng;
@@ -872,27 +854,52 @@ const GematriaCalculator = () => {
           }
         }
       }
-    }
 
-    // Fallback 2: 4-digit combos
-    if (!phrase) {
-      console.log('🔄 Second attempt failed. Trying 4-digit fallback combos...');
-      const shuffledCombos = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
-      const shuffledAiq = [...fourDigit].sort(() => Math.random() - 0.5);
+      // Try 4-digit combos
+      if (!phrase) {
+        const knownCombos4Digit = [
+          { heb: '2222', eng: '6666', sim: '1111' },
+          { heb: '3333', eng: '6666', sim: '1111' },
+          { heb: '4444', eng: '6666', sim: '1111' },
+        ];
+        console.log('🔄 Trying 4-digit combos...');
+        const shuffled4 = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
+        const aiq4Options = aiqBekarEnabled ? [...fourDigit].sort(() => Math.random() - 0.5).slice(0, 3) : ['1111'];
 
-      const aiqOptions = enabledFlags.aiq ? shuffledAiq : ['1111'];
-
-      outer2: for (const combo of shuffledCombos.slice(0, 5)) {
-        for (const aiq of aiqOptions.slice(0, 5)) {
-          const t = getTargets(combo, aiq);
-          phrase = await generatePhrase(t.heb, t.eng, t.sim, t.aiq, enabledFlags, 1000000, 8000);
-          if (phrase) {
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
-            finalAiqBekar = aiq;
-            break outer2;
+        outer2: for (const combo of shuffled4) {
+          for (const aiq of aiq4Options) {
+            phrase = await generatePhrase(
+              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+              enabledFlags, 1000000, 6000
+            );
+            if (phrase) {
+              finalHebrew = combo.heb;
+              finalEnglish = combo.eng;
+              finalSimple = combo.sim;
+              finalAiqBekar = aiq;
+              break outer2;
+            }
           }
+        }
+      }
+    } else if (!phrase) {
+      // When not all of H/E/S are enabled, try a few more random attempts
+      console.log('🔄 Trying additional random combinations...');
+      for (let i = 0; i < 3 && !phrase; i++) {
+        const rH = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+        const rE = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+        const rS = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+        const rA = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+
+        phrase = await generatePhrase(
+          parseInt(rH), parseInt(rE), parseInt(rS), parseInt(rA),
+          enabledFlags, 1000000, 8000
+        );
+        if (phrase) {
+          finalHebrew = rH;
+          finalEnglish = rE;
+          finalSimple = rS;
+          finalAiqBekar = rA;
         }
       }
     }
