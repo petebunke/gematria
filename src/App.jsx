@@ -8,6 +8,10 @@ const GematriaCalculator = () => {
   const [targetEnglish, setTargetEnglish] = useState('222');
   const [targetSimple, setTargetSimple] = useState('333');
   const [targetAiqBekar, setTargetAiqBekar] = useState('444');
+  const [hebrewEnabled, setHebrewEnabled] = useState(true);
+  const [englishEnabled, setEnglishEnabled] = useState(true);
+  const [simpleEnabled, setSimpleEnabled] = useState(true);
+  const [aiqBekarEnabled, setAiqBekarEnabled] = useState(true);
   const [generatingTargeted, setGeneratingTargeted] = useState(false);
   const [generatingRandom, setGeneratingRandom] = useState(false);
   const [wordList, setWordList] = useState([]);
@@ -443,11 +447,12 @@ const GematriaCalculator = () => {
     loadWords();
   }, []);
 
-  const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, maxAttempts = 1000000, timeoutMs = 10000) => {
+  const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
     const startTime = Date.now();
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
-    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq}`);
+    const enabledStr = `H:${enabledFlags.heb ? '✓' : '✗'} E:${enabledFlags.eng ? '✓' : '✗'} S:${enabledFlags.sim ? '✓' : '✗'} A:${enabledFlags.aiq ? '✓' : '✗'}`;
+    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
     console.log(`📚 Pre-calculating ${words.length.toLocaleString()} words...`);
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds`);
 
@@ -495,8 +500,13 @@ const GematriaCalculator = () => {
       }
     });
 
-    // Dynamically adjust phrase length based on target values
-    const avgTarget = (targetHeb + targetEng + targetSim + targetAiq) / 4;
+    // Dynamically adjust phrase length based on enabled target values
+    const enabledTargets = [];
+    if (enabledFlags.heb) enabledTargets.push(targetHeb);
+    if (enabledFlags.eng) enabledTargets.push(targetEng);
+    if (enabledFlags.sim) enabledTargets.push(targetSim);
+    if (enabledFlags.aiq) enabledTargets.push(targetAiq);
+    const avgTarget = enabledTargets.length > 0 ? enabledTargets.reduce((a, b) => a + b, 0) / enabledTargets.length : 500;
     let minWords, maxWords;
     if (avgTarget < 500) {
       minWords = 2; maxWords = 5;
@@ -549,16 +559,19 @@ const GematriaCalculator = () => {
         const isLastWord = (i === numWords - 1);
 
         if (isLastWord) {
-          // For last word, try to match exact remaining values
+          // For last word, try to match exact remaining values for enabled systems
           const needHeb = targetHeb - totalHeb;
           const needEng = targetEng - totalEng;
           const needSim = targetSim - totalSim;
           const needAiq = targetAiq - totalAiq;
 
-          // Look for exact match in our indexes
-          const candidates = byHebrew.get(needHeb) || [];
+          // Look for exact match in our indexes (only check enabled systems)
+          const candidates = enabledFlags.heb ? (byHebrew.get(needHeb) || []) : wordData;
           const perfectMatch = candidates.find(w =>
-            w.eng === needEng && w.sim === needSim && w.aiq === needAiq
+            (!enabledFlags.heb || w.heb === needHeb) &&
+            (!enabledFlags.eng || w.eng === needEng) &&
+            (!enabledFlags.sim || w.sim === needSim) &&
+            (!enabledFlags.aiq || w.aiq === needAiq)
           );
 
           if (perfectMatch) {
@@ -616,11 +629,13 @@ const GematriaCalculator = () => {
           while (attempts < 100) {
             const candidate = pool[Math.floor(Math.random() * pool.length)];
 
-            // Soft constraint: prefer words that don't exceed any target
-            if (totalHeb + candidate.heb < targetHeb &&
-                totalEng + candidate.eng < targetEng &&
-                totalSim + candidate.sim < targetSim &&
-                totalAiq + candidate.aiq < targetAiq) {
+            // Soft constraint: prefer words that don't exceed any enabled target
+            const hebOk = !enabledFlags.heb || totalHeb + candidate.heb < targetHeb;
+            const engOk = !enabledFlags.eng || totalEng + candidate.eng < targetEng;
+            const simOk = !enabledFlags.sim || totalSim + candidate.sim < targetSim;
+            const aiqOk = !enabledFlags.aiq || totalAiq + candidate.aiq < targetAiq;
+
+            if (hebOk && engOk && simOk && aiqOk) {
               picked = candidate;
               break;
             }
@@ -643,11 +658,12 @@ const GematriaCalculator = () => {
         }
       }
 
-      // Track closest match
-      const distance = Math.abs(totalHeb - targetHeb) +
-                       Math.abs(totalEng - targetEng) +
-                       Math.abs(totalSim - targetSim) +
-                       Math.abs(totalAiq - targetAiq);
+      // Track closest match (only count enabled systems)
+      const distance =
+        (enabledFlags.heb ? Math.abs(totalHeb - targetHeb) : 0) +
+        (enabledFlags.eng ? Math.abs(totalEng - targetEng) : 0) +
+        (enabledFlags.sim ? Math.abs(totalSim - targetSim) : 0) +
+        (enabledFlags.aiq ? Math.abs(totalAiq - targetAiq) : 0);
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -687,11 +703,13 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting phrase generation...');
+    const enabledFlags = { heb: hebrewEnabled, eng: englishEnabled, sim: simpleEnabled, aiq: aiqBekarEnabled };
     const phrase = await generatePhrase(
       parseInt(targetHebrew),
       parseInt(targetEnglish),
       parseInt(targetSimple),
-      parseInt(targetAiqBekar)
+      parseInt(targetAiqBekar),
+      enabledFlags
     );
 
     console.log('Generation complete. Result:', phrase);
@@ -770,11 +788,13 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting random repdigit phrase generation...');
+    const enabledFlags = { heb: hebrewEnabled, eng: englishEnabled, sim: simpleEnabled, aiq: aiqBekarEnabled };
     let phrase = await generatePhrase(
       parseInt(randomHebrew),
       parseInt(randomEnglish),
       parseInt(randomSimple),
       parseInt(randomAiqBekar),
+      enabledFlags,
       1000000,
       3000 // 3 second timeout for random generation (quick attempt)
     );
@@ -834,7 +854,7 @@ const GematriaCalculator = () => {
             finalAiqBekar = aiq;
             phrase = await generatePhrase(
               parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
-              1000000, 6000
+              enabledFlags, 1000000, 6000
             );
             if (phrase) break outer1;
           }
@@ -859,7 +879,7 @@ const GematriaCalculator = () => {
             finalAiqBekar = aiq;
             phrase = await generatePhrase(
               parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
-              1000000, 6000
+              enabledFlags, 1000000, 6000
             );
             if (phrase) break outer2;
           }
@@ -1105,13 +1125,25 @@ const GematriaCalculator = () => {
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Hebrew Gematria
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        Hebrew Gematria
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={hebrewEnabled}
+                          onChange={(e) => setHebrewEnabled(e.target.checked)}
+                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
+                        />
+                        <span className="text-xs text-gray-500">match</span>
+                      </label>
+                    </div>
                     <select
                       value={targetHebrew}
                       onChange={(e) => setTargetHebrew(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                      disabled={!hebrewEnabled}
+                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!hebrewEnabled ? 'opacity-50' : ''}`}
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
@@ -1119,13 +1151,25 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English Gematria
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        English Gematria
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={englishEnabled}
+                          onChange={(e) => setEnglishEnabled(e.target.checked)}
+                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
+                        />
+                        <span className="text-xs text-gray-500">match</span>
+                      </label>
+                    </div>
                     <select
                       value={targetEnglish}
                       onChange={(e) => setTargetEnglish(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                      disabled={!englishEnabled}
+                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!englishEnabled ? 'opacity-50' : ''}`}
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
@@ -1133,13 +1177,25 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English (Simplified)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        English (Simplified)
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={simpleEnabled}
+                          onChange={(e) => setSimpleEnabled(e.target.checked)}
+                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
+                        />
+                        <span className="text-xs text-gray-500">match</span>
+                      </label>
+                    </div>
                     <select
                       value={targetSimple}
                       onChange={(e) => setTargetSimple(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                      disabled={!simpleEnabled}
+                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!simpleEnabled ? 'opacity-50' : ''}`}
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
@@ -1147,13 +1203,25 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English (Aiq Bekar)
-                    </label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        English (Aiq Bekar)
+                      </label>
+                      <label className="flex items-center gap-1 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={aiqBekarEnabled}
+                          onChange={(e) => setAiqBekarEnabled(e.target.checked)}
+                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
+                        />
+                        <span className="text-xs text-gray-500">match</span>
+                      </label>
+                    </div>
                     <select
                       value={targetAiqBekar}
                       onChange={(e) => setTargetAiqBekar(e.target.value)}
-                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                      disabled={!aiqBekarEnabled}
+                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!aiqBekarEnabled ? 'opacity-50' : ''}`}
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
