@@ -944,6 +944,7 @@ const GematriaCalculator = () => {
       setTargetHebrew(hebrew.total.toString());
       setTargetEnglish(english.total.toString());
       setTargetSimple(simple.total.toString());
+      setTargetAiqBekar(aiqBekar.total.toString());
 
       setResults({
         input: phrase,
