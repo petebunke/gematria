@@ -786,25 +786,6 @@ const GematriaCalculator = () => {
       const generationTimeMs = Date.now() - generationStartTime;
       trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'targeted', generationTimeMs);
 
-      // Silent notification for 666/666/111 matches
-      if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
-        try {
-          fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phrase,
-              hebrew: hebrew.total,
-              english: english.total,
-              simple: simple.total,
-              aiqBekar: aiqBekar.total
-            })
-          }).catch(() => {}); // Silently fail if API unavailable
-        } catch (error) {
-          // Silently ignore errors
-        }
-      }
-
       setGeneratingTargeted(false);
     } else {
       console.log('No phrase found (timeout or max attempts reached)');
@@ -879,8 +860,13 @@ const GematriaCalculator = () => {
     let phrase = null;
     let finalHebrew, finalEnglish, finalSimple;
 
-    // Shuffle combos for variety - include 3-digit combos that work well with 2-digit Aik Bekar
-    const shuffledCombos = [...knownCombos2Digit, ...knownCombos3DigitWith2DigitAiq, ...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
+    // Shuffle combos using Fisher-Yates for true randomness across all formats
+    const allCombos = [...knownCombos2Digit, ...knownCombos3DigitWith2DigitAiq, ...knownCombos3Digit, ...knownCombos4Digit];
+    for (let i = allCombos.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [allCombos[i], allCombos[j]] = [allCombos[j], allCombos[i]];
+    }
+    const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
       // When Aik Bekar is enabled, try different H/E/S combos with different Aik Bekar targets
@@ -970,25 +956,6 @@ const GematriaCalculator = () => {
       // Track generated phrase with generation time
       const generationTimeMs = Date.now() - generationStartTime;
       trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'random', generationTimeMs);
-
-      // Silent notification for 666/666/111 matches
-      if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
-        try {
-          fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phrase,
-              hebrew: hebrew.total,
-              english: english.total,
-              simple: simple.total,
-              aiqBekar: aiqBekar.total
-            })
-          }).catch(() => {}); // Silently fail if API unavailable
-        } catch (error) {
-          // Silently ignore errors
-        }
-      }
 
       setGeneratingRandom(false);
     } else {
@@ -1228,14 +1195,14 @@ const GematriaCalculator = () => {
                     disabled={generatingTargeted || loadingWords}
                     className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
-                    {loadingWords ? 'Loading Word List...' : generatingTargeted ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" /></>) : 'Generate Phrase'}
+                    {loadingWords ? 'Loading Word List...' : generatingTargeted ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>) : 'Generate Phrase'}
                   </button>
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
                     className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
-                    {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" /></>) : 'Generate Random Phrase'}
+                    {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>) : 'Generate Random Phrase'}
                   </button>
                 </div>
               </div>
