@@ -1108,7 +1108,7 @@ const GematriaCalculator = () => {
               </h1>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
-              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, and Simple Gematria.
+              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, English (Simple), and English (Aiq Bekar) Gematria.
             </p>
           </div>
 
@@ -1137,7 +1137,7 @@ const GematriaCalculator = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-gray-700">
-                        Hebrew Gematria
+                        Hebrew
                       </label>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
@@ -1163,7 +1163,7 @@ const GematriaCalculator = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-gray-700">
-                        English Gematria
+                        English
                       </label>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
@@ -1189,7 +1189,7 @@ const GematriaCalculator = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-gray-700">
-                        English (Simplified)
+                        English (Simple)
                       </label>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
@@ -1324,11 +1324,11 @@ const GematriaCalculator = () => {
                   Results for "{results.input}"
                 </h2>
 
-                {/* Hebrew Gematria */}
+                {/* Hebrew */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      Hebrew Gematria
+                      Hebrew
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.hebrew.total}
@@ -1339,11 +1339,11 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English Gematria */}
+                {/* English */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      English Gematria
+                      English
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.english.total}
@@ -1354,11 +1354,11 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Simplified) Gematria */}
+                {/* English (Simple) */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      English (Simplified) Gematria
+                      English (Simple)
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.simple.total}
@@ -1369,12 +1369,12 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Aiq Bekar) Gematria */}
+                {/* English (Aiq Bekar) */}
                 {results.aiqBekar && (
                   <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h3 className="text-lg md:text-xl font-bold text-white">
-                        English (Aiq Bekar) Gematria
+                        English (Aiq Bekar)
                       </h3>
                       <span className="text-2xl md:text-3xl font-bold text-red-500">
                         {results.aiqBekar.total}
