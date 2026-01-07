@@ -757,80 +757,63 @@ const GematriaCalculator = () => {
     let finalSimple = randomSimple;
     let usedFirstAttempt = !!phrase; // Track if first attempt succeeded
 
-    // If first attempt failed, try XXX/666/111 fallback
+    // Track tried combinations to avoid repeats
+    const triedCombos = new Set();
+    const comboKey = (h, e, s) => `${h}/${e}/${s}`;
+    triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple));
+
+    const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+    const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+
+    // Fallback 1: XXX/666/111 format
     if (!phrase) {
       console.log('🔄 First attempt failed. Trying XXX/666/111 fallback...');
-      const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-      const randomThreeDigit = threeDigitOptions[Math.floor(Math.random() * threeDigitOptions.length)];
-
-      finalHebrew = randomThreeDigit;
-      finalEnglish = '666';
-      finalSimple = '111';
-
-      phrase = await generatePhrase(
-        parseInt(finalHebrew),
-        parseInt(finalEnglish),
-        parseInt(finalSimple),
-        1000000,
-        10000 // 10 second timeout for easier fallback pattern
-      );
+      const shuffledThree = [...threeDigitOptions].sort(() => Math.random() - 0.5);
+      for (const heb of shuffledThree) {
+        const key = comboKey(heb, '666', '111');
+        if (!triedCombos.has(key)) {
+          triedCombos.add(key);
+          finalHebrew = heb;
+          finalEnglish = '666';
+          finalSimple = '111';
+          phrase = await generatePhrase(parseInt(heb), 666, 111, 1000000, 8000);
+          if (phrase) break;
+        }
+      }
     }
 
-    // If still no match, try XXXX/6666/1111 fallback
+    // Fallback 2: XXXX/666/111 format
     if (!phrase) {
-      console.log('🔄 Second attempt failed. Trying XXXX/6666/1111 fallback...');
-      const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
-      const randomFourDigit = fourDigitOptions[Math.floor(Math.random() * fourDigitOptions.length)];
-
-      finalHebrew = randomFourDigit;
-      finalEnglish = '6666';
-      finalSimple = '1111';
-
-      phrase = await generatePhrase(
-        parseInt(finalHebrew),
-        parseInt(finalEnglish),
-        parseInt(finalSimple),
-        1000000,
-        10000 // 10 second timeout for easier fallback pattern
-      );
+      console.log('🔄 Second attempt failed. Trying XXXX/666/111 fallback...');
+      const shuffledFour = [...fourDigitOptions].sort(() => Math.random() - 0.5);
+      for (const heb of shuffledFour) {
+        const key = comboKey(heb, '666', '111');
+        if (!triedCombos.has(key)) {
+          triedCombos.add(key);
+          finalHebrew = heb;
+          finalEnglish = '666';
+          finalSimple = '111';
+          phrase = await generatePhrase(parseInt(heb), 666, 111, 1000000, 8000);
+          if (phrase) break;
+        }
+      }
     }
 
-    // If STILL no match, try XXX/666/111 fallback again
+    // Fallback 3: XXXX/6666/1111 format
     if (!phrase) {
-      console.log('🔄 Third attempt failed. Retrying XXX/666/111 fallback...');
-      const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-      const randomThreeDigit = threeDigitOptions[Math.floor(Math.random() * threeDigitOptions.length)];
-
-      finalHebrew = randomThreeDigit;
-      finalEnglish = '666';
-      finalSimple = '111';
-
-      phrase = await generatePhrase(
-        parseInt(finalHebrew),
-        parseInt(finalEnglish),
-        parseInt(finalSimple),
-        1000000,
-        10000 // 10 second timeout for retry
-      );
-    }
-
-    // If STILL no match, try XXXX/6666/1111 fallback again
-    if (!phrase) {
-      console.log('🔄 Fourth attempt failed. Retrying XXXX/6666/1111 fallback...');
-      const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
-      const randomFourDigit = fourDigitOptions[Math.floor(Math.random() * fourDigitOptions.length)];
-
-      finalHebrew = randomFourDigit;
-      finalEnglish = '6666';
-      finalSimple = '1111';
-
-      phrase = await generatePhrase(
-        parseInt(finalHebrew),
-        parseInt(finalEnglish),
-        parseInt(finalSimple),
-        1000000,
-        10000 // 10 second timeout for retry
-      );
+      console.log('🔄 Third attempt failed. Trying XXXX/6666/1111 fallback...');
+      const shuffledFour = [...fourDigitOptions].sort(() => Math.random() - 0.5);
+      for (const heb of shuffledFour) {
+        const key = comboKey(heb, '6666', '1111');
+        if (!triedCombos.has(key)) {
+          triedCombos.add(key);
+          finalHebrew = heb;
+          finalEnglish = '6666';
+          finalSimple = '1111';
+          phrase = await generatePhrase(parseInt(heb), 6666, 1111, 1000000, 8000);
+          if (phrase) break;
+        }
+      }
     }
 
     console.log('Generation complete. Result:', phrase);
@@ -1058,7 +1041,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111, XXXX/6666/1111, and XXXX/666/111, or random!
+                      Try repdigit combinations like XXX/666/111, XXXX/666/111, XXXX/6666/1111, or random!
                     </div>
                   </span>
                 </h3>
@@ -1093,7 +1076,7 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Simple Gematria
+                      English (Simplified) Gematria
                     </label>
                     <select
                       value={targetSimple}
@@ -1221,11 +1204,11 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* Simple Gematria */}
+                {/* English (Simplified) Gematria */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      Simple Gematria
+                      English (Simplified) Gematria
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.simple.total}
