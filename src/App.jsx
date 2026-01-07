@@ -5,12 +5,9 @@ const GematriaCalculator = () => {
   const [input, setInput] = useState('');
   const [results, setResults] = useState(null);
   const [targetHebrew, setTargetHebrew] = useState('111');
-  const [targetEnglish, setTargetEnglish] = useState('222');
-  const [targetSimple, setTargetSimple] = useState('333');
-  const [targetAiqBekar, setTargetAiqBekar] = useState('444');
-  const [hebrewEnabled, setHebrewEnabled] = useState(true);
-  const [englishEnabled, setEnglishEnabled] = useState(true);
-  const [simpleEnabled, setSimpleEnabled] = useState(true);
+  const [targetEnglish, setTargetEnglish] = useState('666');
+  const [targetSimple, setTargetSimple] = useState('111');
+  const [targetAiqBekar, setTargetAiqBekar] = useState('111');
   const [aiqBekarEnabled, setAiqBekarEnabled] = useState(true);
   const [generatingTargeted, setGeneratingTargeted] = useState(false);
   const [generatingRandom, setGeneratingRandom] = useState(false);
@@ -703,12 +700,13 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting phrase generation...');
-    const enabledFlags = { heb: hebrewEnabled, eng: englishEnabled, sim: simpleEnabled, aiq: aiqBekarEnabled };
+    // H, E, S always enabled; only Aik Bekar is optional
+    const enabledFlags = { heb: true, eng: true, sim: true, aiq: aiqBekarEnabled };
     const phrase = await generatePhrase(
       parseInt(targetHebrew),
       parseInt(targetEnglish),
       parseInt(targetSimple),
-      parseInt(targetAiqBekar),
+      aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
       enabledFlags
     );
 
@@ -758,10 +756,7 @@ const GematriaCalculator = () => {
     } else {
       console.log('No phrase found (timeout or max attempts reached)');
       setGeneratingTargeted(false); // Enable button immediately
-      const enabledTargets = [];
-      if (hebrewEnabled) enabledTargets.push(`Hebrew = ${targetHebrew}`);
-      if (englishEnabled) enabledTargets.push(`English = ${targetEnglish}`);
-      if (simpleEnabled) enabledTargets.push(`Simple = ${targetSimple}`);
+      const enabledTargets = [`Hebrew = ${targetHebrew}`, `English = ${targetEnglish}`, `Simple = ${targetSimple}`];
       if (aiqBekarEnabled) enabledTargets.push(`Aik Bekar⁹ = ${targetAiqBekar}`);
       setErrorModal({
         show: true,
@@ -793,16 +788,16 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting random repdigit phrase generation...');
-    const enabledFlags = { heb: hebrewEnabled, eng: englishEnabled, sim: simpleEnabled, aiq: aiqBekarEnabled };
-    const enabledCount = [hebrewEnabled, englishEnabled, simpleEnabled, aiqBekarEnabled].filter(Boolean).length;
+    // H, E, S always enabled; only Aik Bekar is optional
+    const enabledFlags = { heb: true, eng: true, sim: true, aiq: aiqBekarEnabled };
 
-    // Longer timeout when fewer systems are enabled (should be easier to find)
-    const firstTimeout = enabledCount <= 2 ? 8000 : enabledCount === 3 ? 5000 : 3000;
+    // Shorter timeout when Aik Bekar is disabled (only 3 systems to match)
+    const firstTimeout = aiqBekarEnabled ? 3000 : 5000;
 
     let phrase = await generatePhrase(
-      hebrewEnabled ? parseInt(randomHebrew) : 0,
-      englishEnabled ? parseInt(randomEnglish) : 0,
-      simpleEnabled ? parseInt(randomSimple) : 0,
+      parseInt(randomHebrew),
+      parseInt(randomEnglish),
+      parseInt(randomSimple),
       aiqBekarEnabled ? parseInt(randomAiqBekar) : 0,
       enabledFlags,
       1000000,
@@ -820,11 +815,8 @@ const GematriaCalculator = () => {
     const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
     const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Known H/E/S combos only work when all three are enabled
-    const useKnownCombos = hebrewEnabled && englishEnabled && simpleEnabled;
-
-    if (!phrase && useKnownCombos) {
-      // Known successful H/E/S combinations (only use when all 3 are enabled)
+    if (!phrase) {
+      // Known successful H/E/S combinations
       const knownCombos3Digit = [
         { heb: '111', eng: '666', sim: '111' },
         { heb: '222', eng: '666', sim: '111' },
@@ -840,19 +832,20 @@ const GematriaCalculator = () => {
       console.log('🔄 First attempt failed. Trying known H/E/S combos...');
       const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
       const shuffledAiq = [...threeDigit].sort(() => Math.random() - 0.5);
-      const aiqOptions = aiqBekarEnabled ? shuffledAiq.slice(0, 3) : ['111'];
+      const aiqOptions = aiqBekarEnabled ? shuffledAiq.slice(0, 3) : [null];
 
       outer1: for (const combo of shuffledCombos.slice(0, 3)) {
         for (const aiq of aiqOptions) {
           phrase = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+            aiq ? parseInt(aiq) : 0,
             enabledFlags, 1000000, 6000
           );
           if (phrase) {
             finalHebrew = combo.heb;
             finalEnglish = combo.eng;
             finalSimple = combo.sim;
-            finalAiqBekar = aiq;
+            if (aiq) finalAiqBekar = aiq;
             break outer1;
           }
         }
@@ -867,45 +860,23 @@ const GematriaCalculator = () => {
         ];
         console.log('🔄 Trying 4-digit combos...');
         const shuffled4 = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
-        const aiq4Options = aiqBekarEnabled ? [...fourDigit].sort(() => Math.random() - 0.5).slice(0, 3) : ['1111'];
+        const aiq4Options = aiqBekarEnabled ? [...fourDigit].sort(() => Math.random() - 0.5).slice(0, 3) : [null];
 
         outer2: for (const combo of shuffled4) {
           for (const aiq of aiq4Options) {
             phrase = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+              aiq ? parseInt(aiq) : 0,
               enabledFlags, 1000000, 6000
             );
             if (phrase) {
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
               finalSimple = combo.sim;
-              finalAiqBekar = aiq;
+              if (aiq) finalAiqBekar = aiq;
               break outer2;
             }
           }
-        }
-      }
-    } else if (!phrase) {
-      // When Simple is disabled or H/E not both enabled, try random combinations with longer timeout
-      console.log('🔄 Trying random combinations for enabled systems...');
-      for (let i = 0; i < 5 && !phrase; i++) {
-        const rH = hebrewEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
-        const rE = englishEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
-        const rS = simpleEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
-        const rA = aiqBekarEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
-
-        phrase = await generatePhrase(
-          hebrewEnabled ? parseInt(rH) : 0,
-          englishEnabled ? parseInt(rE) : 0,
-          simpleEnabled ? parseInt(rS) : 0,
-          aiqBekarEnabled ? parseInt(rA) : 0,
-          enabledFlags, 1000000, 10000
-        );
-        if (phrase) {
-          finalHebrew = rH;
-          finalEnglish = rE;
-          finalSimple = rS;
-          finalAiqBekar = rA;
         }
       }
     }
@@ -922,10 +893,10 @@ const GematriaCalculator = () => {
       console.log(`Found phrase: "${phrase}"`);
       console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aik Bekar⁹: ${aiqBekar.total}`);
 
-      // Update the dropdowns only for enabled systems (disabled systems may not have repdigit values)
-      if (hebrewEnabled) setTargetHebrew(hebrew.total.toString());
-      if (englishEnabled) setTargetEnglish(english.total.toString());
-      if (simpleEnabled) setTargetSimple(simple.total.toString());
+      // Update the dropdowns (H, E, S always; Aik Bekar only if enabled)
+      setTargetHebrew(hebrew.total.toString());
+      setTargetEnglish(english.total.toString());
+      setTargetSimple(simple.total.toString());
       if (aiqBekarEnabled) setTargetAiqBekar(aiqBekar.total.toString());
 
       setResults({
@@ -1148,25 +1119,13 @@ const GematriaCalculator = () => {
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700">
-                        Hebrew
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={hebrewEnabled}
-                          onChange={(e) => setHebrewEnabled(e.target.checked)}
-                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
-                        />
-                        <span className="text-xs text-gray-500">match</span>
-                      </label>
-                    </div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Hebrew
+                    </label>
                     <select
                       value={targetHebrew}
                       onChange={(e) => setTargetHebrew(e.target.value)}
-                      disabled={!hebrewEnabled}
-                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!hebrewEnabled ? 'opacity-50' : ''}`}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
@@ -1174,25 +1133,13 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700">
-                        English
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={englishEnabled}
-                          onChange={(e) => setEnglishEnabled(e.target.checked)}
-                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
-                        />
-                        <span className="text-xs text-gray-500">match</span>
-                      </label>
-                    </div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      English
+                    </label>
                     <select
                       value={targetEnglish}
                       onChange={(e) => setTargetEnglish(e.target.value)}
-                      disabled={!englishEnabled}
-                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!englishEnabled ? 'opacity-50' : ''}`}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
@@ -1200,25 +1147,13 @@ const GematriaCalculator = () => {
                     </select>
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700">
-                        English (Simple)
-                      </label>
-                      <label className="flex items-center gap-1 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={simpleEnabled}
-                          onChange={(e) => setSimpleEnabled(e.target.checked)}
-                          className="w-3 h-3 text-red-600 rounded focus:ring-red-500"
-                        />
-                        <span className="text-xs text-gray-500">match</span>
-                      </label>
-                    </div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      English (Simple)
+                    </label>
                     <select
                       value={targetSimple}
                       onChange={(e) => setTargetSimple(e.target.value)}
-                      disabled={!simpleEnabled}
-                      className={`w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900 ${!simpleEnabled ? 'opacity-50' : ''}`}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
                     >
                       {repdigits.map(num => (
                         <option key={num} value={num}>{num}</option>
