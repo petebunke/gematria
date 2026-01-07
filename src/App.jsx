@@ -7,6 +7,7 @@ const GematriaCalculator = () => {
   const [targetHebrew, setTargetHebrew] = useState('111');
   const [targetEnglish, setTargetEnglish] = useState('222');
   const [targetSimple, setTargetSimple] = useState('333');
+  const [targetAiqBekar, setTargetAiqBekar] = useState('444');
   const [generatingTargeted, setGeneratingTargeted] = useState(false);
   const [generatingRandom, setGeneratingRandom] = useState(false);
   const [wordList, setWordList] = useState([]);
@@ -44,6 +45,13 @@ const GematriaCalculator = () => {
     z: 26
   };
 
+  // English (Aiq Bekar) Gematria values
+  const aiqBekarValues = {
+    a: 1, b: 20, c: 13, d: 6, e: 25, f: 18, g: 11, h: 4, i: 23,
+    j: 16, k: 9, l: 2, m: 21, n: 14, o: 7, p: 26, q: 19, r: 12,
+    s: 5, t: 24, u: 17, v: 10, w: 3, x: 22, y: 15, z: 8
+  };
+
   const calculateGematria = (text, values) => {
     const breakdown = [];
     let total = 0;
@@ -71,12 +79,14 @@ const GematriaCalculator = () => {
     const hebrew = calculateGematria(input, hebrewValues);
     const english = calculateGematria(input, englishValues);
     const simple = calculateGematria(input, simpleValues);
+    const aiqBekar = calculateGematria(input, aiqBekarValues);
 
     setResults({
       input: input.trim(),
       hebrew,
       english,
-      simple
+      simple,
+      aiqBekar
     });
   };
 
@@ -92,12 +102,13 @@ const GematriaCalculator = () => {
     }
   };
 
-  const trackGeneratedPhrase = (phrase, hebrew, english, simple, source) => {
+  const trackGeneratedPhrase = (phrase, hebrew, english, simple, aiqBekar, source) => {
     const newEntry = {
       phrase,
       hebrew,
       english,
       simple,
+      aiqBekar,
       source, // 'targeted', 'random', or 'anagram'
       timestamp: new Date().toISOString()
     };
@@ -111,11 +122,12 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple)
+    // Sort by combination (Hebrew, English, Simple, Aiq Bekar)
     const sorted = [...generatedPhrases].sort((a, b) => {
       if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
       if (a.english !== b.english) return a.english - b.english;
-      return a.simple - b.simple;
+      if (a.simple !== b.simple) return a.simple - b.simple;
+      return (a.aiqBekar || 0) - (b.aiqBekar || 0);
     });
 
     // Create HTML content for PDF
@@ -196,6 +208,7 @@ const GematriaCalculator = () => {
         <th>Hebrew</th>
         <th>English</th>
         <th>Simple</th>
+        <th>Aiq Bekar</th>
         <th>Combination</th>
         <th>Source</th>
         <th>Timestamp</th>
@@ -208,7 +221,8 @@ const GematriaCalculator = () => {
           <td class="numbers">${p.hebrew}</td>
           <td class="numbers">${p.english}</td>
           <td class="numbers">${p.simple}</td>
-          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}</td>
+          <td class="numbers">${p.aiqBekar || '-'}</td>
+          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
           <td class="source">${p.source}</td>
           <td>${new Date(p.timestamp).toLocaleString()}</td>
         </tr>
@@ -429,11 +443,11 @@ const GematriaCalculator = () => {
     loadWords();
   }, []);
 
-  const generatePhrase = async (targetHeb, targetEng, targetSim, maxAttempts = 1000000, timeoutMs = 10000) => {
+  const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, maxAttempts = 1000000, timeoutMs = 10000) => {
     const startTime = Date.now();
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
-    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim}`);
+    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq}`);
     console.log(`📚 Pre-calculating ${words.length.toLocaleString()} words...`);
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds`);
 
@@ -442,7 +456,8 @@ const GematriaCalculator = () => {
       word,
       heb: calculateGematria(word, hebrewValues).total,
       eng: calculateGematria(word, englishValues).total,
-      sim: calculateGematria(word, simpleValues).total
+      sim: calculateGematria(word, simpleValues).total,
+      aiq: calculateGematria(word, aiqBekarValues).total
     }));
 
     // Build value-based indexes for smarter selection
@@ -481,7 +496,7 @@ const GematriaCalculator = () => {
     });
 
     // Dynamically adjust phrase length based on target values
-    const avgTarget = (targetHeb + targetEng + targetSim) / 3;
+    const avgTarget = (targetHeb + targetEng + targetSim + targetAiq) / 4;
     let minWords, maxWords;
     if (avgTarget < 500) {
       minWords = 2; maxWords = 5;
@@ -507,7 +522,7 @@ const GematriaCalculator = () => {
         const elapsed = Date.now() - startTime;
         if (elapsed > timeoutMs) {
           console.log(`⏱️ Timeout after ${(elapsed / 1000).toFixed(1)}s and ${attempt.toLocaleString()} attempts`);
-          console.log(`   Best match: "${closestMatch?.phrase}" (H:${closestMatch?.heb} E:${closestMatch?.eng} S:${closestMatch?.sim})`);
+          console.log(`   Best match: "${closestMatch?.phrase}" (H:${closestMatch?.heb} E:${closestMatch?.eng} S:${closestMatch?.sim} A:${closestMatch?.aiq})`);
           return null; // Return null to indicate timeout
         }
         // Yield to browser to allow UI interactions (links, hovers, etc.)
@@ -527,7 +542,7 @@ const GematriaCalculator = () => {
       const numWords = minWords + Math.floor(Math.random() * (range + 1));
 
       const selectedWords = [];
-      let totalHeb = 0, totalEng = 0, totalSim = 0;
+      let totalHeb = 0, totalEng = 0, totalSim = 0, totalAiq = 0;
 
       // Build phrase word by word
       for (let i = 0; i < numWords; i++) {
@@ -538,11 +553,12 @@ const GematriaCalculator = () => {
           const needHeb = targetHeb - totalHeb;
           const needEng = targetEng - totalEng;
           const needSim = targetSim - totalSim;
+          const needAiq = targetAiq - totalAiq;
 
           // Look for exact match in our indexes
           const candidates = byHebrew.get(needHeb) || [];
           const perfectMatch = candidates.find(w =>
-            w.eng === needEng && w.sim === needSim
+            w.eng === needEng && w.sim === needSim && w.aiq === needAiq
           );
 
           if (perfectMatch) {
@@ -576,6 +592,7 @@ const GematriaCalculator = () => {
           totalHeb += randomWord.heb;
           totalEng += randomWord.eng;
           totalSim += randomWord.sim;
+          totalAiq += randomWord.aiq;
         } else {
           // For non-last words, pick randomly but avoid exceeding targets
           let attempts = 0;
@@ -602,7 +619,8 @@ const GematriaCalculator = () => {
             // Soft constraint: prefer words that don't exceed any target
             if (totalHeb + candidate.heb < targetHeb &&
                 totalEng + candidate.eng < targetEng &&
-                totalSim + candidate.sim < targetSim) {
+                totalSim + candidate.sim < targetSim &&
+                totalAiq + candidate.aiq < targetAiq) {
               picked = candidate;
               break;
             }
@@ -621,13 +639,15 @@ const GematriaCalculator = () => {
           totalHeb += picked.heb;
           totalEng += picked.eng;
           totalSim += picked.sim;
+          totalAiq += picked.aiq;
         }
       }
 
       // Track closest match
       const distance = Math.abs(totalHeb - targetHeb) +
                        Math.abs(totalEng - targetEng) +
-                       Math.abs(totalSim - targetSim);
+                       Math.abs(totalSim - targetSim) +
+                       Math.abs(totalAiq - targetAiq);
 
       if (distance < closestDistance) {
         closestDistance = distance;
@@ -635,25 +655,26 @@ const GematriaCalculator = () => {
           phrase: selectedWords.join(' '),
           heb: totalHeb,
           eng: totalEng,
-          sim: totalSim
+          sim: totalSim,
+          aiq: totalAiq
         };
       }
 
       // Log progress
       if (attempt > 0 && attempt % 100000 === 0) {
-        console.log(`   ${attempt.toLocaleString()} attempts. Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim}, distance:${closestDistance})`);
+        console.log(`   ${attempt.toLocaleString()} attempts. Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim} A:${closestMatch.aiq}, distance:${closestDistance})`);
       }
     }
 
     console.log(`❌ No perfect match found after ${maxAttempts.toLocaleString()} attempts.`);
-    console.log(`   Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim})`);
+    console.log(`   Closest: "${closestMatch.phrase}" (H:${closestMatch.heb} E:${closestMatch.eng} S:${closestMatch.sim} A:${closestMatch.aiq})`);
     return null;
   };
 
   const handleGeneratePhrase = async () => {
     console.log('Generate button clicked');
     console.log(`Word list size: ${wordList.length}`);
-    console.log(`Targets - Hebrew: ${targetHebrew}, English: ${targetEnglish}, Simple: ${targetSimple}`);
+    console.log(`Targets - Hebrew: ${targetHebrew}, English: ${targetEnglish}, Simple: ${targetSimple}, Aiq Bekar: ${targetAiqBekar}`);
 
     if (wordList.length === 0) {
       alert('Word list is empty! Please wait for words to load or reload the page.');
@@ -669,7 +690,8 @@ const GematriaCalculator = () => {
     const phrase = await generatePhrase(
       parseInt(targetHebrew),
       parseInt(targetEnglish),
-      parseInt(targetSimple)
+      parseInt(targetSimple),
+      parseInt(targetAiqBekar)
     );
 
     console.log('Generation complete. Result:', phrase);
@@ -679,19 +701,21 @@ const GematriaCalculator = () => {
       const hebrew = calculateGematria(phrase, hebrewValues);
       const english = calculateGematria(phrase, englishValues);
       const simple = calculateGematria(phrase, simpleValues);
+      const aiqBekar = calculateGematria(phrase, aiqBekarValues);
 
       console.log(`Found phrase: "${phrase}"`);
-      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aiq Bekar: ${aiqBekar.total}`);
 
       setResults({
         input: phrase,
         hebrew,
         english,
-        simple
+        simple,
+        aiqBekar
       });
 
       // Track generated phrase
-      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, 'targeted');
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'targeted');
 
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
@@ -703,7 +727,8 @@ const GematriaCalculator = () => {
               phrase,
               hebrew: hebrew.total,
               english: english.total,
-              simple: simple.total
+              simple: simple.total,
+              aiqBekar: aiqBekar.total
             })
           }).catch(() => {}); // Silently fail if API unavailable
         } catch (error) {
@@ -717,7 +742,7 @@ const GematriaCalculator = () => {
       setGeneratingTargeted(false); // Enable button immediately
       setErrorModal({
         show: true,
-        message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple} after 1 million attempts. Please try a different combination!`
+        message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple}, Aiq Bekar = ${targetAiqBekar} after 1 million attempts. Please try a different combination!`
       });
     }
   };
@@ -735,8 +760,9 @@ const GematriaCalculator = () => {
     const randomHebrew = repdigits[Math.floor(Math.random() * repdigits.length)];
     const randomEnglish = repdigits[Math.floor(Math.random() * repdigits.length)];
     const randomSimple = repdigits[Math.floor(Math.random() * repdigits.length)];
+    const randomAiqBekar = repdigits[Math.floor(Math.random() * repdigits.length)];
 
-    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
+    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}, Aiq Bekar: ${randomAiqBekar}`);
 
     setGeneratingRandom(true);
 
@@ -748,6 +774,7 @@ const GematriaCalculator = () => {
       parseInt(randomHebrew),
       parseInt(randomEnglish),
       parseInt(randomSimple),
+      parseInt(randomAiqBekar),
       1000000,
       3000 // 3 second timeout for random generation (quick attempt)
     );
@@ -755,63 +782,76 @@ const GematriaCalculator = () => {
     let finalHebrew = randomHebrew;
     let finalEnglish = randomEnglish;
     let finalSimple = randomSimple;
+    let finalAiqBekar = randomAiqBekar;
     let usedFirstAttempt = !!phrase; // Track if first attempt succeeded
 
     // Track tried combinations to avoid repeats
     const triedCombos = new Set();
-    const comboKey = (h, e, s) => `${h}/${e}/${s}`;
-    triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple));
+    const comboKey = (h, e, s, a) => `${h}/${e}/${s}/${a}`;
+    triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple, randomAiqBekar));
 
     const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
     const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Fallback 1: XXX/666/111 format
+    // Fallback 1: XXX/666/111/XXX format
     if (!phrase) {
-      console.log('🔄 First attempt failed. Trying XXX/666/111 fallback...');
-      const shuffledThree = [...threeDigitOptions].sort(() => Math.random() - 0.5);
-      for (const heb of shuffledThree) {
-        const key = comboKey(heb, '666', '111');
-        if (!triedCombos.has(key)) {
-          triedCombos.add(key);
-          finalHebrew = heb;
-          finalEnglish = '666';
-          finalSimple = '111';
-          phrase = await generatePhrase(parseInt(heb), 666, 111, 1000000, 8000);
-          if (phrase) break;
+      console.log('🔄 First attempt failed. Trying XXX/666/111/XXX fallback...');
+      const shuffledThreeHeb = [...threeDigitOptions].sort(() => Math.random() - 0.5);
+      const shuffledThreeAiq = [...threeDigitOptions].sort(() => Math.random() - 0.5);
+      outer1: for (const heb of shuffledThreeHeb) {
+        for (const aiq of shuffledThreeAiq) {
+          const key = comboKey(heb, '666', '111', aiq);
+          if (!triedCombos.has(key)) {
+            triedCombos.add(key);
+            finalHebrew = heb;
+            finalEnglish = '666';
+            finalSimple = '111';
+            finalAiqBekar = aiq;
+            phrase = await generatePhrase(parseInt(heb), 666, 111, parseInt(aiq), 1000000, 8000);
+            if (phrase) break outer1;
+          }
         }
       }
     }
 
-    // Fallback 2: XXXX/666/111 format
+    // Fallback 2: XXXX/666/111/XXX format
     if (!phrase) {
-      console.log('🔄 Second attempt failed. Trying XXXX/666/111 fallback...');
-      const shuffledFour = [...fourDigitOptions].sort(() => Math.random() - 0.5);
-      for (const heb of shuffledFour) {
-        const key = comboKey(heb, '666', '111');
-        if (!triedCombos.has(key)) {
-          triedCombos.add(key);
-          finalHebrew = heb;
-          finalEnglish = '666';
-          finalSimple = '111';
-          phrase = await generatePhrase(parseInt(heb), 666, 111, 1000000, 8000);
-          if (phrase) break;
+      console.log('🔄 Second attempt failed. Trying XXXX/666/111/XXX fallback...');
+      const shuffledFourHeb = [...fourDigitOptions].sort(() => Math.random() - 0.5);
+      const shuffledThreeAiq = [...threeDigitOptions].sort(() => Math.random() - 0.5);
+      outer2: for (const heb of shuffledFourHeb) {
+        for (const aiq of shuffledThreeAiq) {
+          const key = comboKey(heb, '666', '111', aiq);
+          if (!triedCombos.has(key)) {
+            triedCombos.add(key);
+            finalHebrew = heb;
+            finalEnglish = '666';
+            finalSimple = '111';
+            finalAiqBekar = aiq;
+            phrase = await generatePhrase(parseInt(heb), 666, 111, parseInt(aiq), 1000000, 8000);
+            if (phrase) break outer2;
+          }
         }
       }
     }
 
-    // Fallback 3: XXXX/6666/1111 format
+    // Fallback 3: XXXX/6666/1111/XXXX format
     if (!phrase) {
-      console.log('🔄 Third attempt failed. Trying XXXX/6666/1111 fallback...');
-      const shuffledFour = [...fourDigitOptions].sort(() => Math.random() - 0.5);
-      for (const heb of shuffledFour) {
-        const key = comboKey(heb, '6666', '1111');
-        if (!triedCombos.has(key)) {
-          triedCombos.add(key);
-          finalHebrew = heb;
-          finalEnglish = '6666';
-          finalSimple = '1111';
-          phrase = await generatePhrase(parseInt(heb), 6666, 1111, 1000000, 8000);
-          if (phrase) break;
+      console.log('🔄 Third attempt failed. Trying XXXX/6666/1111/XXXX fallback...');
+      const shuffledFourHeb = [...fourDigitOptions].sort(() => Math.random() - 0.5);
+      const shuffledFourAiq = [...fourDigitOptions].sort(() => Math.random() - 0.5);
+      outer3: for (const heb of shuffledFourHeb) {
+        for (const aiq of shuffledFourAiq) {
+          const key = comboKey(heb, '6666', '1111', aiq);
+          if (!triedCombos.has(key)) {
+            triedCombos.add(key);
+            finalHebrew = heb;
+            finalEnglish = '6666';
+            finalSimple = '1111';
+            finalAiqBekar = aiq;
+            phrase = await generatePhrase(parseInt(heb), 6666, 1111, parseInt(aiq), 1000000, 8000);
+            if (phrase) break outer3;
+          }
         }
       }
     }
@@ -823,24 +863,27 @@ const GematriaCalculator = () => {
       const hebrew = calculateGematria(phrase, hebrewValues);
       const english = calculateGematria(phrase, englishValues);
       const simple = calculateGematria(phrase, simpleValues);
+      const aiqBekar = calculateGematria(phrase, aiqBekarValues);
 
       console.log(`Found phrase: "${phrase}"`);
-      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aiq Bekar: ${aiqBekar.total}`);
 
       // Update the dropdowns to match the generated phrase's actual values
       setTargetHebrew(hebrew.total.toString());
       setTargetEnglish(english.total.toString());
       setTargetSimple(simple.total.toString());
+      setTargetAiqBekar(aiqBekar.total.toString());
 
       setResults({
         input: phrase,
         hebrew,
         english,
-        simple
+        simple,
+        aiqBekar
       });
 
       // Track generated phrase
-      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, 'random');
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'random');
 
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
@@ -852,7 +895,8 @@ const GematriaCalculator = () => {
               phrase,
               hebrew: hebrew.total,
               english: english.total,
-              simple: simple.total
+              simple: simple.total,
+              aiqBekar: aiqBekar.total
             })
           }).catch(() => {}); // Silently fail if API unavailable
         } catch (error) {
@@ -861,7 +905,7 @@ const GematriaCalculator = () => {
       }
 
       // Check if this was a non-fallback success (first attempt worked)
-      // Fallback patterns: XXX/666/111, XXXX/666/111, XXXX/6666/1111
+      // Fallback patterns: XXX/666/111/XXX, XXXX/666/111/XXX, XXXX/6666/1111/XXXX
       const isFallbackPattern =
         (english.total === 666 && simple.total === 111) ||
         (english.total === 6666 && simple.total === 1111);
@@ -877,6 +921,7 @@ const GematriaCalculator = () => {
               hebrew: hebrew.total,
               english: english.total,
               simple: simple.total,
+              aiqBekar: aiqBekar.total,
               isRareRandomHit: true
             })
           }).catch(() => {});
@@ -992,16 +1037,18 @@ const GematriaCalculator = () => {
       const hebrew = calculateGematria(bestAnagram, hebrewValues);
       const english = calculateGematria(bestAnagram, englishValues);
       const simple = calculateGematria(bestAnagram, simpleValues);
+      const aiqBekar = calculateGematria(bestAnagram, aiqBekarValues);
 
       setResults({
         input: bestAnagram,
         hebrew,
         english,
-        simple
+        simple,
+        aiqBekar
       });
 
       // Track generated phrase
-      trackGeneratedPhrase(bestAnagram, hebrew.total, english.total, simple.total, 'anagram');
+      trackGeneratedPhrase(bestAnagram, hebrew.total, english.total, simple.total, aiqBekar.total, 'anagram');
     } else {
       alert('Could not find any valid word combinations for this phrase. Try a different phrase with more common letters.');
     }
@@ -1040,12 +1087,12 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111, XXXX/666/111, XXXX/6666/1111, or random!
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                      Try repdigit combinations like XXX/666/111/XXX, XXXX/666/111/XXX, XXXX/6666/1111/XXXX, or random!
                     </div>
                   </span>
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                       Hebrew Gematria
@@ -1076,11 +1123,25 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English (Simplified) Gematria
+                      English (Simplified)
                     </label>
                     <select
                       value={targetSimple}
                       onChange={(e) => setTargetSimple(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                    >
+                      {repdigits.map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      English (Aiq Bekar)
+                    </label>
+                    <select
+                      value={targetAiqBekar}
+                      onChange={(e) => setTargetAiqBekar(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
                     >
                       {repdigits.map(num => (
@@ -1218,6 +1279,23 @@ const GematriaCalculator = () => {
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
+
+                {/* English (Aiq Bekar) Gematria */}
+                {results.aiqBekar && (
+                  <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h3 className="text-lg md:text-xl font-bold text-white">
+                        English (Aiq Bekar) Gematria
+                      </h3>
+                      <span className="text-2xl md:text-3xl font-bold text-red-500">
+                        {results.aiqBekar.total}
+                      </span>
+                    </div>
+                    <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                      {results.input} = {formatBreakdown(results.aiqBekar.breakdown)} = {results.aiqBekar.total}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
