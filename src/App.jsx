@@ -700,15 +700,46 @@ const GematriaCalculator = () => {
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting phrase generation...');
-    // H, E, S always enabled; only Aik Bekar is optional
-    const enabledFlags = { heb: true, eng: true, sim: true, aiq: aiqBekarEnabled };
-    const phrase = await generatePhrase(
-      parseInt(targetHebrew),
-      parseInt(targetEnglish),
-      parseInt(targetSimple),
-      aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
-      enabledFlags
-    );
+
+    let phrase = null;
+
+    if (aiqBekarEnabled) {
+      // First try quick 4-way search (all systems including Aik Bekar)
+      console.log('Trying 4-way search with Aik Bekar...');
+      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+      phrase = await generatePhrase(
+        parseInt(targetHebrew),
+        parseInt(targetEnglish),
+        parseInt(targetSimple),
+        parseInt(targetAiqBekar),
+        enabledFlags4,
+        500000,  // fewer attempts for 4-way
+        3000     // shorter timeout
+      );
+
+      // If 4-way fails, fall back to 3-way search (H/E/S only)
+      if (!phrase) {
+        console.log('4-way search failed, falling back to 3-way (H/E/S only)...');
+        const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+        phrase = await generatePhrase(
+          parseInt(targetHebrew),
+          parseInt(targetEnglish),
+          parseInt(targetSimple),
+          0,
+          enabledFlags3
+        );
+      }
+    } else {
+      // Aik Bekar disabled - just do 3-way search
+      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+      phrase = await generatePhrase(
+        parseInt(targetHebrew),
+        parseInt(targetEnglish),
+        parseInt(targetSimple),
+        0,
+        enabledFlags3
+      );
+    }
 
     console.log('Generation complete. Result:', phrase);
 
@@ -756,11 +787,9 @@ const GematriaCalculator = () => {
     } else {
       console.log('No phrase found (timeout or max attempts reached)');
       setGeneratingTargeted(false); // Enable button immediately
-      const enabledTargets = [`Hebrew = ${targetHebrew}`, `English = ${targetEnglish}`, `Simple = ${targetSimple}`];
-      if (aiqBekarEnabled) enabledTargets.push(`Aik Bekar⁹ = ${targetAiqBekar}`);
       setErrorModal({
         show: true,
-        message: `Couldn't find a phrase matching ${enabledTargets.join(', ')} after 1 million attempts. Please try a different combination!`
+        message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple}. Please try a different combination!`
       });
     }
   };
@@ -774,46 +803,39 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Randomly select repdigits for each system
-    const randomHebrew = repdigits[Math.floor(Math.random() * repdigits.length)];
-    const randomEnglish = repdigits[Math.floor(Math.random() * repdigits.length)];
-    const randomSimple = repdigits[Math.floor(Math.random() * repdigits.length)];
-    const randomAiqBekar = repdigits[Math.floor(Math.random() * repdigits.length)];
-
-    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}, Aik Bekar⁹: ${randomAiqBekar}`);
-
     setGeneratingRandom(true);
 
     // Small delay to let UI update
     await new Promise(resolve => setTimeout(resolve, 100));
 
     console.log('Starting random repdigit phrase generation...');
-    // H, E, S always enabled; only Aik Bekar is optional
-    const enabledFlags = { heb: true, eng: true, sim: true, aiq: aiqBekarEnabled };
 
-    // Shorter timeout when Aik Bekar is disabled (only 3 systems to match)
-    const firstTimeout = aiqBekarEnabled ? 3000 : 5000;
+    // Always search with H/E/S only (3-way) - this is reliable
+    const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+
+    const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+    const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+
+    // Randomly select repdigits for H/E/S
+    const randomHebrew = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+    const randomEnglish = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+    const randomSimple = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+
+    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
 
     let phrase = await generatePhrase(
       parseInt(randomHebrew),
       parseInt(randomEnglish),
       parseInt(randomSimple),
-      aiqBekarEnabled ? parseInt(randomAiqBekar) : 0,
-      enabledFlags,
+      0,
+      enabledFlags3,
       1000000,
-      firstTimeout
+      5000
     );
-
-    // Track if the first attempt succeeded (before any fallbacks)
-    const usedFirstAttempt = phrase !== null;
 
     let finalHebrew = randomHebrew;
     let finalEnglish = randomEnglish;
     let finalSimple = randomSimple;
-    let finalAiqBekar = randomAiqBekar;
-
-    const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-    const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
     if (!phrase) {
       // Known successful H/E/S combinations
@@ -831,23 +853,18 @@ const GematriaCalculator = () => {
 
       console.log('🔄 First attempt failed. Trying known H/E/S combos...');
       const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
-      const shuffledAiq = [...threeDigit].sort(() => Math.random() - 0.5);
-      const aiqOptions = aiqBekarEnabled ? shuffledAiq.slice(0, 3) : [null];
 
-      outer1: for (const combo of shuffledCombos.slice(0, 3)) {
-        for (const aiq of aiqOptions) {
-          phrase = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-            aiq ? parseInt(aiq) : 0,
-            enabledFlags, 1000000, 6000
-          );
-          if (phrase) {
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
-            if (aiq) finalAiqBekar = aiq;
-            break outer1;
-          }
+      for (const combo of shuffledCombos.slice(0, 3)) {
+        phrase = await generatePhrase(
+          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+          0,
+          enabledFlags3, 1000000, 6000
+        );
+        if (phrase) {
+          finalHebrew = combo.heb;
+          finalEnglish = combo.eng;
+          finalSimple = combo.sim;
+          break;
         }
       }
 
@@ -860,22 +877,18 @@ const GematriaCalculator = () => {
         ];
         console.log('🔄 Trying 4-digit combos...');
         const shuffled4 = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
-        const aiq4Options = aiqBekarEnabled ? [...fourDigit].sort(() => Math.random() - 0.5).slice(0, 3) : [null];
 
-        outer2: for (const combo of shuffled4) {
-          for (const aiq of aiq4Options) {
-            phrase = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-              aiq ? parseInt(aiq) : 0,
-              enabledFlags, 1000000, 6000
-            );
-            if (phrase) {
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              if (aiq) finalAiqBekar = aiq;
-              break outer2;
-            }
+        for (const combo of shuffled4) {
+          phrase = await generatePhrase(
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+            0,
+            enabledFlags3, 1000000, 6000
+          );
+          if (phrase) {
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
           }
         }
       }
@@ -893,11 +906,10 @@ const GematriaCalculator = () => {
       console.log(`Found phrase: "${phrase}"`);
       console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aik Bekar⁹: ${aiqBekar.total}`);
 
-      // Update the dropdowns (H, E, S always; Aik Bekar only if enabled)
+      // Update the dropdowns (H, E, S always update to actual values)
       setTargetHebrew(hebrew.total.toString());
       setTargetEnglish(english.total.toString());
       setTargetSimple(simple.total.toString());
-      if (aiqBekarEnabled) setTargetAiqBekar(aiqBekar.total.toString());
 
       setResults({
         input: phrase,
@@ -924,32 +936,6 @@ const GematriaCalculator = () => {
               aiqBekar: aiqBekar.total
             })
           }).catch(() => {}); // Silently fail if API unavailable
-        } catch (error) {
-          // Silently ignore errors
-        }
-      }
-
-      // Check if this was a non-fallback success (first attempt worked)
-      // Fallback patterns: XXX/666/111/XXX, XXXX/666/111/XXX, XXXX/6666/1111/XXXX
-      const isFallbackPattern =
-        (english.total === 666 && simple.total === 111) ||
-        (english.total === 6666 && simple.total === 1111);
-
-      if (usedFirstAttempt && !isFallbackPattern) {
-        // This is a rare non-fallback random hit! Send notification
-        try {
-          fetch('/api/notify', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phrase,
-              hebrew: hebrew.total,
-              english: english.total,
-              simple: simple.total,
-              aiqBekar: aiqBekar.total,
-              isRareRandomHit: true
-            })
-          }).catch(() => {});
         } catch (error) {
           // Silently ignore errors
         }
