@@ -49,7 +49,7 @@ const GematriaCalculator = () => {
     z: 26
   };
 
-  // English (Aiq Bekar) Gematria values
+  // English (Aik Bekar⁹) Gematria values
   const aiqBekarValues = {
     a: 1, b: 20, c: 13, d: 6, e: 25, f: 18, g: 11, h: 4, i: 23,
     j: 16, k: 9, l: 2, m: 21, n: 14, o: 7, p: 26, q: 19, r: 12,
@@ -126,7 +126,7 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple, Aiq Bekar)
+    // Sort by combination (Hebrew, English, Simple, Aik Bekar⁹)
     const sorted = [...generatedPhrases].sort((a, b) => {
       if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
       if (a.english !== b.english) return a.english - b.english;
@@ -212,7 +212,7 @@ const GematriaCalculator = () => {
         <th>Hebrew</th>
         <th>English</th>
         <th>Simple</th>
-        <th>Aiq Bekar</th>
+        <th>Aik Bekar⁹</th>
         <th>Combination</th>
         <th>Source</th>
         <th>Timestamp</th>
@@ -690,7 +690,7 @@ const GematriaCalculator = () => {
   const handleGeneratePhrase = async () => {
     console.log('Generate button clicked');
     console.log(`Word list size: ${wordList.length}`);
-    console.log(`Targets - Hebrew: ${targetHebrew}, English: ${targetEnglish}, Simple: ${targetSimple}, Aiq Bekar: ${targetAiqBekar}`);
+    console.log(`Targets - Hebrew: ${targetHebrew}, English: ${targetEnglish}, Simple: ${targetSimple}, Aik Bekar⁹: ${targetAiqBekar}`);
 
     if (wordList.length === 0) {
       alert('Word list is empty! Please wait for words to load or reload the page.');
@@ -722,7 +722,7 @@ const GematriaCalculator = () => {
       const aiqBekar = calculateGematria(phrase, aiqBekarValues);
 
       console.log(`Found phrase: "${phrase}"`);
-      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aiq Bekar: ${aiqBekar.total}`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aik Bekar⁹: ${aiqBekar.total}`);
 
       setResults({
         input: phrase,
@@ -762,7 +762,7 @@ const GematriaCalculator = () => {
       if (hebrewEnabled) enabledTargets.push(`Hebrew = ${targetHebrew}`);
       if (englishEnabled) enabledTargets.push(`English = ${targetEnglish}`);
       if (simpleEnabled) enabledTargets.push(`Simple = ${targetSimple}`);
-      if (aiqBekarEnabled) enabledTargets.push(`Aiq Bekar = ${targetAiqBekar}`);
+      if (aiqBekarEnabled) enabledTargets.push(`Aik Bekar⁹ = ${targetAiqBekar}`);
       setErrorModal({
         show: true,
         message: `Couldn't find a phrase matching ${enabledTargets.join(', ')} after 1 million attempts. Please try a different combination!`
@@ -785,7 +785,7 @@ const GematriaCalculator = () => {
     const randomSimple = repdigits[Math.floor(Math.random() * repdigits.length)];
     const randomAiqBekar = repdigits[Math.floor(Math.random() * repdigits.length)];
 
-    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}, Aiq Bekar: ${randomAiqBekar}`);
+    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}, Aik Bekar⁹: ${randomAiqBekar}`);
 
     setGeneratingRandom(true);
 
@@ -920,7 +920,7 @@ const GematriaCalculator = () => {
       const aiqBekar = calculateGematria(phrase, aiqBekarValues);
 
       console.log(`Found phrase: "${phrase}"`);
-      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aiq Bekar: ${aiqBekar.total}`);
+      console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aik Bekar⁹: ${aiqBekar.total}`);
 
       // Update the dropdowns only for enabled systems (disabled systems may not have repdigit values)
       if (hebrewEnabled) setTargetHebrew(hebrew.total.toString());
@@ -1228,7 +1228,7 @@ const GematriaCalculator = () => {
                   <div>
                     <div className="flex items-center justify-between mb-1">
                       <label className="text-xs font-semibold text-gray-700">
-                        English (Aiq Bekar)
+                        English (Aik Bekar⁹)
                       </label>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
@@ -1382,12 +1382,12 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Aiq Bekar) */}
+                {/* English (Aik Bekar⁹) */}
                 {results.aiqBekar && (
                   <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h3 className="text-lg md:text-xl font-bold text-white">
-                        English (Aiq Bekar)
+                        English (Aik Bekar⁹)
                       </h3>
                       <span className="text-2xl md:text-3xl font-bold text-red-500">
                         {results.aiqBekar.total}
