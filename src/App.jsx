@@ -790,67 +790,78 @@ const GematriaCalculator = () => {
     const comboKey = (h, e, s, a) => `${h}/${e}/${s}/${a}`;
     triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple, randomAiqBekar));
 
-    const threeDigitOptions = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-    const fourDigitOptions = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+    const threeDigitAiq = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+    const fourDigitAiq = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Fallback 1: XXX/666/111/XXX format
+    // Known successful H/E/S combinations - only vary Aiq Bekar
+    const knownCombos3Digit = [
+      { heb: '111', eng: '666', sim: '111' },
+      { heb: '222', eng: '666', sim: '111' },
+      { heb: '333', eng: '666', sim: '111' },
+      { heb: '444', eng: '666', sim: '111' },
+      { heb: '555', eng: '666', sim: '111' },
+      { heb: '777', eng: '666', sim: '111' },
+      { heb: '888', eng: '666', sim: '111' },
+      { heb: '999', eng: '666', sim: '111' },
+      { heb: '1111', eng: '666', sim: '111' },
+    ];
+
+    const knownCombos4Digit = [
+      { heb: '2222', eng: '6666', sim: '1111' },
+      { heb: '3333', eng: '6666', sim: '1111' },
+      { heb: '4444', eng: '6666', sim: '1111' },
+      { heb: '5555', eng: '6666', sim: '1111' },
+      { heb: '6666', eng: '6666', sim: '1111' },
+      { heb: '7777', eng: '6666', sim: '1111' },
+      { heb: '8888', eng: '6666', sim: '1111' },
+      { heb: '9999', eng: '6666', sim: '1111' },
+    ];
+
+    // Fallback 1: XXX/666/111/XXX format - use known successful H/E/S combos
     if (!phrase) {
-      console.log('🔄 First attempt failed. Trying XXX/666/111/XXX fallback...');
-      const shuffledThreeHeb = [...threeDigitOptions].sort(() => Math.random() - 0.5);
-      const shuffledThreeAiq = [...threeDigitOptions].sort(() => Math.random() - 0.5);
-      outer1: for (const heb of shuffledThreeHeb) {
-        for (const aiq of shuffledThreeAiq) {
-          const key = comboKey(heb, '666', '111', aiq);
+      console.log('🔄 First attempt failed. Trying known XXX/666/111 combos with any Aiq Bekar...');
+      const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
+      const shuffledAiq = [...threeDigitAiq].sort(() => Math.random() - 0.5);
+
+      outer1: for (const combo of shuffledCombos) {
+        for (const aiq of shuffledAiq) {
+          const key = comboKey(combo.heb, combo.eng, combo.sim, aiq);
           if (!triedCombos.has(key)) {
             triedCombos.add(key);
-            finalHebrew = heb;
-            finalEnglish = '666';
-            finalSimple = '111';
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
             finalAiqBekar = aiq;
-            phrase = await generatePhrase(parseInt(heb), 666, 111, parseInt(aiq), 1000000, 8000);
+            phrase = await generatePhrase(
+              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+              1000000, 6000
+            );
             if (phrase) break outer1;
           }
         }
       }
     }
 
-    // Fallback 2: XXXX/666/111/XXX format
+    // Fallback 2: XXXX/6666/1111/XXXX format - use known successful H/E/S combos
     if (!phrase) {
-      console.log('🔄 Second attempt failed. Trying XXXX/666/111/XXX fallback...');
-      const shuffledFourHeb = [...fourDigitOptions].sort(() => Math.random() - 0.5);
-      const shuffledThreeAiq = [...threeDigitOptions].sort(() => Math.random() - 0.5);
-      outer2: for (const heb of shuffledFourHeb) {
-        for (const aiq of shuffledThreeAiq) {
-          const key = comboKey(heb, '666', '111', aiq);
-          if (!triedCombos.has(key)) {
-            triedCombos.add(key);
-            finalHebrew = heb;
-            finalEnglish = '666';
-            finalSimple = '111';
-            finalAiqBekar = aiq;
-            phrase = await generatePhrase(parseInt(heb), 666, 111, parseInt(aiq), 1000000, 8000);
-            if (phrase) break outer2;
-          }
-        }
-      }
-    }
+      console.log('🔄 Second attempt failed. Trying known XXXX/6666/1111 combos with any Aiq Bekar...');
+      const shuffledCombos = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
+      const shuffledAiq = [...fourDigitAiq].sort(() => Math.random() - 0.5);
 
-    // Fallback 3: XXXX/6666/1111/XXXX format
-    if (!phrase) {
-      console.log('🔄 Third attempt failed. Trying XXXX/6666/1111/XXXX fallback...');
-      const shuffledFourHeb = [...fourDigitOptions].sort(() => Math.random() - 0.5);
-      const shuffledFourAiq = [...fourDigitOptions].sort(() => Math.random() - 0.5);
-      outer3: for (const heb of shuffledFourHeb) {
-        for (const aiq of shuffledFourAiq) {
-          const key = comboKey(heb, '6666', '1111', aiq);
+      outer2: for (const combo of shuffledCombos) {
+        for (const aiq of shuffledAiq) {
+          const key = comboKey(combo.heb, combo.eng, combo.sim, aiq);
           if (!triedCombos.has(key)) {
             triedCombos.add(key);
-            finalHebrew = heb;
-            finalEnglish = '6666';
-            finalSimple = '1111';
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
             finalAiqBekar = aiq;
-            phrase = await generatePhrase(parseInt(heb), 6666, 1111, parseInt(aiq), 1000000, 8000);
-            if (phrase) break outer3;
+            phrase = await generatePhrase(
+              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+              1000000, 6000
+            );
+            if (phrase) break outer2;
           }
         }
       }
@@ -1088,7 +1099,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try repdigit combinations like XXX/666/111/XXX, XXXX/666/111/XXX, XXXX/6666/1111/XXXX, or random!
+                      Known combos: XXX/666/111/XXX, 1111/666/111/XXX, XXXX/6666/1111/XXXX, or random!
                     </div>
                   </span>
                 </h3>
