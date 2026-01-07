@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Copy, Check, Download } from 'lucide-react';
+import { Calculator, Copy, Check, Download, Loader2 } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -105,7 +105,7 @@ const GematriaCalculator = () => {
     }
   };
 
-  const trackGeneratedPhrase = (phrase, hebrew, english, simple, aiqBekar, source) => {
+  const trackGeneratedPhrase = (phrase, hebrew, english, simple, aiqBekar, source, generationTimeMs = null) => {
     const newEntry = {
       phrase,
       hebrew,
@@ -113,7 +113,8 @@ const GematriaCalculator = () => {
       simple,
       aiqBekar,
       source, // 'targeted', 'random', or 'anagram'
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      generationTime: generationTimeMs // Time in milliseconds
     };
 
     setGeneratedPhrases(prev => [...prev, newEntry]);
@@ -214,6 +215,7 @@ const GematriaCalculator = () => {
         <th>Aik Bekar⁹</th>
         <th>Combination</th>
         <th>Source</th>
+        <th>Gen Time</th>
         <th>Timestamp</th>
       </tr>
     </thead>
@@ -227,6 +229,7 @@ const GematriaCalculator = () => {
           <td class="numbers">${p.aiqBekar || '-'}</td>
           <td class="numbers">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
           <td class="source">${p.source}</td>
+          <td class="numbers">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
           <td>${new Date(p.timestamp).toLocaleString()}</td>
         </tr>
       `).join('')}
@@ -697,6 +700,7 @@ const GematriaCalculator = () => {
     }
 
     setGeneratingTargeted(true);
+    const generationStartTime = Date.now();
 
     // Small delay to let UI update
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -778,8 +782,9 @@ const GematriaCalculator = () => {
         aiqBekar
       });
 
-      // Track generated phrase
-      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'targeted');
+      // Track generated phrase with generation time
+      const generationTimeMs = Date.now() - generationStartTime;
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'targeted', generationTimeMs);
 
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
@@ -821,6 +826,7 @@ const GematriaCalculator = () => {
     }
 
     setGeneratingRandom(true);
+    const generationStartTime = Date.now();
 
     // Small delay to let UI update
     await new Promise(resolve => setTimeout(resolve, 100));
@@ -961,8 +967,9 @@ const GematriaCalculator = () => {
         aiqBekar
       });
 
-      // Track generated phrase
-      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'random');
+      // Track generated phrase with generation time
+      const generationTimeMs = Date.now() - generationStartTime;
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'random', generationTimeMs);
 
       // Silent notification for 666/666/111 matches
       if (hebrew.total === 666 && english.total === 666 && simple.total === 111) {
@@ -989,7 +996,7 @@ const GematriaCalculator = () => {
       setGeneratingRandom(false); // Enable button immediately
       setErrorModal({
         show: true,
-        message: `Couldn't find a phrase matching any random repdigit combination after multiple attempts. Please try again!`
+        message: `Couldn't find a phrase matching any random repdigit combination. Please try again!`
       });
     }
   };
@@ -1219,16 +1226,16 @@ const GematriaCalculator = () => {
                   <button
                     onClick={handleGeneratePhrase}
                     disabled={generatingTargeted || loadingWords}
-                    className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                    className="w-full bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
-                    {loadingWords ? 'Loading Word List...' : generatingTargeted ? 'Generating...' : 'Generate Phrase'}
+                    {loadingWords ? 'Loading Word List...' : generatingTargeted ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" /></>) : 'Generate Phrase'}
                   </button>
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
-                    className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg"
+                    className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
-                    {loadingWords ? 'Loading Word List...' : generatingRandom ? 'Generating...' : 'Generate Random Phrase'}
+                    {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" /></>) : 'Generate Random Phrase'}
                   </button>
                 </div>
               </div>
