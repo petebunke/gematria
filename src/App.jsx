@@ -810,10 +810,10 @@ const GematriaCalculator = () => {
     const comboKey = (h, e, s, a) => `${h}/${e}/${s}/${a}`;
     triedCombos.add(comboKey(randomHebrew, randomEnglish, randomSimple, randomAiqBekar));
 
-    const threeDigitAiq = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-    const fourDigitAiq = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+    const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+    const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Known successful H/E/S combinations - only vary Aiq Bekar
+    // Known successful H/E/S combinations (only used if those systems are enabled)
     const knownCombos3Digit = [
       { heb: '111', eng: '666', sim: '111' },
       { heb: '222', eng: '666', sim: '111' },
@@ -837,51 +837,56 @@ const GematriaCalculator = () => {
       { heb: '9999', eng: '6666', sim: '1111' },
     ];
 
-    // Fallback 1: XXX/666/111/XXX format - use known successful H/E/S combos
-    if (!phrase) {
-      console.log('🔄 First attempt failed. Trying known XXX/666/111 combos with any Aiq Bekar...');
-      const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
-      const shuffledAiq = [...threeDigitAiq].sort(() => Math.random() - 0.5);
+    // Helper: get targets for enabled systems, use 0 for disabled (ignored anyway)
+    const getTargets = (combo, aiq) => ({
+      heb: enabledFlags.heb ? parseInt(combo.heb) : 0,
+      eng: enabledFlags.eng ? parseInt(combo.eng) : 0,
+      sim: enabledFlags.sim ? parseInt(combo.sim) : 0,
+      aiq: enabledFlags.aiq ? parseInt(aiq) : 0
+    });
 
-      outer1: for (const combo of shuffledCombos) {
-        for (const aiq of shuffledAiq) {
-          const key = comboKey(combo.heb, combo.eng, combo.sim, aiq);
-          if (!triedCombos.has(key)) {
-            triedCombos.add(key);
+    // Fallback 1: 3-digit combos - only iterate enabled systems
+    if (!phrase) {
+      console.log('🔄 First attempt failed. Trying 3-digit fallback combos...');
+      const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
+      const shuffledAiq = [...threeDigit].sort(() => Math.random() - 0.5);
+
+      // If Aiq is disabled, only try one iteration (value doesn't matter)
+      const aiqOptions = enabledFlags.aiq ? shuffledAiq : ['111'];
+
+      outer1: for (const combo of shuffledCombos.slice(0, 5)) { // Limit iterations for speed
+        for (const aiq of aiqOptions.slice(0, 5)) {
+          const t = getTargets(combo, aiq);
+          phrase = await generatePhrase(t.heb, t.eng, t.sim, t.aiq, enabledFlags, 1000000, 8000);
+          if (phrase) {
             finalHebrew = combo.heb;
             finalEnglish = combo.eng;
             finalSimple = combo.sim;
             finalAiqBekar = aiq;
-            phrase = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
-              enabledFlags, 1000000, 6000
-            );
-            if (phrase) break outer1;
+            break outer1;
           }
         }
       }
     }
 
-    // Fallback 2: XXXX/6666/1111/XXXX format - use known successful H/E/S combos
+    // Fallback 2: 4-digit combos
     if (!phrase) {
-      console.log('🔄 Second attempt failed. Trying known XXXX/6666/1111 combos with any Aiq Bekar...');
+      console.log('🔄 Second attempt failed. Trying 4-digit fallback combos...');
       const shuffledCombos = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
-      const shuffledAiq = [...fourDigitAiq].sort(() => Math.random() - 0.5);
+      const shuffledAiq = [...fourDigit].sort(() => Math.random() - 0.5);
 
-      outer2: for (const combo of shuffledCombos) {
-        for (const aiq of shuffledAiq) {
-          const key = comboKey(combo.heb, combo.eng, combo.sim, aiq);
-          if (!triedCombos.has(key)) {
-            triedCombos.add(key);
+      const aiqOptions = enabledFlags.aiq ? shuffledAiq : ['1111'];
+
+      outer2: for (const combo of shuffledCombos.slice(0, 5)) {
+        for (const aiq of aiqOptions.slice(0, 5)) {
+          const t = getTargets(combo, aiq);
+          phrase = await generatePhrase(t.heb, t.eng, t.sim, t.aiq, enabledFlags, 1000000, 8000);
+          if (phrase) {
             finalHebrew = combo.heb;
             finalEnglish = combo.eng;
             finalSimple = combo.sim;
             finalAiqBekar = aiq;
-            phrase = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
-              enabledFlags, 1000000, 6000
-            );
-            if (phrase) break outer2;
+            break outer2;
           }
         }
       }
@@ -1105,7 +1110,7 @@ const GematriaCalculator = () => {
           {/* Input Section */}
           <div className="p-6 md:p-8">
             {/* Unified Card */}
-            <div className="mb-6 p-6 bg-white rounded border border-zinc-300">
+            <div className="mb-6 p-6 bg-white rounded-lg border border-zinc-300">
               {/* Repdigit Target Selection */}
               <div className="mb-6 pb-6 border-b border-gray-200">
                 <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
