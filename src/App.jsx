@@ -869,41 +869,36 @@ const GematriaCalculator = () => {
     const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled, try different H/E/S combos with different Aik Bekar targets
-      console.log('🎲 Searching for 4-way random repdigit match...');
+      // When Aik Bekar is enabled: find 3-way H/E/S matches, then check if Aik Bekar lands on a repdigit
+      console.log('🎲 Searching for 4-way random repdigit match (generate-and-check approach)...');
 
-      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
-      const aiqTargets = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666, 777, 888, 999];
-      const shuffledAiq = [...aiqTargets].sort(() => Math.random() - 0.5);
+      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
-      outer: for (const combo of shuffledCombos.slice(0, 5)) {
-        for (const aiqTarget of shuffledAiq.slice(0, 5)) {
-          console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiqTarget}...`);
+      // Try more combos since we're just checking if Aik Bekar happens to be a repdigit
+      for (const combo of shuffledCombos.slice(0, 15)) {
+        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
 
-          const candidate = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-            aiqTarget,
-            enabledFlags4,
-            500000,
-            4000
-          );
+        const candidate = await generatePhrase(
+          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+          0,
+          enabledFlags3,
+          500000,
+          3000
+        );
 
-          if (candidate) {
-            // Verify all 4 values
-            const hVal = calculateGematria(candidate, hebrewValues).total;
-            const eVal = calculateGematria(candidate, englishValues).total;
-            const sVal = calculateGematria(candidate, simpleValues).total;
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
+        if (candidate) {
+          // Check if Aik Bekar happens to be a repdigit
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
 
-            if (hVal === parseInt(combo.heb) && eVal === parseInt(combo.eng) &&
-                sVal === parseInt(combo.sim) && aVal === aiqTarget) {
-              console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break outer;
-            }
+          if (repdigitSet.has(aVal)) {
+            console.log(`✅ Found 4-way match! Aik Bekar landed on ${aVal}`);
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
+          } else {
+            console.log(`   Found 3-way but Aik Bekar = ${aVal} (not a repdigit), trying next combo...`);
           }
         }
       }
