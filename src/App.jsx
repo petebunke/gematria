@@ -800,10 +800,10 @@ const GematriaCalculator = () => {
     const firstTimeout = enabledCount <= 2 ? 8000 : enabledCount === 3 ? 5000 : 3000;
 
     let phrase = await generatePhrase(
-      parseInt(randomHebrew),
-      parseInt(randomEnglish),
-      parseInt(randomSimple),
-      parseInt(randomAiqBekar),
+      hebrewEnabled ? parseInt(randomHebrew) : 0,
+      englishEnabled ? parseInt(randomEnglish) : 0,
+      simpleEnabled ? parseInt(randomSimple) : 0,
+      aiqBekarEnabled ? parseInt(randomAiqBekar) : 0,
       enabledFlags,
       1000000,
       firstTimeout
@@ -817,11 +817,11 @@ const GematriaCalculator = () => {
     const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
     const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
-    // Only use known H/E/S combos fallback when ALL THREE of H, E, S are enabled
-    const useKnownCombos = hebrewEnabled && englishEnabled && simpleEnabled;
+    // Known H/E combos work when both Hebrew and English are enabled (Simple value is a bonus)
+    const useKnownCombos = hebrewEnabled && englishEnabled;
 
     if (!phrase && useKnownCombos) {
-      // Known successful H/E/S combinations
+      // Known successful H/E combinations (sim values work when Simple is also enabled)
       const knownCombos3Digit = [
         { heb: '111', eng: '666', sim: '111' },
         { heb: '222', eng: '666', sim: '111' },
@@ -834,15 +834,18 @@ const GematriaCalculator = () => {
         { heb: '1111', eng: '666', sim: '111' },
       ];
 
-      console.log('🔄 First attempt failed. Trying known H/E/S combos...');
+      console.log('🔄 First attempt failed. Trying known H/E combos...');
       const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
       const shuffledAiq = [...threeDigit].sort(() => Math.random() - 0.5);
       const aiqOptions = aiqBekarEnabled ? shuffledAiq.slice(0, 3) : ['111'];
+      const simOptions = simpleEnabled ? ['111'] : ['111']; // sim value only matters if enabled
 
       outer1: for (const combo of shuffledCombos.slice(0, 3)) {
         for (const aiq of aiqOptions) {
+          // Use combo.sim if Simple is enabled, otherwise it doesn't matter (will be ignored)
+          const targetSim = simpleEnabled ? parseInt(combo.sim) : 0;
           phrase = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+            parseInt(combo.heb), parseInt(combo.eng), targetSim, parseInt(aiq),
             enabledFlags, 1000000, 6000
           );
           if (phrase) {
@@ -868,8 +871,9 @@ const GematriaCalculator = () => {
 
         outer2: for (const combo of shuffled4) {
           for (const aiq of aiq4Options) {
+            const targetSim = simpleEnabled ? parseInt(combo.sim) : 0;
             phrase = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(aiq),
+              parseInt(combo.heb), parseInt(combo.eng), targetSim, parseInt(aiq),
               enabledFlags, 1000000, 6000
             );
             if (phrase) {
@@ -883,16 +887,19 @@ const GematriaCalculator = () => {
         }
       }
     } else if (!phrase) {
-      // When not all of H/E/S are enabled, try a few more random attempts
+      // When H/E not both enabled, try random combinations
       console.log('🔄 Trying additional random combinations...');
       for (let i = 0; i < 3 && !phrase; i++) {
-        const rH = threeDigit[Math.floor(Math.random() * threeDigit.length)];
-        const rE = threeDigit[Math.floor(Math.random() * threeDigit.length)];
-        const rS = threeDigit[Math.floor(Math.random() * threeDigit.length)];
-        const rA = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+        const rH = hebrewEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
+        const rE = englishEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
+        const rS = simpleEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
+        const rA = aiqBekarEnabled ? threeDigit[Math.floor(Math.random() * threeDigit.length)] : '111';
 
         phrase = await generatePhrase(
-          parseInt(rH), parseInt(rE), parseInt(rS), parseInt(rA),
+          hebrewEnabled ? parseInt(rH) : 0,
+          englishEnabled ? parseInt(rE) : 0,
+          simpleEnabled ? parseInt(rS) : 0,
+          aiqBekarEnabled ? parseInt(rA) : 0,
           enabledFlags, 1000000, 8000
         );
         if (phrase) {
@@ -1115,7 +1122,7 @@ const GematriaCalculator = () => {
               </h1>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
-              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew, English, English (Simple), and English (Aiq Bekar) Gematria.
+              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew and English Gematria.
             </p>
           </div>
 
