@@ -7,12 +7,14 @@ const GematriaCalculator = () => {
   const [targetHebrew, setTargetHebrew] = useState('111');
   const [targetEnglish, setTargetEnglish] = useState('222');
   const [targetSimple, setTargetSimple] = useState('333');
+  const [targetAikBekar, setTargetAikBekar] = useState('111');
   const [generating, setGenerating] = useState(false);
   const [wordList, setWordList] = useState([]);
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
 
-  const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
+  const repdigits = ['11', '22', '33', '44', '55', '66', '77', '88', '99',
+                     '111', '222', '333', '444', '555', '666', '777', '888', '999',
                      '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
 
   // Hebrew Gematria values (based on gematrix.org)
@@ -37,6 +39,13 @@ const GematriaCalculator = () => {
     j: 10, k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17,
     r: 18, s: 19, t: 20, u: 21, v: 22, w: 23, x: 24, y: 25,
     z: 26
+  };
+
+  // Aik Bekar (AIQ BKR) - Theosophical Reduction (values 1-9 cycling)
+  const aikBekarValues = {
+    a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+    j: 1, k: 2, l: 3, m: 4, n: 5, o: 6, p: 7, q: 8, r: 9,
+    s: 1, t: 2, u: 3, v: 4, w: 5, x: 6, y: 7, z: 8
   };
 
   const calculateGematria = (text, values) => {
@@ -66,12 +75,14 @@ const GematriaCalculator = () => {
     const hebrew = calculateGematria(input, hebrewValues);
     const english = calculateGematria(input, englishValues);
     const simple = calculateGematria(input, simpleValues);
+    const aikBekar = calculateGematria(input, aikBekarValues);
 
     setResults({
       input: input.trim(),
       hebrew,
       english,
-      simple
+      simple,
+      aikBekar
     });
   };
 
@@ -409,15 +420,23 @@ const GematriaCalculator = () => {
         const hebrew = calculateGematria(phrase, hebrewValues);
         const english = calculateGematria(phrase, englishValues);
         const simple = calculateGematria(phrase, simpleValues);
+        const aikBekar = calculateGematria(phrase, aikBekarValues);
 
         console.log(`Found phrase: "${phrase}"`);
-        console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}`);
+        console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aik Bekar: ${aikBekar.total}`);
+
+        // Update dropdowns to match the actual generated values
+        setTargetHebrew(String(hebrew.total));
+        setTargetEnglish(String(english.total));
+        setTargetSimple(String(simple.total));
+        setTargetAikBekar(String(aikBekar.total));
 
         setResults({
           input: phrase,
           hebrew,
           english,
-          simple
+          simple,
+          aikBekar
         });
       } else {
         console.log('No phrase found after smart random search');
@@ -453,7 +472,7 @@ Try:
               </h1>
             </div>
             <p className="text-gray-400 text-center mt-2 text-sm md:text-base">
-              Discover Hebrew, English, and Simple Gematria values
+              Discover Hebrew, English, Simple, and Aik Bekar Gematria values
             </p>
           </div>
 
@@ -469,7 +488,7 @@ Try:
                   {!loadingWords && wordList.length > 0 && <span className="text-xs text-green-600 ml-2">({wordList.length.toLocaleString()} words loaded)</span>}
                   {loadError && <span className="text-xs text-orange-600 ml-2">(Using fallback list)</span>}
                 </h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
                       Hebrew Gematria
@@ -505,6 +524,20 @@ Try:
                     <select
                       value={targetSimple}
                       onChange={(e) => setTargetSimple(e.target.value)}
+                      className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
+                    >
+                      {repdigits.map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold text-gray-700 mb-1">
+                      Aik Bekar
+                    </label>
+                    <select
+                      value={targetAikBekar}
+                      onChange={(e) => setTargetAikBekar(e.target.value)}
                       className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-sm text-gray-900"
                     >
                       {repdigits.map(num => (
@@ -602,13 +635,30 @@ Try:
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
+
+                {/* Aik Bekar Gematria */}
+                {results.aikBekar && (
+                  <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <h3 className="text-lg md:text-xl font-bold text-white">
+                        Aik Bekar
+                      </h3>
+                      <span className="text-2xl md:text-3xl font-bold text-red-500">
+                        {results.aikBekar.total}
+                      </span>
+                    </div>
+                    <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                      {results.input} = {formatBreakdown(results.aikBekar.breakdown)} = {results.aikBekar.total}
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </div>
 
           {/* Footer */}
           <div className="bg-black border-t border-zinc-800 p-4 text-center text-xs md:text-sm text-gray-500">
-            <p>Repdigits: 111, 222, 333, 444, 555, 666, 777, 888, 999, 1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999</p>
+            <p>Repdigits: 11-99, 111-999, 1111-9999</p>
           </div>
         </div>
       </div>
