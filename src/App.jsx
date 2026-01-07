@@ -758,9 +758,14 @@ const GematriaCalculator = () => {
     } else {
       console.log('No phrase found (timeout or max attempts reached)');
       setGeneratingTargeted(false); // Enable button immediately
+      const enabledTargets = [];
+      if (hebrewEnabled) enabledTargets.push(`Hebrew = ${targetHebrew}`);
+      if (englishEnabled) enabledTargets.push(`English = ${targetEnglish}`);
+      if (simpleEnabled) enabledTargets.push(`Simple = ${targetSimple}`);
+      if (aiqBekarEnabled) enabledTargets.push(`Aiq Bekar = ${targetAiqBekar}`);
       setErrorModal({
         show: true,
-        message: `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple}, Aiq Bekar = ${targetAiqBekar} after 1 million attempts. Please try a different combination!`
+        message: `Couldn't find a phrase matching ${enabledTargets.join(', ')} after 1 million attempts. Please try a different combination!`
       });
     }
   };
@@ -904,11 +909,11 @@ const GematriaCalculator = () => {
       console.log(`Found phrase: "${phrase}"`);
       console.log(`Hebrew: ${hebrew.total}, English: ${english.total}, Simple: ${simple.total}, Aiq Bekar: ${aiqBekar.total}`);
 
-      // Update the dropdowns to match the generated phrase's actual values
-      setTargetHebrew(hebrew.total.toString());
-      setTargetEnglish(english.total.toString());
-      setTargetSimple(simple.total.toString());
-      setTargetAiqBekar(aiqBekar.total.toString());
+      // Update the dropdowns only for enabled systems (disabled systems may not have repdigit values)
+      if (hebrewEnabled) setTargetHebrew(hebrew.total.toString());
+      if (englishEnabled) setTargetEnglish(english.total.toString());
+      if (simpleEnabled) setTargetSimple(simple.total.toString());
+      if (aiqBekarEnabled) setTargetAiqBekar(aiqBekar.total.toString());
 
       setResults({
         input: phrase,
