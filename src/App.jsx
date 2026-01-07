@@ -8,7 +8,7 @@ const GematriaCalculator = () => {
   const [targetEnglish, setTargetEnglish] = useState('666');
   const [targetSimple, setTargetSimple] = useState('111');
   const [targetAiqBekar, setTargetAiqBekar] = useState('111');
-  const [aiqBekarEnabled, setAiqBekarEnabled] = useState(true);
+  const [aiqBekarEnabled, setAiqBekarEnabled] = useState(false);
   const [generatingTargeted, setGeneratingTargeted] = useState(false);
   const [generatingRandom, setGeneratingRandom] = useState(false);
   const [wordList, setWordList] = useState([]);
@@ -19,8 +19,9 @@ const GematriaCalculator = () => {
   const [copied, setCopied] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState([]);
 
-  const repdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999',
-                     '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999' ];
+  const repdigits = ['11', '22', '33', '44', '55', '66', '77', '88', '99',
+                     '111', '222', '333', '444', '555', '666', '777', '888', '999',
+                     '1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
 
   // Hebrew Gematria values (based on gematrix.org)
   const hebrewValues = {
@@ -69,7 +70,8 @@ const GematriaCalculator = () => {
   };
 
   const isRepdigit = (num) => {
-    const repdigits = [111, 222, 333, 444, 555, 666, 777, 888, 999,
+    const repdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99,
+                      111, 222, 333, 444, 555, 666, 777, 888, 999,
                       1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
     return repdigits.includes(num);
   };
@@ -701,7 +703,8 @@ const GematriaCalculator = () => {
 
     console.log('Starting phrase generation...');
 
-    const repdigitSet = new Set([111, 222, 333, 444, 555, 666, 777, 888, 999,
+    const repdigitSet = new Set([11, 22, 33, 44, 55, 66, 77, 88, 99,
+                                  111, 222, 333, 444, 555, 666, 777, 888, 999,
                                   1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
 
     let phrase = null;
@@ -712,7 +715,7 @@ const GematriaCalculator = () => {
       console.log('Searching for 4-way repdigit match (trying different Aik Bekar targets)...');
 
       const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
-      const aiqTargets = [111, 222, 333, 444, 555, 666, 777, 888, 999];
+      const aiqTargets = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666, 777, 888, 999];
       // Shuffle to add variety
       const shuffledAiq = [...aiqTargets].sort(() => Math.random() - 0.5);
 
@@ -825,8 +828,16 @@ const GematriaCalculator = () => {
     console.log('Starting random repdigit phrase generation...');
 
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
-    const repdigitSet = new Set([111, 222, 333, 444, 555, 666, 777, 888, 999,
+    const repdigitSet = new Set([11, 22, 33, 44, 55, 66, 77, 88, 99,
+                                  111, 222, 333, 444, 555, 666, 777, 888, 999,
                                   1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
+
+    const knownCombos2Digit = [
+      { heb: '22', eng: '66', sim: '11' },
+      { heb: '33', eng: '66', sim: '11' },
+      { heb: '44', eng: '66', sim: '11' },
+      { heb: '55', eng: '66', sim: '11' },
+    ];
 
     const knownCombos3Digit = [
       { heb: '111', eng: '666', sim: '111' },
@@ -850,14 +861,14 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     // Shuffle combos for variety
-    const shuffledCombos = [...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
+    const shuffledCombos = [...knownCombos2Digit, ...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
 
     if (aiqBekarEnabled) {
       // When Aik Bekar is enabled, try different H/E/S combos with different Aik Bekar targets
       console.log('🎲 Searching for 4-way random repdigit match...');
 
       const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
-      const aiqTargets = [111, 222, 333, 444, 555, 666, 777, 888, 999];
+      const aiqTargets = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666, 777, 888, 999];
       const shuffledAiq = [...aiqTargets].sort(() => Math.random() - 0.5);
 
       outer: for (const combo of shuffledCombos.slice(0, 5)) {
