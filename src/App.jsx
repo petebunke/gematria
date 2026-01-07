@@ -701,37 +701,41 @@ const GematriaCalculator = () => {
 
     console.log('Starting phrase generation...');
 
+    const repdigitSet = new Set([111, 222, 333, 444, 555, 666, 777, 888, 999,
+                                  1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
+
     let phrase = null;
+    const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
     if (aiqBekarEnabled) {
-      // First try quick 4-way search (all systems including Aik Bekar)
-      console.log('Trying 4-way search with Aik Bekar...');
-      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
-      phrase = await generatePhrase(
-        parseInt(targetHebrew),
-        parseInt(targetEnglish),
-        parseInt(targetSimple),
-        parseInt(targetAiqBekar),
-        enabledFlags4,
-        500000,  // fewer attempts for 4-way
-        3000     // shorter timeout
-      );
+      // When Aik Bekar is enabled, keep searching until we find a phrase where Aik Bekar is ALSO a repdigit
+      console.log('Searching for 4-way repdigit match (H/E/S + Aik Bekar must all be repdigits)...');
 
-      // If 4-way fails, fall back to 3-way search (H/E/S only)
-      if (!phrase) {
-        console.log('4-way search failed, falling back to 3-way (H/E/S only)...');
-        const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
-        phrase = await generatePhrase(
+      const maxOuterAttempts = 20; // Try up to 20 different H/E/S matches
+      for (let outerAttempt = 0; outerAttempt < maxOuterAttempts && !phrase; outerAttempt++) {
+        const candidate = await generatePhrase(
           parseInt(targetHebrew),
           parseInt(targetEnglish),
           parseInt(targetSimple),
           0,
-          enabledFlags3
+          enabledFlags3,
+          500000,
+          5000
         );
+
+        if (candidate) {
+          // Check if Aik Bekar is also a repdigit
+          const aiqValue = calculateGematria(candidate, aiqBekarValues).total;
+          if (repdigitSet.has(aiqValue)) {
+            console.log(`✅ Found 4-way match! Aik Bekar⁹ = ${aiqValue}`);
+            phrase = candidate;
+          } else {
+            console.log(`Attempt ${outerAttempt + 1}: H/E/S match but Aik Bekar⁹ = ${aiqValue} (not repdigit), retrying...`);
+          }
+        }
       }
     } else {
       // Aik Bekar disabled - just do 3-way search
-      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
@@ -810,86 +814,80 @@ const GematriaCalculator = () => {
 
     console.log('Starting random repdigit phrase generation...');
 
-    // Always search with H/E/S only (3-way) - this is reliable
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+    const repdigitSet = new Set([111, 222, 333, 444, 555, 666, 777, 888, 999,
+                                  1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
 
-    const threeDigit = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
-    const fourDigit = ['1111', '2222', '3333', '4444', '5555', '6666', '7777', '8888', '9999'];
+    const knownCombos3Digit = [
+      { heb: '111', eng: '666', sim: '111' },
+      { heb: '222', eng: '666', sim: '111' },
+      { heb: '333', eng: '666', sim: '111' },
+      { heb: '444', eng: '666', sim: '111' },
+      { heb: '555', eng: '666', sim: '111' },
+      { heb: '777', eng: '666', sim: '111' },
+      { heb: '888', eng: '666', sim: '111' },
+      { heb: '999', eng: '666', sim: '111' },
+      { heb: '1111', eng: '666', sim: '111' },
+    ];
 
-    // Randomly select repdigits for H/E/S
-    const randomHebrew = threeDigit[Math.floor(Math.random() * threeDigit.length)];
-    const randomEnglish = threeDigit[Math.floor(Math.random() * threeDigit.length)];
-    const randomSimple = threeDigit[Math.floor(Math.random() * threeDigit.length)];
+    const knownCombos4Digit = [
+      { heb: '2222', eng: '6666', sim: '1111' },
+      { heb: '3333', eng: '6666', sim: '1111' },
+      { heb: '4444', eng: '6666', sim: '1111' },
+    ];
 
-    console.log(`🎲 Randomly selected targets - Hebrew: ${randomHebrew}, English: ${randomEnglish}, Simple: ${randomSimple}`);
+    let phrase = null;
+    let finalHebrew, finalEnglish, finalSimple;
 
-    let phrase = await generatePhrase(
-      parseInt(randomHebrew),
-      parseInt(randomEnglish),
-      parseInt(randomSimple),
-      0,
-      enabledFlags3,
-      1000000,
-      5000
-    );
+    // Shuffle combos for variety
+    const shuffledCombos = [...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
 
-    let finalHebrew = randomHebrew;
-    let finalEnglish = randomEnglish;
-    let finalSimple = randomSimple;
+    if (aiqBekarEnabled) {
+      // When Aik Bekar is enabled, keep searching until Aik Bekar is also a repdigit
+      console.log('🎲 Searching for 4-way random repdigit match...');
 
-    if (!phrase) {
-      // Known successful H/E/S combinations
-      const knownCombos3Digit = [
-        { heb: '111', eng: '666', sim: '111' },
-        { heb: '222', eng: '666', sim: '111' },
-        { heb: '333', eng: '666', sim: '111' },
-        { heb: '444', eng: '666', sim: '111' },
-        { heb: '555', eng: '666', sim: '111' },
-        { heb: '777', eng: '666', sim: '111' },
-        { heb: '888', eng: '666', sim: '111' },
-        { heb: '999', eng: '666', sim: '111' },
-        { heb: '1111', eng: '666', sim: '111' },
-      ];
+      const maxOuterAttempts = 30;
+      for (let outerAttempt = 0; outerAttempt < maxOuterAttempts && !phrase; outerAttempt++) {
+        const combo = shuffledCombos[outerAttempt % shuffledCombos.length];
 
-      console.log('🔄 First attempt failed. Trying known H/E/S combos...');
-      const shuffledCombos = [...knownCombos3Digit].sort(() => Math.random() - 0.5);
+        const candidate = await generatePhrase(
+          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+          0,
+          enabledFlags3,
+          500000,
+          4000
+        );
 
-      for (const combo of shuffledCombos.slice(0, 3)) {
+        if (candidate) {
+          const aiqValue = calculateGematria(candidate, aiqBekarValues).total;
+          if (repdigitSet.has(aiqValue)) {
+            console.log(`✅ Found 4-way match! Aik Bekar⁹ = ${aiqValue}`);
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+          } else {
+            console.log(`Attempt ${outerAttempt + 1}: H/E/S match but Aik Bekar⁹ = ${aiqValue} (not repdigit), retrying...`);
+          }
+        }
+      }
+    } else {
+      // Aik Bekar disabled - just find any H/E/S match
+      console.log('🎲 Searching for 3-way random repdigit match...');
+
+      for (const combo of shuffledCombos.slice(0, 5)) {
         phrase = await generatePhrase(
           parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
           0,
-          enabledFlags3, 1000000, 6000
+          enabledFlags3,
+          1000000,
+          5000
         );
         if (phrase) {
           finalHebrew = combo.heb;
           finalEnglish = combo.eng;
           finalSimple = combo.sim;
           break;
-        }
-      }
-
-      // Try 4-digit combos
-      if (!phrase) {
-        const knownCombos4Digit = [
-          { heb: '2222', eng: '6666', sim: '1111' },
-          { heb: '3333', eng: '6666', sim: '1111' },
-          { heb: '4444', eng: '6666', sim: '1111' },
-        ];
-        console.log('🔄 Trying 4-digit combos...');
-        const shuffled4 = [...knownCombos4Digit].sort(() => Math.random() - 0.5);
-
-        for (const combo of shuffled4) {
-          phrase = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-            0,
-            enabledFlags3, 1000000, 6000
-          );
-          if (phrase) {
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
-            break;
-          }
         }
       }
     }
