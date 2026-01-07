@@ -839,6 +839,19 @@ const GematriaCalculator = () => {
       { heb: '55', eng: '66', sim: '11' },
     ];
 
+    // XXX/666/111/XX format - 3-digit H/E/S with 2-digit Aik Bekar
+    const knownCombos3DigitWith2DigitAiq = [
+      { heb: '111', eng: '666', sim: '111' },
+      { heb: '222', eng: '666', sim: '111' },
+      { heb: '333', eng: '666', sim: '111' },
+      { heb: '444', eng: '666', sim: '111' },
+      { heb: '555', eng: '666', sim: '111' },
+      { heb: '666', eng: '666', sim: '111' },
+      { heb: '777', eng: '666', sim: '111' },
+      { heb: '888', eng: '666', sim: '111' },
+      { heb: '999', eng: '666', sim: '111' },
+    ];
+
     const knownCombos3Digit = [
       { heb: '111', eng: '666', sim: '111' },
       { heb: '222', eng: '666', sim: '111' },
@@ -860,8 +873,8 @@ const GematriaCalculator = () => {
     let phrase = null;
     let finalHebrew, finalEnglish, finalSimple;
 
-    // Shuffle combos for variety
-    const shuffledCombos = [...knownCombos2Digit, ...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
+    // Shuffle combos for variety - include 3-digit combos that work well with 2-digit Aik Bekar
+    const shuffledCombos = [...knownCombos2Digit, ...knownCombos3DigitWith2DigitAiq, ...knownCombos3Digit, ...knownCombos4Digit].sort(() => Math.random() - 0.5);
 
     if (aiqBekarEnabled) {
       // When Aik Bekar is enabled, try different H/E/S combos with different Aik Bekar targets
@@ -1128,7 +1141,7 @@ const GematriaCalculator = () => {
                       ⓘ
                     </span>
                     <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                      Try combinations like XXX/666/111/XXX, XXXX/666/1111/XXX, XXXX/6666/1111/XXXX, or random!
+                      Try combinations like XXX/666/111/XXX, XXXX/666/111/XXX, XXXX/6666/1111/XXXX, and XXX/666/111/XX!
                     </div>
                   </span>
                 </h3>
