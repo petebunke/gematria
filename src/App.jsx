@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Calculator, Copy, Check, Download, Loader2 } from 'lucide-react';
+import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -1299,16 +1299,25 @@ const GematriaCalculator = () => {
                 </div>
               </div>
 
-              {/* Download Button */}
-              <div className="mt-4 pt-4 border-t border-gray-200">
+              {/* Download and Clear Buttons */}
+              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
                   disabled={generatedPhrases.length === 0}
-                  className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
                 >
                   <Download className="w-5 h-5" />
-                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  Download {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                </button>
+                <button
+                  onClick={() => setGeneratedPhrases([])}
+                  disabled={generatedPhrases.length === 0}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
+                  title="Clear all generated phrases"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  Clear Phrases
                 </button>
               </div>
             </div>
