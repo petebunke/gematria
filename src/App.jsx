@@ -657,13 +657,14 @@ const GematriaCalculator = () => {
             return phrase;
           }
 
-          // No single-word match - try TWO-WORD ending (exhaustive search)
+          // No single-word match - try TWO-WORD ending (limited search for speed)
           if (!perfectMatch && nonEmptySets.length > 0) {
-            // Use smallest bucket to iterate through ALL word1 candidates
             const word1Pool = nonEmptySets[0].candidates;
+            const maxWord1 = Math.min(word1Pool.length, 300);
+            const startIdx = Math.floor(Math.random() * Math.max(1, word1Pool.length));
 
-            for (let w1 = 0; w1 < word1Pool.length; w1++) {
-              const word1 = word1Pool[w1];
+            for (let w1 = 0; w1 < maxWord1; w1++) {
+              const word1 = word1Pool[(startIdx + w1) % word1Pool.length];
 
               // Calculate what word2 needs to hit
               const need2Heb = needHeb - word1.heb;
@@ -671,8 +672,11 @@ const GematriaCalculator = () => {
               const need2Sim = needSim - word1.sim;
               const need2Aiq = needAiq - word1.aiq;
 
-              // Skip if needs are negative (impossible)
-              if (need2Heb < 1 || need2Eng < 1 || need2Sim < 1 || need2Aiq < 1) continue;
+              // Skip if enabled needs are negative (only check enabled systems)
+              if ((enabledFlags.heb && need2Heb < 1) ||
+                  (enabledFlags.eng && need2Eng < 1) ||
+                  (enabledFlags.sim && need2Sim < 1) ||
+                  (enabledFlags.aiq && need2Aiq < 1)) continue;
 
               // Look for word2 in smallest available bucket
               const word2Sets = [];
@@ -685,8 +689,10 @@ const GematriaCalculator = () => {
               word2Sets.sort((a, b) => a.candidates.length - b.candidates.length);
               const word2Pool = word2Sets[0].candidates;
 
-              // Search ALL word2 candidates
-              for (const word2 of word2Pool) {
+              // Search word2 candidates (limit for speed)
+              const maxWord2 = Math.min(word2Pool.length, 100);
+              for (let w2 = 0; w2 < maxWord2; w2++) {
+                const word2 = word2Pool[w2];
                 // Check if word2 completes the match
                 if ((!enabledFlags.heb || word2.heb === need2Heb) &&
                     (!enabledFlags.eng || word2.eng === need2Eng) &&
@@ -1043,17 +1049,15 @@ const GematriaCalculator = () => {
         const shuffledAiq = [...aiqRepdigits].sort(() => Math.random() - 0.5);
 
         for (const aiq of shuffledAiq) {
-          console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}...`);
-
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, aiq,
-            enabledFlags4, 1000000, 5000
+            enabledFlags4, 500000, 2000
           );
 
           if (candidate) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
             if (aVal === aiq) {
-              console.log(`✅ Found 4-way match! "${candidate}"`);
+              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
@@ -1061,8 +1065,6 @@ const GematriaCalculator = () => {
               break comboLoop;
             }
           }
-
-          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
     } else {
@@ -1071,11 +1073,11 @@ const GematriaCalculator = () => {
       for (const combo of shuffledCombos) {
         const candidate = await generatePhrase(
           combo.heb, combo.eng, combo.sim, 0,
-          enabledFlags3, 1000000, 5000
+          enabledFlags3, 500000, 2000
         );
 
         if (candidate) {
-          console.log(`✅ Found 3-way match! "${candidate}"`);
+          console.log(`✅ Found 3-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
           phrase = candidate;
           finalHebrew = combo.heb;
           finalEnglish = combo.eng;
@@ -1090,16 +1092,15 @@ const GematriaCalculator = () => {
     // Check for duplicate - if same as last phrase, try again
     const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
     let retries = 0;
-    while (phrase && phrase === lastPhrase && retries < 5) {
-      console.log(`⚠️ Duplicate phrase, retrying random generation... (attempt ${retries + 1})`);
+    while (phrase && phrase === lastPhrase && retries < 3) {
+      console.log(`⚠️ Duplicate phrase, retrying...`);
       retries++;
-      // Retry with a different combo
       const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
       const retryAiq = aiqBekarEnabled ? aiqRepdigits[Math.floor(Math.random() * aiqRepdigits.length)] : 0;
       phrase = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, retryAiq,
         aiqBekarEnabled ? enabledFlags4 : enabledFlags3,
-        1000000, 5000
+        500000, 2000
       );
     }
 
