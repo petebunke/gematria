@@ -1310,7 +1310,7 @@ const GematriaCalculator = () => {
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-400 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg text-base md:text-lg"
                     >
                       Generate Anagram
                     </button>
