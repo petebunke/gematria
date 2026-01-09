@@ -1025,10 +1025,12 @@ const GematriaCalculator = () => {
       // 4-digit combos
       { heb: 2222, eng: 6666, sim: 1111 }, { heb: 3333, eng: 6666, sim: 1111 },
       { heb: 4444, eng: 6666, sim: 1111 }, { heb: 5555, eng: 6666, sim: 1111 },
+      { heb: 6666, eng: 6666, sim: 1111 }, { heb: 7777, eng: 6666, sim: 1111 },
+      { heb: 8888, eng: 6666, sim: 1111 }, { heb: 9999, eng: 6666, sim: 1111 },
     ];
 
-    // Aik Bekar repdigits
-    const aiqRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222];
+    // Aik Bekar repdigits (include larger values for longer phrases)
+    const aiqRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666, 777, 888, 999, 1111];
 
     // Shuffle combos
     const shuffledCombos = [...workingCombos].sort(() => Math.random() - 0.5);
