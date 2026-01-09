@@ -613,26 +613,19 @@ const GematriaCalculator = () => {
           if (enabledFlags.aiq) candidateSets.push({ candidates: byAiqBekar.get(needAiq) || [], name: 'aiq' });
 
           // Use the smallest non-empty bucket for efficiency
-          candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
-          const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
+          const nonEmptySets = candidateSets.filter(s => s.candidates.length > 0);
+          nonEmptySets.sort((a, b) => a.candidates.length - b.candidates.length);
+          const candidates = nonEmptySets.length > 0 ? nonEmptySets[0].candidates : [];
 
-          // Check multiple random candidates for 4-way matches (more thorough)
+          // Search ALL candidates in the smallest bucket for exact match
           let perfectMatch = null;
-          if (candidates.length > 0) {
-            // For 4-way (all enabled), check more candidates since matches are rare
-            const numToCheck = (enabledFlags.heb && enabledFlags.eng && enabledFlags.sim && enabledFlags.aiq)
-              ? Math.min(candidates.length, 50)  // Check up to 50 for 4-way
-              : Math.min(candidates.length, 10); // Check up to 10 for 3-way
-
-            for (let c = 0; c < numToCheck; c++) {
-              const w = candidates[Math.floor(Math.random() * candidates.length)];
-              if ((!enabledFlags.heb || w.heb === needHeb) &&
-                  (!enabledFlags.eng || w.eng === needEng) &&
-                  (!enabledFlags.sim || w.sim === needSim) &&
-                  (!enabledFlags.aiq || w.aiq === needAiq)) {
-                perfectMatch = w;
-                break;
-              }
+          for (const w of candidates) {
+            if ((!enabledFlags.heb || w.heb === needHeb) &&
+                (!enabledFlags.eng || w.eng === needEng) &&
+                (!enabledFlags.sim || w.sim === needSim) &&
+                (!enabledFlags.aiq || w.aiq === needAiq)) {
+              perfectMatch = w;
+              break;
             }
           }
 
