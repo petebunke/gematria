@@ -616,15 +616,23 @@ const GematriaCalculator = () => {
           candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
 
-          // Pick ONE random candidate and check - fast iterations over many attempts
+          // Check multiple random candidates for 4-way matches (more thorough)
           let perfectMatch = null;
           if (candidates.length > 0) {
-            const w = candidates[Math.floor(Math.random() * candidates.length)];
-            if ((!enabledFlags.heb || w.heb === needHeb) &&
-                (!enabledFlags.eng || w.eng === needEng) &&
-                (!enabledFlags.sim || w.sim === needSim) &&
-                (!enabledFlags.aiq || w.aiq === needAiq)) {
-              perfectMatch = w;
+            // For 4-way (all enabled), check more candidates since matches are rare
+            const numToCheck = (enabledFlags.heb && enabledFlags.eng && enabledFlags.sim && enabledFlags.aiq)
+              ? Math.min(candidates.length, 50)  // Check up to 50 for 4-way
+              : Math.min(candidates.length, 10); // Check up to 10 for 3-way
+
+            for (let c = 0; c < numToCheck; c++) {
+              const w = candidates[Math.floor(Math.random() * candidates.length)];
+              if ((!enabledFlags.heb || w.heb === needHeb) &&
+                  (!enabledFlags.eng || w.eng === needEng) &&
+                  (!enabledFlags.sim || w.sim === needSim) &&
+                  (!enabledFlags.aiq || w.aiq === needAiq)) {
+                perfectMatch = w;
+                break;
+              }
             }
           }
 
@@ -916,90 +924,59 @@ const GematriaCalculator = () => {
     const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: use smart 2-word search for 4-way repdigit matches
-      console.log('🎲 Searching for 4-way random repdigit match (2-word strategy)...');
+      // When Aik Bekar is enabled: generate 3-way matches and check if Aik Bekar is also a repdigit
+      console.log('🎲 Searching for 4-way random repdigit match (generate 3-way, check Aik Bekar)...');
 
-      if (wordCache) {
-        const { wordData, byHebrew, byEnglish, bySimple, byAiqBekar } = wordCache;
+      const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
+      const startTime = Date.now();
+      const maxTimeMs = 45000; // 45 second total timeout
+      let phrasesGenerated = 0;
 
-        // Build 4-way repdigit target combinations - focus on smaller, more achievable values
-        const fourWayCombos = [];
-        const smallRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99];
-        const medRepdigits = [111, 222, 333, 444, 555];
-
-        for (const h of medRepdigits) {
-          for (const e of medRepdigits) {
-            for (const s of smallRepdigits) {
-              for (const a of smallRepdigits) {
-                fourWayCombos.push({ heb: h, eng: e, sim: s, aiq: a });
-              }
-            }
-          }
+      // Try many 3-way generations and check if Aik Bekar lands on a repdigit
+      comboLoop:
+      for (const combo of shuffledCombos.slice(0, 15)) {
+        if (Date.now() - startTime > maxTimeMs) {
+          console.log(`⏱️ Timeout after ${phrasesGenerated} phrases generated`);
+          break;
         }
 
-        console.log(`Built ${fourWayCombos.length} 4-way combos to try`);
+        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
 
-        // Shuffle for variety
-        for (let i = fourWayCombos.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
-        }
+        // Generate multiple 3-way phrases for each combo
+        for (let i = 0; i < 15; i++) {
+          if (Date.now() - startTime > maxTimeMs) break;
 
-        // Try 2-word combinations: for each target combo, find word pairs that sum to it
-        const startTime = Date.now();
-        const maxTimeMs = 20000; // 20 second total timeout
-        let combosTried = 0;
-        let wordsTried = 0;
+          const candidate = await generatePhrase(
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
+            enabledFlags3way,
+            300000,  // Attempts per phrase
+            2000     // 2 second timeout per phrase
+          );
 
-        comboSearch:
-        for (const combo of fourWayCombos.slice(0, 50)) {
-          combosTried++;
-          if (Date.now() - startTime > maxTimeMs) {
-            console.log(`⏱️ 4-way search timeout after ${combosTried} combos, ${wordsTried} words`);
-            break;
-          }
+          if (candidate) {
+            phrasesGenerated++;
+            // Check if Aik Bekar happens to be a repdigit
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
 
-          // Try to find 2 words that sum to the target - iterate through ALL words
-          for (let wi = 0; wi < wordData.length; wi++) {
-            wordsTried++;
-            const w1 = wordData[wi];
-
-            // Yield to browser every 500 words
-            if (wi % 500 === 0) {
-              await new Promise(resolve => setTimeout(resolve, 0));
-              if (Date.now() - startTime > maxTimeMs) break;
-            }
-
-            const needHeb = combo.heb - w1.heb;
-            const needEng = combo.eng - w1.eng;
-            const needSim = combo.sim - w1.sim;
-            const needAiq = combo.aiq - w1.aiq;
-
-            // Skip if needed values are negative or too large
-            if (needHeb < 0 || needEng < 0 || needSim < 0 || needAiq < 0) continue;
-            if (needHeb > 500 || needEng > 500 || needSim > 100 || needAiq > 100) continue;
-
-            // Use Aik Bekar bucket for second word lookup (usually smallest)
-            const bucket = byAiqBekar.get(needAiq) || [];
-            for (const w2 of bucket) {
-              if (w2.heb === needHeb && w2.eng === needEng && w2.sim === needSim) {
-                phrase = `${w1.word} ${w2.word}`;
-                finalHebrew = combo.heb.toString();
-                finalEnglish = combo.eng.toString();
-                finalSimple = combo.sim.toString();
-                console.log(`✅ Found 4-way 2-word match: "${phrase}" H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}`);
-                console.log(`   Took ${Date.now() - startTime}ms, ${combosTried} combos, ${wordsTried} words`);
-                break comboSearch;
-              }
+            if (repdigitSet.has(aVal)) {
+              console.log(`✅ Found 4-way match! "${candidate}" - Aik Bekar = ${aVal}`);
+              phrase = candidate;
+              finalHebrew = combo.heb;
+              finalEnglish = combo.eng;
+              finalSimple = combo.sim;
+              break comboLoop;
+            } else {
+              console.log(`   3-way OK: "${candidate.substring(0, 30)}..." - Aik Bekar = ${aVal} (not repdigit)`);
             }
           }
 
-          console.log(`Combo ${combosTried}: H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq} - no match`);
+          // Yield to browser
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
+      }
 
-        if (!phrase) {
-          console.log(`❌ No 4-way match found after ${combosTried} combos, ${wordsTried} words, ${Date.now() - startTime}ms`);
-        }
+      if (!phrase) {
+        console.log(`❌ No 4-way match found after ${phrasesGenerated} phrases, ${Date.now() - startTime}ms`);
       }
     } else {
       // Aik Bekar disabled - just find any H/E/S match
