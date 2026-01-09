@@ -617,15 +617,20 @@ const GematriaCalculator = () => {
           nonEmptySets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = nonEmptySets.length > 0 ? nonEmptySets[0].candidates : [];
 
-          // Search ALL candidates in the smallest bucket for exact match
+          // Check up to 200 candidates starting from random position
           let perfectMatch = null;
-          for (const w of candidates) {
-            if ((!enabledFlags.heb || w.heb === needHeb) &&
-                (!enabledFlags.eng || w.eng === needEng) &&
-                (!enabledFlags.sim || w.sim === needSim) &&
-                (!enabledFlags.aiq || w.aiq === needAiq)) {
-              perfectMatch = w;
-              break;
+          if (candidates.length > 0) {
+            const startIdx = Math.floor(Math.random() * candidates.length);
+            const maxCheck = Math.min(candidates.length, 200);
+            for (let c = 0; c < maxCheck; c++) {
+              const w = candidates[(startIdx + c) % candidates.length];
+              if ((!enabledFlags.heb || w.heb === needHeb) &&
+                  (!enabledFlags.eng || w.eng === needEng) &&
+                  (!enabledFlags.sim || w.sim === needSim) &&
+                  (!enabledFlags.aiq || w.aiq === needAiq)) {
+                perfectMatch = w;
+                break;
+              }
             }
           }
 
@@ -918,37 +923,33 @@ const GematriaCalculator = () => {
 
     if (aiqBekarEnabled) {
       // When Aik Bekar is enabled: generate 3-way matches and check if Aik Bekar is also a repdigit
-      console.log('🎲 Searching for 4-way random repdigit match (generate 3-way, check Aik Bekar)...');
+      console.log('🎲 Searching for 4-way random repdigit match...');
 
       const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
       const startTime = Date.now();
-      const maxTimeMs = 45000; // 45 second total timeout
+      const maxTimeMs = 30000; // 30 second total timeout
       let phrasesGenerated = 0;
 
       // Try many 3-way generations and check if Aik Bekar lands on a repdigit
       comboLoop:
-      for (const combo of shuffledCombos.slice(0, 15)) {
-        if (Date.now() - startTime > maxTimeMs) {
-          console.log(`⏱️ Timeout after ${phrasesGenerated} phrases generated`);
-          break;
-        }
+      for (const combo of shuffledCombos.slice(0, 10)) {
+        if (Date.now() - startTime > maxTimeMs) break;
 
         console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
 
         // Generate multiple 3-way phrases for each combo
-        for (let i = 0; i < 15; i++) {
+        for (let i = 0; i < 20; i++) {
           if (Date.now() - startTime > maxTimeMs) break;
 
           const candidate = await generatePhrase(
             parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
             enabledFlags3way,
-            300000,  // Attempts per phrase
-            2000     // 2 second timeout per phrase
+            500000,  // More attempts
+            1500     // 1.5 second timeout
           );
 
           if (candidate) {
             phrasesGenerated++;
-            // Check if Aik Bekar happens to be a repdigit
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
 
             if (repdigitSet.has(aVal)) {
@@ -959,17 +960,16 @@ const GematriaCalculator = () => {
               finalSimple = combo.sim;
               break comboLoop;
             } else {
-              console.log(`   3-way OK: "${candidate.substring(0, 30)}..." - Aik Bekar = ${aVal} (not repdigit)`);
+              console.log(`   Got: "${candidate.slice(0, 25)}..." A=${aVal}`);
             }
           }
 
-          // Yield to browser
           await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
 
       if (!phrase) {
-        console.log(`❌ No 4-way match found after ${phrasesGenerated} phrases, ${Date.now() - startTime}ms`);
+        console.log(`❌ No 4-way match after ${phrasesGenerated} phrases, ${Date.now() - startTime}ms`);
       }
     } else {
       // Aik Bekar disabled - just find any H/E/S match
