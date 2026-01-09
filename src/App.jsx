@@ -15,9 +15,19 @@ const GematriaCalculator = () => {
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
+  const [showAiqTooltip, setShowAiqTooltip] = useState(false);
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
-  const [generatedPhrases, setGeneratedPhrases] = useState([]);
+  const [generatedPhrases, setGeneratedPhrases] = useState(() => {
+    // Load from localStorage on initial render
+    try {
+      const saved = localStorage.getItem('gematriaGeneratedPhrases');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      console.error('Failed to load phrases from localStorage:', e);
+      return [];
+    }
+  });
 
   const repdigits = ['11', '22', '33', '44', '55', '66', '77', '88', '99',
                      '111', '222', '333', '444', '555', '666', '777', '888', '999',
@@ -112,7 +122,7 @@ const GematriaCalculator = () => {
       english,
       simple,
       aiqBekar,
-      source, // 'targeted', 'random', or 'anagram'
+      source, // 'specified', 'random', or 'anagram'
       timestamp: new Date().toISOString(),
       generationTime: generationTimeMs // Time in milliseconds
     };
@@ -449,6 +459,15 @@ const GematriaCalculator = () => {
     loadWords();
   }, []);
 
+  // Save generatedPhrases to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('gematriaGeneratedPhrases', JSON.stringify(generatedPhrases));
+    } catch (e) {
+      console.error('Failed to save phrases to localStorage:', e);
+    }
+  }, [generatedPhrases]);
+
   const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
     const startTime = Date.now();
     const words = wordList.length > 0 ? wordList : getExtensiveWordList();
@@ -784,7 +803,7 @@ const GematriaCalculator = () => {
 
       // Track generated phrase with generation time
       const generationTimeMs = Date.now() - generationStartTime;
-      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'targeted', generationTimeMs);
+      trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'specified', generationTimeMs);
 
       setGeneratingTargeted(false);
     } else {
@@ -939,7 +958,11 @@ const GematriaCalculator = () => {
       setTargetHebrew(hebrew.total.toString());
       setTargetEnglish(english.total.toString());
       setTargetSimple(simple.total.toString());
-      setTargetAiqBekar(aiqBekar.total.toString());
+      // Only update Aik Bekar dropdown if the value is a valid repdigit
+      const aiqStr = aiqBekar.total.toString();
+      if (repdigits.includes(aiqStr)) {
+        setTargetAiqBekar(aiqStr);
+      }
 
       setResults({
         input: phrase,
@@ -1160,8 +1183,20 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700">
+                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
                         English (Aik Bekar⁹)
+                        <span className="relative inline-block">
+                          <span
+                            className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
+                            onMouseEnter={() => setShowAiqTooltip(true)}
+                            onMouseLeave={() => setShowAiqTooltip(false)}
+                          >
+                            ⓘ
+                          </span>
+                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard if you actually get one!
+                          </div>
+                        </span>
                       </label>
                       <label className="flex items-center gap-1 cursor-pointer">
                         <input
