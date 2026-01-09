@@ -18,6 +18,7 @@ const GematriaCalculator = () => {
   const [showAiqTooltip, setShowAiqTooltip] = useState(false);
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -128,6 +129,14 @@ const GematriaCalculator = () => {
     };
 
     setGeneratedPhrases(prev => [...prev, newEntry]);
+  };
+
+  const handleClearPhrases = async () => {
+    setClearing(true);
+    // Small delay to show the spinner
+    await new Promise(resolve => setTimeout(resolve, 300));
+    setGeneratedPhrases([]);
+    setClearing(false);
   };
 
   const downloadPhraseTable = () => {
@@ -1303,7 +1312,7 @@ const GematriaCalculator = () => {
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
-                  disabled={generatedPhrases.length === 0}
+                  disabled={generatedPhrases.length === 0 || clearing}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
                 >
@@ -1311,13 +1320,16 @@ const GematriaCalculator = () => {
                   Download {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
                 </button>
                 <button
-                  onClick={() => setGeneratedPhrases([])}
-                  disabled={generatedPhrases.length === 0}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
+                  onClick={handleClearPhrases}
+                  disabled={generatedPhrases.length === 0 || clearing}
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                   title="Clear all generated phrases"
                 >
-                  <Trash2 className="w-5 h-5" />
-                  Clear Phrases
+                  {clearing ? (
+                    <>Clearing... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
+                  ) : (
+                    <><Trash2 className="w-5 h-5" /> Clear Phrases</>
+                  )}
                 </button>
               </div>
             </div>
