@@ -1041,30 +1041,29 @@ const GematriaCalculator = () => {
     if (aiqBekarEnabled) {
       console.log('🎲 Searching for 4-way random repdigit match...');
 
-      // Strategy: Generate 3-way matches and check if A is a repdigit
-      const repdigitSet = new Set(aiqRepdigits);
+      // Prioritize smaller Aik Bekar values (more achievable)
+      const priorityAiq = [99, 111, 333, 77, 66, 55, 44, 33, 22, 11, 222, 444, 555, 666, 777, 888, 999, 1111];
 
+      comboLoop:
       for (const combo of shuffledCombos) {
-        // Try multiple 3-way generations, check if any have repdigit A
-        for (let attempt = 0; attempt < 20; attempt++) {
+        for (const aiq of priorityAiq) {
           const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 500000, 1500
+            combo.heb, combo.eng, combo.sim, aiq,
+            enabledFlags4, 500000, 1500
           );
 
           if (candidate) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aVal}`);
+            if (aVal === aiq) {
+              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
               finalSimple = combo.sim;
-              break;
+              break comboLoop;
             }
           }
         }
-        if (phrase) break;
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
@@ -1091,21 +1090,16 @@ const GematriaCalculator = () => {
     // Check for duplicate - if same as last phrase, try again
     const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
     let retries = 0;
-    const repdigitSet = new Set(aiqRepdigits);
     while (phrase && phrase === lastPhrase && retries < 3) {
       console.log(`⚠️ Duplicate phrase, retrying...`);
       retries++;
       const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
-      const candidate = await generatePhrase(
-        retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
-        enabledFlags3, 500000, 1500
+      const retryAiq = aiqBekarEnabled ? [99, 111, 333][Math.floor(Math.random() * 3)] : 0;
+      phrase = await generatePhrase(
+        retryCombo.heb, retryCombo.eng, retryCombo.sim, retryAiq,
+        aiqBekarEnabled ? enabledFlags4 : enabledFlags3,
+        500000, 1500
       );
-      if (candidate) {
-        const aVal = calculateGematria(candidate, aiqBekarValues).total;
-        if (!aiqBekarEnabled || repdigitSet.has(aVal)) {
-          phrase = candidate;
-        }
-      }
     }
 
     if (phrase) {
