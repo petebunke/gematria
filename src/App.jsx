@@ -922,10 +922,10 @@ const GematriaCalculator = () => {
       if (wordCache) {
         const { wordData, byHebrew, byEnglish, bySimple, byAiqBekar } = wordCache;
 
-        // Build 4-way repdigit target combinations
+        // Build 4-way repdigit target combinations - focus on smaller, more achievable values
         const fourWayCombos = [];
-        const smallRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333];
-        const medRepdigits = [111, 222, 333, 444, 555, 666, 777, 888, 999];
+        const smallRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99];
+        const medRepdigits = [111, 222, 333, 444, 555];
 
         for (const h of medRepdigits) {
           for (const e of medRepdigits) {
@@ -937,38 +937,49 @@ const GematriaCalculator = () => {
           }
         }
 
+        console.log(`Built ${fourWayCombos.length} 4-way combos to try`);
+
         // Shuffle for variety
         for (let i = fourWayCombos.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
         }
 
-        // Shuffle word data for variety
-        const shuffledWords = [...wordData];
-        for (let i = shuffledWords.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
-        }
-
         // Try 2-word combinations: for each target combo, find word pairs that sum to it
         const startTime = Date.now();
-        const maxTimeMs = 30000; // 30 second total timeout
+        const maxTimeMs = 20000; // 20 second total timeout
+        let combosTried = 0;
+        let wordsTried = 0;
 
         comboSearch:
-        for (const combo of fourWayCombos.slice(0, 100)) {
+        for (const combo of fourWayCombos.slice(0, 50)) {
+          combosTried++;
           if (Date.now() - startTime > maxTimeMs) {
-            console.log('⏱️ 4-way search timeout');
+            console.log(`⏱️ 4-way search timeout after ${combosTried} combos, ${wordsTried} words`);
             break;
           }
 
-          // Try to find 2 words that sum to the target
-          for (const w1 of shuffledWords.slice(0, 1000)) {
+          // Try to find 2 words that sum to the target - iterate through ALL words
+          for (let wi = 0; wi < wordData.length; wi++) {
+            wordsTried++;
+            const w1 = wordData[wi];
+
+            // Yield to browser every 500 words
+            if (wi % 500 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 0));
+              if (Date.now() - startTime > maxTimeMs) break;
+            }
+
             const needHeb = combo.heb - w1.heb;
             const needEng = combo.eng - w1.eng;
             const needSim = combo.sim - w1.sim;
             const needAiq = combo.aiq - w1.aiq;
 
-            // Use smallest bucket for second word lookup
+            // Skip if needed values are negative or too large
+            if (needHeb < 0 || needEng < 0 || needSim < 0 || needAiq < 0) continue;
+            if (needHeb > 500 || needEng > 500 || needSim > 100 || needAiq > 100) continue;
+
+            // Use Aik Bekar bucket for second word lookup (usually smallest)
             const bucket = byAiqBekar.get(needAiq) || [];
             for (const w2 of bucket) {
               if (w2.heb === needHeb && w2.eng === needEng && w2.sim === needSim) {
@@ -977,16 +988,17 @@ const GematriaCalculator = () => {
                 finalEnglish = combo.eng.toString();
                 finalSimple = combo.sim.toString();
                 console.log(`✅ Found 4-way 2-word match: "${phrase}" H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}`);
+                console.log(`   Took ${Date.now() - startTime}ms, ${combosTried} combos, ${wordsTried} words`);
                 break comboSearch;
               }
             }
-
-            // Yield to browser periodically
-            if (Date.now() - startTime > maxTimeMs) break;
           }
 
-          // Small yield between combos
-          await new Promise(resolve => setTimeout(resolve, 0));
+          console.log(`Combo ${combosTried}: H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq} - no match`);
+        }
+
+        if (!phrase) {
+          console.log(`❌ No 4-way match found after ${combosTried} combos, ${wordsTried} words, ${Date.now() - startTime}ms`);
         }
       }
     } else {
