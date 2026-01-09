@@ -490,15 +490,18 @@ const GematriaCalculator = () => {
     const byHebrew = new Map();
     const byEnglish = new Map();
     const bySimple = new Map();
+    const byAiqBekar = new Map();
 
     wordData.forEach(data => {
       if (!byHebrew.has(data.heb)) byHebrew.set(data.heb, []);
       if (!byEnglish.has(data.eng)) byEnglish.set(data.eng, []);
       if (!bySimple.has(data.sim)) bySimple.set(data.sim, []);
+      if (!byAiqBekar.has(data.aiq)) byAiqBekar.set(data.aiq, []);
 
       byHebrew.get(data.heb).push(data);
       byEnglish.get(data.eng).push(data);
       bySimple.get(data.sim).push(data);
+      byAiqBekar.get(data.aiq).push(data);
     });
 
     // Shuffle each value bucket to avoid bias toward specific words
@@ -515,6 +518,12 @@ const GematriaCalculator = () => {
       }
     });
     bySimple.forEach((arr) => {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+    });
+    byAiqBekar.forEach((arr) => {
       for (let i = arr.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [arr[i], arr[j]] = [arr[j], arr[i]];
@@ -586,8 +595,18 @@ const GematriaCalculator = () => {
           const needSim = targetSim - totalSim;
           const needAiq = targetAiq - totalAiq;
 
-          // Look for exact match in our indexes (only check enabled systems)
-          const candidates = enabledFlags.heb ? (byHebrew.get(needHeb) || []) : wordData;
+          // Look for exact match using the most selective index (smallest bucket)
+          // This dramatically improves 4-way match success rate
+          const candidateSets = [];
+          if (enabledFlags.heb) candidateSets.push({ candidates: byHebrew.get(needHeb) || [], name: 'heb' });
+          if (enabledFlags.eng) candidateSets.push({ candidates: byEnglish.get(needEng) || [], name: 'eng' });
+          if (enabledFlags.sim) candidateSets.push({ candidates: bySimple.get(needSim) || [], name: 'sim' });
+          if (enabledFlags.aiq) candidateSets.push({ candidates: byAiqBekar.get(needAiq) || [], name: 'aiq' });
+
+          // Use the smallest non-empty bucket for efficiency
+          candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
+          const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
+
           const perfectMatch = candidates.find(w =>
             (!enabledFlags.heb || w.heb === needHeb) &&
             (!enabledFlags.eng || w.eng === needEng) &&
@@ -888,31 +907,35 @@ const GematriaCalculator = () => {
 
       const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
-      // Try more combos since we're just checking if Aik Bekar happens to be a repdigit
-      for (const combo of shuffledCombos.slice(0, 15)) {
-        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+      // Try multiple phrases per combo to increase hit rate
+      const phrasesPerCombo = 10;
+      comboLoop:
+      for (const combo of shuffledCombos.slice(0, 10)) {
+        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} (up to ${phrasesPerCombo} phrases)...`);
 
-        const candidate = await generatePhrase(
-          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-          0,
-          enabledFlags3,
-          500000,
-          3000
-        );
+        for (let attempt = 0; attempt < phrasesPerCombo; attempt++) {
+          const candidate = await generatePhrase(
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
+            0,
+            enabledFlags3,
+            100000,  // Fewer attempts per phrase
+            1500     // Shorter timeout per phrase
+          );
 
-        if (candidate) {
-          // Check if Aik Bekar happens to be a repdigit
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+          if (candidate) {
+            // Check if Aik Bekar happens to be a repdigit
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
 
-          if (repdigitSet.has(aVal)) {
-            console.log(`✅ Found 4-way match! Aik Bekar landed on ${aVal}`);
-            phrase = candidate;
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
-            break;
-          } else {
-            console.log(`   Found 3-way but Aik Bekar = ${aVal} (not a repdigit), trying next combo...`);
+            if (repdigitSet.has(aVal)) {
+              console.log(`✅ Found 4-way match on attempt ${attempt + 1}! Aik Bekar landed on ${aVal}`);
+              phrase = candidate;
+              finalHebrew = combo.heb;
+              finalEnglish = combo.eng;
+              finalSimple = combo.sim;
+              break comboLoop;
+            } else {
+              console.log(`   Attempt ${attempt + 1}: Aik Bekar = ${aVal} (not a repdigit)`);
+            }
           }
         }
       }
