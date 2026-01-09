@@ -1043,35 +1043,55 @@ const GematriaCalculator = () => {
 
       const startTime = Date.now();
       const maxTime = 60000; // 60 second total timeout
-      const repdigitSet = new Set(aiqRepdigits);
 
-      // Strategy: Generate 3-way matches (fast) and check if A is any repdigit
-      // 3-way is much easier than 4-way, and we accept ANY of 19 repdigit A values
-      outer: for (const combo of shuffledCombos) {
+      // Pair combos with compatible A values (smaller combos need smaller A)
+      const comboWithAiq = [];
+      for (const combo of workingCombos) {
+        // Small combos (2-digit) pair with small A values
+        if (combo.sim === 11) {
+          for (const a of [11, 22, 33, 44, 55]) {
+            comboWithAiq.push({ ...combo, aiq: a });
+          }
+        }
+        // Medium combos (3-digit) pair with medium A values
+        else if (combo.sim === 77 || combo.sim === 111) {
+          for (const a of [55, 66, 77, 88, 99, 111, 222]) {
+            comboWithAiq.push({ ...combo, aiq: a });
+          }
+        }
+        // Large combos (4-digit) pair with larger A values
+        else if (combo.sim === 1111) {
+          for (const a of [333, 444, 555, 666, 777, 888, 999, 1111]) {
+            comboWithAiq.push({ ...combo, aiq: a });
+          }
+        }
+      }
+
+      // Shuffle all combo+A pairs
+      const shuffledPairs = comboWithAiq.sort(() => Math.random() - 0.5);
+
+      console.log(`  Testing ${shuffledPairs.length} combo+A pairs...`);
+
+      // Try each pair with TRUE 4-way search
+      for (const pair of shuffledPairs) {
         if (Date.now() - startTime > maxTime) break;
 
-        console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+        console.log(`  Trying H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}...`);
 
-        // Generate many 3-way phrases for this combo
-        for (let attempt = 0; attempt < 30; attempt++) {
-          if (Date.now() - startTime > maxTime) break outer;
+        const candidate = await generatePhrase(
+          pair.heb, pair.eng, pair.sim, pair.aiq,
+          enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
+        );
 
-          const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 1000000, 3000  // 3-way search, 3s timeout
-          );
-
-          if (candidate) {
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            console.log(`   [${attempt + 1}] Generated phrase with A=${aVal}`);
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aVal}`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break outer;
-            }
+        if (candidate) {
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+          if (aVal === pair.aiq) {
+            console.log(`✅ Found 4-way match! H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}`);
+            phrase = candidate;
+            finalHebrew = pair.heb;
+            finalEnglish = pair.eng;
+            finalSimple = pair.sim;
+            break;
           }
         }
       }
