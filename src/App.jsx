@@ -141,6 +141,8 @@ const GematriaCalculator = () => {
       // Small delay to show the spinner
       await new Promise(resolve => setTimeout(resolve, 300));
       setGeneratedPhrases([]);
+      setInput('');
+      setResults(null);
     } finally {
       setClearing(false);
     }
@@ -884,6 +886,23 @@ const GematriaCalculator = () => {
 
     console.log('Generation complete. Result:', phrase);
 
+    // Check for duplicate - if same as last phrase, try again (up to 3 retries)
+    const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
+    let retries = 0;
+    while (phrase && phrase === lastPhrase && retries < 3) {
+      console.log(`⚠️ Duplicate phrase, retrying... (attempt ${retries + 1})`);
+      retries++;
+      phrase = await generatePhrase(
+        parseInt(targetHebrew),
+        parseInt(targetEnglish),
+        parseInt(targetSimple),
+        aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
+        aiqBekarEnabled ? { heb: true, eng: true, sim: true, aiq: true } : enabledFlags3,
+        1000000,
+        10000
+      );
+    }
+
     if (phrase) {
       setInput(phrase);
       const hebrew = calculateGematria(phrase, hebrewValues);
@@ -1062,6 +1081,20 @@ const GematriaCalculator = () => {
     }
 
     console.log('Generation complete. Result:', phrase);
+
+    // Check for duplicate - if same as last phrase, try again (up to 3 retries)
+    const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
+    let retries = 0;
+    while (phrase && phrase === lastPhrase && retries < 3) {
+      console.log(`⚠️ Duplicate phrase, retrying random generation... (attempt ${retries + 1})`);
+      retries++;
+      // Quick retry with random combo
+      const retryCombo = shuffledCombos[Math.floor(Math.random() * shuffledCombos.length)];
+      phrase = await generatePhrase(
+        parseInt(retryCombo.heb), parseInt(retryCombo.eng), parseInt(retryCombo.sim), 0,
+        enabledFlags3, 500000, 3000
+      );
+    }
 
     if (phrase) {
       setInput(phrase);
