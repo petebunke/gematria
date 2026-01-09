@@ -1049,7 +1049,7 @@ const GematriaCalculator = () => {
         for (const aiq of priorityAiq) {
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, aiq,
-            enabledFlags4, 500000, 1500
+            enabledFlags4, 2000000, 8000
           );
 
           if (candidate) {
@@ -1098,7 +1098,7 @@ const GematriaCalculator = () => {
       phrase = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, retryAiq,
         aiqBekarEnabled ? enabledFlags4 : enabledFlags3,
-        500000, 1500
+        2000000, 8000
       );
     }
 
