@@ -1315,18 +1315,18 @@ const GematriaCalculator = () => {
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
-                  disabled={generatedPhrases.length === 0 || clearing}
+                  disabled={clearing}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                  title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
+                  title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   <Download className="w-5 h-5" />
                   Download {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
                 </button>
                 <button
                   onClick={handleClearPhrases}
-                  disabled={generatedPhrases.length === 0 || clearing}
+                  disabled={clearing}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                  title="Clear all generated phrases"
+                  title={generatedPhrases.length > 0 ? 'Clear all generated phrases' : 'No phrases to clear'}
                 >
                   {clearing ? (
                     <>Clearing... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
