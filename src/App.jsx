@@ -616,21 +616,15 @@ const GematriaCalculator = () => {
           candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
 
-          // Check a limited sample of random candidates (prevents getting stuck on large arrays)
+          // Pick ONE random candidate and check - fast iterations over many attempts
           let perfectMatch = null;
           if (candidates.length > 0) {
-            // Sample up to 100 random candidates for variety without blocking
-            const sampleSize = Math.min(candidates.length, 100);
-            for (let j = 0; j < sampleSize; j++) {
-              const idx = Math.floor(Math.random() * candidates.length);
-              const w = candidates[idx];
-              if ((!enabledFlags.heb || w.heb === needHeb) &&
-                  (!enabledFlags.eng || w.eng === needEng) &&
-                  (!enabledFlags.sim || w.sim === needSim) &&
-                  (!enabledFlags.aiq || w.aiq === needAiq)) {
-                perfectMatch = w;
-                break;
-              }
+            const w = candidates[Math.floor(Math.random() * candidates.length)];
+            if ((!enabledFlags.heb || w.heb === needHeb) &&
+                (!enabledFlags.eng || w.eng === needEng) &&
+                (!enabledFlags.sim || w.sim === needSim) &&
+                (!enabledFlags.aiq || w.aiq === needAiq)) {
+              perfectMatch = w;
             }
           }
 
@@ -922,61 +916,77 @@ const GematriaCalculator = () => {
     const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: do a proper 4-way search across random 4-way repdigit combinations
-      console.log('🎲 Searching for 4-way random repdigit match (direct 4-way search)...');
+      // When Aik Bekar is enabled: use smart 2-word search for 4-way repdigit matches
+      console.log('🎲 Searching for 4-way random repdigit match (2-word strategy)...');
 
-      // Build 4-way repdigit combinations for random search
-      // Focus on more achievable combinations (smaller values are easier to match)
-      const fourWayCombos = [];
-      const smallRepdigits = ['11', '22', '33', '44', '55', '66', '77', '88', '99', '111', '222', '333'];
-      const medRepdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
+      if (wordCache) {
+        const { wordData, byHebrew, byEnglish, bySimple, byAiqBekar } = wordCache;
 
-      // Generate varied 4-way combinations
-      for (const h of medRepdigits) {
-        for (const e of medRepdigits) {
-          for (const s of smallRepdigits) {
-            for (const a of smallRepdigits) {
-              fourWayCombos.push({ heb: h, eng: e, sim: s, aiq: a });
+        // Build 4-way repdigit target combinations
+        const fourWayCombos = [];
+        const smallRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333];
+        const medRepdigits = [111, 222, 333, 444, 555, 666, 777, 888, 999];
+
+        for (const h of medRepdigits) {
+          for (const e of medRepdigits) {
+            for (const s of smallRepdigits) {
+              for (const a of smallRepdigits) {
+                fourWayCombos.push({ heb: h, eng: e, sim: s, aiq: a });
+              }
             }
           }
         }
-      }
 
-      // Shuffle for variety
-      for (let i = fourWayCombos.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
-      }
+        // Shuffle for variety
+        for (let i = fourWayCombos.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
+        }
 
-      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+        // Shuffle word data for variety
+        const shuffledWords = [...wordData];
+        for (let i = shuffledWords.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+        }
 
-      // Try combinations with proper 4-way search - more combos, shorter timeout each
-      for (const combo of fourWayCombos.slice(0, 50)) {
-        console.log(`Trying 4-way: H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}...`);
+        // Try 2-word combinations: for each target combo, find word pairs that sum to it
+        const startTime = Date.now();
+        const maxTimeMs = 30000; // 30 second total timeout
 
-        const candidate = await generatePhrase(
-          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(combo.aiq),
-          enabledFlags4,
-          1000000,  // More attempts per combo
-          3000      // 3 second timeout per combo
-        );
-
-        if (candidate) {
-          // Verify all 4 values
-          const hVal = calculateGematria(candidate, hebrewValues).total;
-          const eVal = calculateGematria(candidate, englishValues).total;
-          const sVal = calculateGematria(candidate, simpleValues).total;
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
-
-          if (hVal === parseInt(combo.heb) && eVal === parseInt(combo.eng) &&
-              sVal === parseInt(combo.sim) && aVal === parseInt(combo.aiq)) {
-            console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
-            phrase = candidate;
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
+        comboSearch:
+        for (const combo of fourWayCombos.slice(0, 100)) {
+          if (Date.now() - startTime > maxTimeMs) {
+            console.log('⏱️ 4-way search timeout');
             break;
           }
+
+          // Try to find 2 words that sum to the target
+          for (const w1 of shuffledWords.slice(0, 1000)) {
+            const needHeb = combo.heb - w1.heb;
+            const needEng = combo.eng - w1.eng;
+            const needSim = combo.sim - w1.sim;
+            const needAiq = combo.aiq - w1.aiq;
+
+            // Use smallest bucket for second word lookup
+            const bucket = byAiqBekar.get(needAiq) || [];
+            for (const w2 of bucket) {
+              if (w2.heb === needHeb && w2.eng === needEng && w2.sim === needSim) {
+                phrase = `${w1.word} ${w2.word}`;
+                finalHebrew = combo.heb.toString();
+                finalEnglish = combo.eng.toString();
+                finalSimple = combo.sim.toString();
+                console.log(`✅ Found 4-way 2-word match: "${phrase}" H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}`);
+                break comboSearch;
+              }
+            }
+
+            // Yield to browser periodically
+            if (Date.now() - startTime > maxTimeMs) break;
+          }
+
+          // Small yield between combos
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
     } else {
