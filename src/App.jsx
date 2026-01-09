@@ -1042,30 +1042,30 @@ const GematriaCalculator = () => {
       console.log('🎲 Searching for 4-way random repdigit match...');
 
       const startTime = Date.now();
-      const maxTime = 45000; // 45 second total timeout
+      const maxTime = 60000; // 60 second total timeout
+      const repdigitSet = new Set(aiqRepdigits);
 
-      // Shuffle A values too for variety
-      const shuffledAiq = [...aiqRepdigits].sort(() => Math.random() - 0.5);
-
-      // Strategy: TRUE 4-way search - try combo+A combinations
+      // Strategy: Generate 3-way matches (fast) and check if A is any repdigit
+      // 3-way is much easier than 4-way, and we accept ANY of 19 repdigit A values
       outer: for (const combo of shuffledCombos) {
         if (Date.now() - startTime > maxTime) break;
 
-        // Try several A values for this combo
-        for (const aiq of shuffledAiq.slice(0, 5)) {
+        console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+
+        // Generate many 3-way phrases for this combo
+        for (let attempt = 0; attempt < 30; attempt++) {
           if (Date.now() - startTime > maxTime) break outer;
 
-          console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}...`);
-
           const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, aiq,
-            enabledFlags4, 1000000, 5000  // TRUE 4-way search, 5s per attempt
+            combo.heb, combo.eng, combo.sim, 0,
+            enabledFlags3, 1000000, 3000  // 3-way search, 3s timeout
           );
 
           if (candidate) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            if (aVal === aiq) {
-              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}`);
+            console.log(`   [${attempt + 1}] Generated phrase with A=${aVal}`);
+            if (repdigitSet.has(aVal)) {
+              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aVal}`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
