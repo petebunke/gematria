@@ -1043,38 +1043,37 @@ const GematriaCalculator = () => {
 
       const startTime = Date.now();
       const maxTime = 45000; // 45 second total timeout
-      const repdigitSet = new Set(aiqRepdigits);
 
-      // Strategy: Generate 3-way matches and check if A happens to be a repdigit
-      // This is much more likely to succeed than forcing a specific A value
-      for (const combo of shuffledCombos) {
+      // Shuffle A values too for variety
+      const shuffledAiq = [...aiqRepdigits].sort(() => Math.random() - 0.5);
+
+      // Strategy: TRUE 4-way search - try combo+A combinations
+      outer: for (const combo of shuffledCombos) {
         if (Date.now() - startTime > maxTime) break;
 
-        console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+        // Try several A values for this combo
+        for (const aiq of shuffledAiq.slice(0, 5)) {
+          if (Date.now() - startTime > maxTime) break outer;
 
-        // Generate 3-way matches and check if A is a repdigit
-        for (let attempt = 0; attempt < 20; attempt++) {
-          if (Date.now() - startTime > maxTime) break;
+          console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}...`);
 
           const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 500000, 2000  // 2s timeout for reliable 3-way generation
+            combo.heb, combo.eng, combo.sim, aiq,
+            enabledFlags4, 1000000, 5000  // TRUE 4-way search, 5s per attempt
           );
 
           if (candidate) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            console.log(`   [${attempt + 1}] A=${aVal}`);
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aVal}`);
+            if (aVal === aiq) {
+              console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiq}`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
               finalSimple = combo.sim;
-              break;
+              break outer;
             }
           }
         }
-        if (phrase) break;
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
