@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
 
 const GematriaCalculator = () => {
@@ -480,17 +480,16 @@ const GematriaCalculator = () => {
     }
   }, [generatedPhrases]);
 
-  const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
+  // Pre-calculate word data and indexes ONCE when wordList changes
+  // This dramatically speeds up phrase generation by avoiding repeated calculations
+  const wordCache = useMemo(() => {
+    if (wordList.length === 0) return null;
+
+    console.log(`📊 Pre-calculating gematria for ${wordList.length.toLocaleString()} words...`);
     const startTime = Date.now();
-    const words = wordList.length > 0 ? wordList : getExtensiveWordList();
 
-    const enabledStr = `H:${enabledFlags.heb ? '✓' : '✗'} E:${enabledFlags.eng ? '✓' : '✗'} S:${enabledFlags.sim ? '✓' : '✗'} A:${enabledFlags.aiq ? '✓' : '✗'}`;
-    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
-    console.log(`📚 Pre-calculating ${words.length.toLocaleString()} words...`);
-    console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds`);
-
-    // Pre-calculate all gematria values once
-    const wordData = words.map(word => ({
+    // Calculate all gematria values once
+    const wordData = wordList.map(word => ({
       word,
       heb: calculateGematria(word, hebrewValues).total,
       eng: calculateGematria(word, englishValues).total,
@@ -498,7 +497,7 @@ const GematriaCalculator = () => {
       aiq: calculateGematria(word, aiqBekarValues).total
     }));
 
-    // Build value-based indexes for smarter selection
+    // Build value-based indexes
     const byHebrew = new Map();
     const byEnglish = new Map();
     const bySimple = new Map();
@@ -516,31 +515,39 @@ const GematriaCalculator = () => {
       byAiqBekar.get(data.aiq).push(data);
     });
 
-    // Shuffle each value bucket to avoid bias toward specific words
-    byHebrew.forEach((arr) => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-    });
-    byEnglish.forEach((arr) => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-    });
-    bySimple.forEach((arr) => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-    });
-    byAiqBekar.forEach((arr) => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-      }
-    });
+    console.log(`✅ Word cache built in ${Date.now() - startTime}ms`);
+
+    return { wordData, byHebrew, byEnglish, bySimple, byAiqBekar };
+  }, [wordList]);
+
+  const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
+    const startTime = Date.now();
+
+    // Use pre-calculated cache if available, otherwise fall back to calculation
+    if (!wordCache) {
+      console.log('⚠️ Word cache not ready, skipping generation');
+      return null;
+    }
+
+    const { wordData, byHebrew, byEnglish, bySimple, byAiqBekar } = wordCache;
+
+    const enabledStr = `H:${enabledFlags.heb ? '✓' : '✗'} E:${enabledFlags.eng ? '✓' : '✗'} S:${enabledFlags.sim ? '✓' : '✗'} A:${enabledFlags.aiq ? '✓' : '✗'}`;
+    console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
+    console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds (using cached word data)`);
+
+    // Shuffle index buckets to ensure variety in each search
+    const shuffleBuckets = (indexMap) => {
+      indexMap.forEach((arr) => {
+        for (let i = arr.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [arr[i], arr[j]] = [arr[j], arr[i]];
+        }
+      });
+    };
+    shuffleBuckets(byHebrew);
+    shuffleBuckets(byEnglish);
+    shuffleBuckets(bySimple);
+    shuffleBuckets(byAiqBekar);
 
     // Dynamically adjust phrase length based on enabled target values
     const enabledTargets = [];
