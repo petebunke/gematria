@@ -133,10 +133,13 @@ const GematriaCalculator = () => {
 
   const handleClearPhrases = async () => {
     setClearing(true);
-    // Small delay to show the spinner
-    await new Promise(resolve => setTimeout(resolve, 300));
-    setGeneratedPhrases([]);
-    setClearing(false);
+    try {
+      // Small delay to show the spinner
+      await new Promise(resolve => setTimeout(resolve, 300));
+      setGeneratedPhrases([]);
+    } finally {
+      setClearing(false);
+    }
   };
 
   const downloadPhraseTable = () => {
@@ -1313,7 +1316,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={downloadPhraseTable}
                   disabled={generatedPhrases.length === 0 || clearing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={`Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}`}
                 >
                   <Download className="w-5 h-5" />
