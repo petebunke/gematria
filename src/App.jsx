@@ -535,19 +535,15 @@ const GematriaCalculator = () => {
     console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds (using cached word data)`);
 
-    // Shuffle index buckets to ensure variety in each search
-    const shuffleBuckets = (indexMap) => {
-      indexMap.forEach((arr) => {
-        for (let i = arr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [arr[i], arr[j]] = [arr[j], arr[i]];
-        }
-      });
+    // Helper to get a shuffled copy of an array (don't mutate cached data)
+    const shuffleArray = (arr) => {
+      const copy = [...arr];
+      for (let i = copy.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [copy[i], copy[j]] = [copy[j], copy[i]];
+      }
+      return copy;
     };
-    shuffleBuckets(byHebrew);
-    shuffleBuckets(byEnglish);
-    shuffleBuckets(bySimple);
-    shuffleBuckets(byAiqBekar);
 
     // Dynamically adjust phrase length based on enabled target values
     const enabledTargets = [];
@@ -624,7 +620,9 @@ const GematriaCalculator = () => {
 
           // Use the smallest non-empty bucket for efficiency
           candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
-          const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
+          const rawCandidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
+          // Shuffle candidates for variety (create copy to avoid mutating cache)
+          const candidates = shuffleArray(rawCandidates);
 
           const perfectMatch = candidates.find(w =>
             (!enabledFlags.heb || w.heb === needHeb) &&
@@ -921,40 +919,60 @@ const GematriaCalculator = () => {
     const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: find 3-way H/E/S matches, then check if Aik Bekar lands on a repdigit
-      console.log('🎲 Searching for 4-way random repdigit match (generate-and-check approach)...');
+      // When Aik Bekar is enabled: do a proper 4-way search across random 4-way repdigit combinations
+      console.log('🎲 Searching for 4-way random repdigit match (direct 4-way search)...');
 
-      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+      // Build 4-way repdigit combinations for random search
+      // Focus on more achievable combinations (smaller values are easier to match)
+      const fourWayCombos = [];
+      const smallRepdigits = ['11', '22', '33', '44', '55', '66', '77', '88', '99', '111', '222', '333'];
+      const medRepdigits = ['111', '222', '333', '444', '555', '666', '777', '888', '999'];
 
-      // Try multiple phrases per combo - with caching we can do more attempts quickly
-      const phrasesPerCombo = 5;
-      comboLoop:
-      for (const combo of shuffledCombos.slice(0, 10)) {
-        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} (up to ${phrasesPerCombo} phrases)...`);
-
-        for (let attempt = 0; attempt < phrasesPerCombo; attempt++) {
-          const candidate = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-            0,
-            enabledFlags3,
-            500000,  // More attempts per phrase
-            4000     // 4 second timeout per phrase
-          );
-
-          if (candidate) {
-            // Check if Aik Bekar happens to be a repdigit
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
-
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match on attempt ${attempt + 1}! Aik Bekar landed on ${aVal}`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break comboLoop;
-            } else {
-              console.log(`   Attempt ${attempt + 1}: Aik Bekar = ${aVal} (not a repdigit)`);
+      // Generate varied 4-way combinations
+      for (const h of medRepdigits) {
+        for (const e of medRepdigits) {
+          for (const s of smallRepdigits) {
+            for (const a of smallRepdigits) {
+              fourWayCombos.push({ heb: h, eng: e, sim: s, aiq: a });
             }
+          }
+        }
+      }
+
+      // Shuffle for variety
+      for (let i = fourWayCombos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
+      }
+
+      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+
+      // Try combinations with proper 4-way search
+      for (const combo of fourWayCombos.slice(0, 30)) {
+        console.log(`Trying 4-way: H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}...`);
+
+        const candidate = await generatePhrase(
+          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(combo.aiq),
+          enabledFlags4,
+          500000,  // Attempts per combo
+          2000     // 2 second timeout per combo
+        );
+
+        if (candidate) {
+          // Verify all 4 values
+          const hVal = calculateGematria(candidate, hebrewValues).total;
+          const eVal = calculateGematria(candidate, englishValues).total;
+          const sVal = calculateGematria(candidate, simpleValues).total;
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+
+          if (hVal === parseInt(combo.heb) && eVal === parseInt(combo.eng) &&
+              sVal === parseInt(combo.sim) && aVal === parseInt(combo.aiq)) {
+            console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
           }
         }
       }
