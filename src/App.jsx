@@ -657,6 +657,59 @@ const GematriaCalculator = () => {
             return phrase;
           }
 
+          // No single-word match - try TWO-WORD ending for 4-way (Aik Bekar) matches
+          if (enabledFlags.aiq && !perfectMatch) {
+            // Use smallest bucket to iterate through word1 candidates
+            const word1Pool = nonEmptySets.length > 0 ? nonEmptySets[0].candidates : [];
+            const bucketName = nonEmptySets.length > 0 ? nonEmptySets[0].name : 'none';
+
+            // Limit search to avoid blocking
+            const maxWord1 = Math.min(word1Pool.length, 200);
+            const startIdx = Math.floor(Math.random() * Math.max(1, word1Pool.length - maxWord1));
+
+            for (let w1 = 0; w1 < maxWord1; w1++) {
+              const word1 = word1Pool[(startIdx + w1) % word1Pool.length];
+
+              // Calculate what word2 needs to hit
+              const need2Heb = needHeb - word1.heb;
+              const need2Eng = needEng - word1.eng;
+              const need2Sim = needSim - word1.sim;
+              const need2Aiq = needAiq - word1.aiq;
+
+              // Skip if needs are negative (impossible)
+              if (need2Heb < 1 || need2Eng < 1 || need2Sim < 1 || need2Aiq < 1) continue;
+
+              // Look for word2 in smallest available bucket
+              const word2Sets = [];
+              if (enabledFlags.heb && byHebrew.has(need2Heb)) word2Sets.push({ candidates: byHebrew.get(need2Heb), name: 'heb' });
+              if (enabledFlags.eng && byEnglish.has(need2Eng)) word2Sets.push({ candidates: byEnglish.get(need2Eng), name: 'eng' });
+              if (enabledFlags.sim && bySimple.has(need2Sim)) word2Sets.push({ candidates: bySimple.get(need2Sim), name: 'sim' });
+              if (enabledFlags.aiq && byAiqBekar.has(need2Aiq)) word2Sets.push({ candidates: byAiqBekar.get(need2Aiq), name: 'aiq' });
+
+              if (word2Sets.length === 0) continue;
+              word2Sets.sort((a, b) => a.candidates.length - b.candidates.length);
+              const word2Pool = word2Sets[0].candidates;
+
+              // Search word2 candidates
+              const maxWord2 = Math.min(word2Pool.length, 50);
+              for (let w2 = 0; w2 < maxWord2; w2++) {
+                const word2 = word2Pool[w2];
+
+                // Check if word2 completes the 4-way match
+                if ((!enabledFlags.heb || word2.heb === need2Heb) &&
+                    (!enabledFlags.eng || word2.eng === need2Eng) &&
+                    (!enabledFlags.sim || word2.sim === need2Sim) &&
+                    (!enabledFlags.aiq || word2.aiq === need2Aiq)) {
+                  selectedWords.push(word1.word);
+                  selectedWords.push(word2.word);
+                  const phrase = selectedWords.join(' ');
+                  console.log(`✅ Found 2-word ending after ${attempt + 1} attempts: "${phrase}"`);
+                  return phrase;
+                }
+              }
+            }
+          }
+
           // No perfect match for last word, pick random word
           // For first word, prefer words starting with the selected letter
           let pool = wordData;
@@ -1038,7 +1091,7 @@ const GematriaCalculator = () => {
 
           const candidate = await generatePhrase(
             parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), aiqTarget,
-            enabledFlags4, 500000, 1500
+            enabledFlags4, 800000, 2500
           );
 
           if (candidate) {
