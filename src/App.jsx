@@ -927,25 +927,25 @@ const GematriaCalculator = () => {
 
       const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
       const startTime = Date.now();
-      const maxTimeMs = 30000; // 30 second total timeout
+      const maxTimeMs = 45000; // 45 second total timeout
       let phrasesGenerated = 0;
 
       // Try many 3-way generations and check if Aik Bekar lands on a repdigit
       comboLoop:
-      for (const combo of shuffledCombos.slice(0, 10)) {
+      for (const combo of shuffledCombos.slice(0, 15)) {
         if (Date.now() - startTime > maxTimeMs) break;
 
         console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
 
         // Generate multiple 3-way phrases for each combo
-        for (let i = 0; i < 20; i++) {
+        for (let i = 0; i < 30; i++) {
           if (Date.now() - startTime > maxTimeMs) break;
 
           const candidate = await generatePhrase(
             parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
             enabledFlags3way,
-            500000,  // More attempts
-            1500     // 1.5 second timeout
+            500000,  // Attempts per phrase
+            1000     // 1 second timeout - faster iterations
           );
 
           if (candidate) {
@@ -1244,7 +1244,7 @@ const GematriaCalculator = () => {
                             ⓘ
                           </span>
                           <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard if you actually get one!
+                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
                           </div>
                         </span>
                       </label>
