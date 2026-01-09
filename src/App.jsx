@@ -617,19 +617,32 @@ const GematriaCalculator = () => {
           nonEmptySets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = nonEmptySets.length > 0 ? nonEmptySets[0].candidates : [];
 
-          // Check up to 200 candidates starting from random position
+          // Search for exact match - check all candidates in small buckets, sample in large ones
           let perfectMatch = null;
           if (candidates.length > 0) {
-            const startIdx = Math.floor(Math.random() * candidates.length);
-            const maxCheck = Math.min(candidates.length, 200);
-            for (let c = 0; c < maxCheck; c++) {
-              const w = candidates[(startIdx + c) % candidates.length];
-              if ((!enabledFlags.heb || w.heb === needHeb) &&
-                  (!enabledFlags.eng || w.eng === needEng) &&
-                  (!enabledFlags.sim || w.sim === needSim) &&
-                  (!enabledFlags.aiq || w.aiq === needAiq)) {
-                perfectMatch = w;
-                break;
+            if (candidates.length <= 500) {
+              // Small bucket - search ALL candidates to guarantee finding match if exists
+              for (const w of candidates) {
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                    (!enabledFlags.eng || w.eng === needEng) &&
+                    (!enabledFlags.sim || w.sim === needSim) &&
+                    (!enabledFlags.aiq || w.aiq === needAiq)) {
+                  perfectMatch = w;
+                  break;
+                }
+              }
+            } else {
+              // Large bucket - check 500 from random position for speed
+              const startIdx = Math.floor(Math.random() * candidates.length);
+              for (let c = 0; c < 500; c++) {
+                const w = candidates[(startIdx + c) % candidates.length];
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                    (!enabledFlags.eng || w.eng === needEng) &&
+                    (!enabledFlags.sim || w.sim === needSim) &&
+                    (!enabledFlags.aiq || w.aiq === needAiq)) {
+                  perfectMatch = w;
+                  break;
+                }
               }
             }
           }
