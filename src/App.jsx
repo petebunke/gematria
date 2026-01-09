@@ -1042,7 +1042,7 @@ const GematriaCalculator = () => {
       console.log('🎲 Searching for 4-way random repdigit match...');
 
       const startTime = Date.now();
-      const maxTime = 30000; // 30 second total timeout
+      const maxTime = 45000; // 45 second total timeout
       const repdigitSet = new Set(aiqRepdigits);
 
       // Strategy: Generate 3-way matches and check if A happens to be a repdigit
@@ -1052,17 +1052,18 @@ const GematriaCalculator = () => {
 
         console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
 
-        // Generate many 3-way matches and check if A is a repdigit
-        for (let attempt = 0; attempt < 50; attempt++) {
+        // Generate 3-way matches and check if A is a repdigit
+        for (let attempt = 0; attempt < 20; attempt++) {
           if (Date.now() - startTime > maxTime) break;
 
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 300000, 500  // Fast 3-way generation
+            enabledFlags3, 500000, 2000  // 2s timeout for reliable 3-way generation
           );
 
           if (candidate) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            console.log(`   [${attempt + 1}] A=${aVal}`);
             if (repdigitSet.has(aVal)) {
               console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aVal}`);
               phrase = candidate;
