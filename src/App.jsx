@@ -90,18 +90,22 @@ const GematriaCalculator = () => {
   const handleCalculate = () => {
     if (!input.trim()) return;
 
-    const hebrew = calculateGematria(input, hebrewValues);
-    const english = calculateGematria(input, englishValues);
-    const simple = calculateGematria(input, simpleValues);
-    const aiqBekar = calculateGematria(input, aiqBekarValues);
+    const phrase = input.trim();
+    const hebrew = calculateGematria(phrase, hebrewValues);
+    const english = calculateGematria(phrase, englishValues);
+    const simple = calculateGematria(phrase, simpleValues);
+    const aiqBekar = calculateGematria(phrase, aiqBekarValues);
 
     setResults({
-      input: input.trim(),
+      input: phrase,
       hebrew,
       english,
       simple,
       aiqBekar
     });
+
+    // Track calculated phrase
+    trackGeneratedPhrase(phrase, hebrew.total, english.total, simple.total, aiqBekar.total, 'calculated');
   };
 
   const handleCopy = async () => {
@@ -535,16 +539,6 @@ const GematriaCalculator = () => {
     console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds (using cached word data)`);
 
-    // Helper to get a shuffled copy of an array (don't mutate cached data)
-    const shuffleArray = (arr) => {
-      const copy = [...arr];
-      for (let i = copy.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [copy[i], copy[j]] = [copy[j], copy[i]];
-      }
-      return copy;
-    };
-
     // Dynamically adjust phrase length based on enabled target values
     const enabledTargets = [];
     if (enabledFlags.heb) enabledTargets.push(targetHeb);
@@ -620,16 +614,23 @@ const GematriaCalculator = () => {
 
           // Use the smallest non-empty bucket for efficiency
           candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
-          const rawCandidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
-          // Shuffle candidates for variety (create copy to avoid mutating cache)
-          const candidates = shuffleArray(rawCandidates);
+          const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
 
-          const perfectMatch = candidates.find(w =>
-            (!enabledFlags.heb || w.heb === needHeb) &&
-            (!enabledFlags.eng || w.eng === needEng) &&
-            (!enabledFlags.sim || w.sim === needSim) &&
-            (!enabledFlags.aiq || w.aiq === needAiq)
-          );
+          // Use random offset for variety (much faster than shuffling on every attempt)
+          let perfectMatch = null;
+          if (candidates.length > 0) {
+            const startIdx = Math.floor(Math.random() * candidates.length);
+            for (let j = 0; j < candidates.length; j++) {
+              const w = candidates[(startIdx + j) % candidates.length];
+              if ((!enabledFlags.heb || w.heb === needHeb) &&
+                  (!enabledFlags.eng || w.eng === needEng) &&
+                  (!enabledFlags.sim || w.sim === needSim) &&
+                  (!enabledFlags.aiq || w.aiq === needAiq)) {
+                perfectMatch = w;
+                break;
+              }
+            }
+          }
 
           if (perfectMatch) {
             selectedWords.push(perfectMatch.word);
@@ -947,15 +948,15 @@ const GematriaCalculator = () => {
 
       const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
 
-      // Try combinations with proper 4-way search
-      for (const combo of fourWayCombos.slice(0, 30)) {
+      // Try combinations with proper 4-way search - more combos, shorter timeout each
+      for (const combo of fourWayCombos.slice(0, 50)) {
         console.log(`Trying 4-way: H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}...`);
 
         const candidate = await generatePhrase(
           parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), parseInt(combo.aiq),
           enabledFlags4,
-          500000,  // Attempts per combo
-          2000     // 2 second timeout per combo
+          1000000,  // More attempts per combo
+          3000      // 3 second timeout per combo
         );
 
         if (candidate) {
