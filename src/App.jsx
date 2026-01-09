@@ -141,6 +141,8 @@ const GematriaCalculator = () => {
       // Small delay to show the spinner
       await new Promise(resolve => setTimeout(resolve, 300));
       setGeneratedPhrases([]);
+      setInput('');
+      setResults(null);
     } finally {
       setClearing(false);
     }
@@ -520,6 +522,7 @@ const GematriaCalculator = () => {
     });
 
     console.log(`✅ Word cache built in ${Date.now() - startTime}ms`);
+    console.log(`   Index sizes - H:${byHebrew.size} E:${byEnglish.size} S:${bySimple.size} A:${byAiqBekar.size}`);
 
     return { wordData, byHebrew, byEnglish, bySimple, byAiqBekar };
   }, [wordList]);
@@ -617,19 +620,32 @@ const GematriaCalculator = () => {
           nonEmptySets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = nonEmptySets.length > 0 ? nonEmptySets[0].candidates : [];
 
-          // Check up to 200 candidates starting from random position
+          // Search for exact match - check all candidates in small buckets, sample in large ones
           let perfectMatch = null;
           if (candidates.length > 0) {
-            const startIdx = Math.floor(Math.random() * candidates.length);
-            const maxCheck = Math.min(candidates.length, 200);
-            for (let c = 0; c < maxCheck; c++) {
-              const w = candidates[(startIdx + c) % candidates.length];
-              if ((!enabledFlags.heb || w.heb === needHeb) &&
-                  (!enabledFlags.eng || w.eng === needEng) &&
-                  (!enabledFlags.sim || w.sim === needSim) &&
-                  (!enabledFlags.aiq || w.aiq === needAiq)) {
-                perfectMatch = w;
-                break;
+            if (candidates.length <= 500) {
+              // Small bucket - search ALL candidates to guarantee finding match if exists
+              for (const w of candidates) {
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                    (!enabledFlags.eng || w.eng === needEng) &&
+                    (!enabledFlags.sim || w.sim === needSim) &&
+                    (!enabledFlags.aiq || w.aiq === needAiq)) {
+                  perfectMatch = w;
+                  break;
+                }
+              }
+            } else {
+              // Large bucket - check 500 from random position for speed
+              const startIdx = Math.floor(Math.random() * candidates.length);
+              for (let c = 0; c < 500; c++) {
+                const w = candidates[(startIdx + c) % candidates.length];
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                    (!enabledFlags.eng || w.eng === needEng) &&
+                    (!enabledFlags.sim || w.sim === needSim) &&
+                    (!enabledFlags.aiq || w.aiq === needAiq)) {
+                  perfectMatch = w;
+                  break;
+                }
               }
             }
           }
@@ -639,6 +655,53 @@ const GematriaCalculator = () => {
             const phrase = selectedWords.join(' ');
             console.log(`✅ Found match after ${attempt + 1} attempts: "${phrase}"`);
             return phrase;
+          }
+
+          // No single-word match - try TWO-WORD ending
+          if (!perfectMatch && nonEmptySets.length > 0) {
+            const word1Pool = nonEmptySets[0].candidates;
+
+            // Search all word1 candidates (they're already from smallest bucket)
+            for (let w1 = 0; w1 < word1Pool.length; w1++) {
+              const word1 = word1Pool[w1];
+
+              // Calculate what word2 needs to hit
+              const need2Heb = needHeb - word1.heb;
+              const need2Eng = needEng - word1.eng;
+              const need2Sim = needSim - word1.sim;
+              const need2Aiq = needAiq - word1.aiq;
+
+              // Skip if enabled needs are negative (only check enabled systems)
+              if ((enabledFlags.heb && need2Heb < 1) ||
+                  (enabledFlags.eng && need2Eng < 1) ||
+                  (enabledFlags.sim && need2Sim < 1) ||
+                  (enabledFlags.aiq && need2Aiq < 1)) continue;
+
+              // Look for word2 in smallest available bucket
+              const word2Sets = [];
+              if (enabledFlags.heb && byHebrew.has(need2Heb)) word2Sets.push({ candidates: byHebrew.get(need2Heb), name: 'heb' });
+              if (enabledFlags.eng && byEnglish.has(need2Eng)) word2Sets.push({ candidates: byEnglish.get(need2Eng), name: 'eng' });
+              if (enabledFlags.sim && bySimple.has(need2Sim)) word2Sets.push({ candidates: bySimple.get(need2Sim), name: 'sim' });
+              if (enabledFlags.aiq && byAiqBekar.has(need2Aiq)) word2Sets.push({ candidates: byAiqBekar.get(need2Aiq), name: 'aiq' });
+
+              if (word2Sets.length === 0) continue;
+              word2Sets.sort((a, b) => a.candidates.length - b.candidates.length);
+              const word2Pool = word2Sets[0].candidates;
+
+              // Search all word2 candidates
+              for (const word2 of word2Pool) {
+                if ((!enabledFlags.heb || word2.heb === need2Heb) &&
+                    (!enabledFlags.eng || word2.eng === need2Eng) &&
+                    (!enabledFlags.sim || word2.sim === need2Sim) &&
+                    (!enabledFlags.aiq || word2.aiq === need2Aiq)) {
+                  selectedWords.push(word1.word);
+                  selectedWords.push(word2.word);
+                  const phrase = selectedWords.join(' ');
+                  console.log(`✅ Found 2-word ending after ${attempt + 1} attempts: "${phrase}"`);
+                  return phrase;
+                }
+              }
+            }
           }
 
           // No perfect match for last word, pick random word
@@ -667,33 +730,40 @@ const GematriaCalculator = () => {
           totalSim += randomWord.sim;
           totalAiq += randomWord.aiq;
         } else {
-          // For non-last words, pick randomly but avoid exceeding targets
+          // For non-last words, pick words that keep us on track for targets
           let attempts = 0;
           let picked = null;
+
+          // Calculate ideal progress - what fraction of target should we have after this word?
+          const progressFraction = (i + 1) / numWords;
+          const idealHeb = targetHeb * progressFraction;
+          const idealEng = targetEng * progressFraction;
+          const idealSim = targetSim * progressFraction;
+          const idealAiq = targetAiq * progressFraction;
 
           // For first word, prefer words starting with the selected letter
           let pool = wordData;
           if (i === 0) {
             const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
-            if (attempt < 5) {
-              console.log(`  Found ${letterWords.length} words starting with '${startingLetter}'`);
-            }
             if (letterWords.length > 0 && Math.random() < 0.7) {
               pool = letterWords;
-              if (attempt < 5) {
-                console.log(`  Using filtered pool of ${pool.length} words`);
-              }
             }
           }
 
+          // Try to find a word that keeps us close to ideal progress
           while (attempts < 100) {
             const candidate = pool[Math.floor(Math.random() * pool.length)];
 
-            // Soft constraint: prefer words that don't exceed any enabled target
-            const hebOk = !enabledFlags.heb || totalHeb + candidate.heb < targetHeb;
-            const engOk = !enabledFlags.eng || totalEng + candidate.eng < targetEng;
-            const simOk = !enabledFlags.sim || totalSim + candidate.sim < targetSim;
-            const aiqOk = !enabledFlags.aiq || totalAiq + candidate.aiq < targetAiq;
+            const newHeb = totalHeb + candidate.heb;
+            const newEng = totalEng + candidate.eng;
+            const newSim = totalSim + candidate.sim;
+            const newAiq = totalAiq + candidate.aiq;
+
+            // Check if this word keeps us reasonably on track
+            const hebOk = !enabledFlags.heb || (newHeb <= targetHeb && newHeb >= idealHeb * 0.5);
+            const engOk = !enabledFlags.eng || (newEng <= targetEng && newEng >= idealEng * 0.5);
+            const simOk = !enabledFlags.sim || (newSim <= targetSim && newSim >= idealSim * 0.5);
+            const aiqOk = !enabledFlags.aiq || (newAiq <= targetAiq && newAiq >= idealAiq * 0.3);
 
             if (hebOk && engOk && simOk && aiqOk) {
               picked = candidate;
@@ -702,7 +772,21 @@ const GematriaCalculator = () => {
             attempts++;
           }
 
-          // If no good candidate found after 100 tries, just pick randomly from pool
+          // If no good candidate found, pick one that at least doesn't exceed targets
+          if (!picked) {
+            for (let t = 0; t < 50; t++) {
+              const candidate = pool[Math.floor(Math.random() * pool.length)];
+              if (totalHeb + candidate.heb <= targetHeb &&
+                  totalEng + candidate.eng <= targetEng &&
+                  totalSim + candidate.sim <= targetSim &&
+                  totalAiq + candidate.aiq <= targetAiq) {
+                picked = candidate;
+                break;
+              }
+            }
+          }
+
+          // Last resort: just pick randomly
           if (!picked) {
             picked = pool[Math.floor(Math.random() * pool.length)];
           }
@@ -773,33 +857,67 @@ const GematriaCalculator = () => {
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled, search for the specific target value from the dropdown
-      console.log(`Searching for 4-way repdigit match with Aik Bekar⁹ = ${targetAiqBekar}...`);
+      // When Aik Bekar is enabled, search for the specific target value
+      console.log(`Searching for 4-way match: H=${targetHebrew} E=${targetEnglish} S=${targetSimple} A=${targetAiqBekar}...`);
 
       const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+      const targetAiq = parseInt(targetAiqBekar);
+      const startTime = Date.now();
+
+      // First try exact 4-way match
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
         parseInt(targetSimple),
-        parseInt(targetAiqBekar),
+        targetAiq,
         enabledFlags4,
-        2000000,  // More attempts for 4-way search
-        20000     // 20 second timeout
+        2000000,
+        20000  // 20 second timeout
       );
 
       if (phrase) {
-        // Verify all 4 values are correct
-        const hVal = calculateGematria(phrase, hebrewValues).total;
-        const eVal = calculateGematria(phrase, englishValues).total;
-        const sVal = calculateGematria(phrase, simpleValues).total;
         const aVal = calculateGematria(phrase, aiqBekarValues).total;
-
-        if (hVal === parseInt(targetHebrew) && eVal === parseInt(targetEnglish) &&
-            sVal === parseInt(targetSimple) && aVal === parseInt(targetAiqBekar)) {
-          console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
+        if (aVal === targetAiq) {
+          console.log(`✅ Found exact 4-way match!`);
         } else {
-          console.log(`❌ Verification failed, discarding result`);
+          console.log(`❌ Aik Bekar mismatch (got ${aVal}, wanted ${targetAiq}), trying generate-and-check...`);
           phrase = null;
+        }
+      }
+
+      // FALLBACK: Generate 3-way matches and find one where A matches target
+      if (!phrase) {
+        console.log('🔄 Trying generate-and-check for Aik Bekar...');
+        const maxTimeMs = 40000; // 40 more seconds
+
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (Date.now() - startTime > maxTimeMs) {
+            console.log(`⏱️ Timeout after ${attempt} attempts`);
+            break;
+          }
+
+          const candidate = await generatePhrase(
+            parseInt(targetHebrew),
+            parseInt(targetEnglish),
+            parseInt(targetSimple),
+            0,
+            enabledFlags3,
+            500000,
+            800
+          );
+
+          if (candidate) {
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            console.log(`   [${attempt + 1}] A=${aVal} (want ${targetAiq})`);
+
+            if (aVal === targetAiq) {
+              console.log(`✅ Found matching Aik Bekar after ${attempt + 1} attempts!`);
+              phrase = candidate;
+              break;
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
     } else {
@@ -814,6 +932,23 @@ const GematriaCalculator = () => {
     }
 
     console.log('Generation complete. Result:', phrase);
+
+    // Check for duplicate - if same as last phrase, try again (up to 3 retries)
+    const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
+    let retries = 0;
+    while (phrase && phrase === lastPhrase && retries < 3) {
+      console.log(`⚠️ Duplicate phrase, retrying... (attempt ${retries + 1})`);
+      retries++;
+      phrase = await generatePhrase(
+        parseInt(targetHebrew),
+        parseInt(targetEnglish),
+        parseInt(targetSimple),
+        aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
+        aiqBekarEnabled ? { heb: true, eng: true, sim: true, aiq: true } : enabledFlags3,
+        1000000,
+        10000
+      );
+    }
 
     if (phrase) {
       setInput(phrase);
@@ -868,122 +1003,110 @@ const GematriaCalculator = () => {
     console.log('Starting random repdigit phrase generation...');
 
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
-    const repdigitSet = new Set([11, 22, 33, 44, 55, 66, 77, 88, 99,
-                                  111, 222, 333, 444, 555, 666, 777, 888, 999,
-                                  1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
+    const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
 
-    const knownCombos2Digit = [
-      { heb: '22', eng: '66', sim: '11' },
-      { heb: '33', eng: '66', sim: '11' },
-      { heb: '44', eng: '66', sim: '11' },
-      { heb: '55', eng: '66', sim: '11' },
+    // Known working H/E/S combinations (E ≈ 6*S relationship)
+    const workingCombos = [
+      // 2-digit combos
+      { heb: 22, eng: 66, sim: 11 }, { heb: 33, eng: 66, sim: 11 },
+      { heb: 44, eng: 66, sim: 11 }, { heb: 55, eng: 66, sim: 11 },
+      { heb: 66, eng: 66, sim: 11 }, { heb: 77, eng: 66, sim: 11 },
+      { heb: 88, eng: 66, sim: 11 }, { heb: 99, eng: 66, sim: 11 },
+      // 3-digit combos
+      { heb: 111, eng: 666, sim: 111 }, { heb: 222, eng: 666, sim: 111 },
+      { heb: 333, eng: 666, sim: 111 }, { heb: 444, eng: 666, sim: 111 },
+      { heb: 555, eng: 666, sim: 111 }, { heb: 666, eng: 666, sim: 111 },
+      { heb: 777, eng: 666, sim: 111 }, { heb: 888, eng: 666, sim: 111 },
+      { heb: 999, eng: 666, sim: 111 }, { heb: 1111, eng: 666, sim: 111 },
+      // More 3-digit variations
+      { heb: 111, eng: 444, sim: 77 }, { heb: 222, eng: 444, sim: 77 },
+      { heb: 333, eng: 444, sim: 77 }, { heb: 444, eng: 444, sim: 77 },
+      { heb: 111, eng: 888, sim: 111 }, { heb: 222, eng: 888, sim: 111 },
+      // 4-digit combos
+      { heb: 2222, eng: 6666, sim: 1111 }, { heb: 3333, eng: 6666, sim: 1111 },
+      { heb: 4444, eng: 6666, sim: 1111 }, { heb: 5555, eng: 6666, sim: 1111 },
+      { heb: 6666, eng: 6666, sim: 1111 }, { heb: 7777, eng: 6666, sim: 1111 },
+      { heb: 8888, eng: 6666, sim: 1111 }, { heb: 9999, eng: 6666, sim: 1111 },
     ];
 
-    // XXX/666/111/XX format - 3-digit H/E/S with 2-digit Aik Bekar
-    const knownCombos3DigitWith2DigitAiq = [
-      { heb: '111', eng: '666', sim: '111' },
-      { heb: '222', eng: '666', sim: '111' },
-      { heb: '333', eng: '666', sim: '111' },
-      { heb: '444', eng: '666', sim: '111' },
-      { heb: '555', eng: '666', sim: '111' },
-      { heb: '666', eng: '666', sim: '111' },
-      { heb: '777', eng: '666', sim: '111' },
-      { heb: '888', eng: '666', sim: '111' },
-      { heb: '999', eng: '666', sim: '111' },
-    ];
+    // Aik Bekar repdigits (include larger values for longer phrases)
+    const aiqRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111, 222, 333, 444, 555, 666, 777, 888, 999, 1111];
 
-    const knownCombos3Digit = [
-      { heb: '111', eng: '666', sim: '111' },
-      { heb: '222', eng: '666', sim: '111' },
-      { heb: '333', eng: '666', sim: '111' },
-      { heb: '444', eng: '666', sim: '111' },
-      { heb: '555', eng: '666', sim: '111' },
-      { heb: '777', eng: '666', sim: '111' },
-      { heb: '888', eng: '666', sim: '111' },
-      { heb: '999', eng: '666', sim: '111' },
-      { heb: '1111', eng: '666', sim: '111' },
-    ];
-
-    const knownCombos4Digit = [
-      { heb: '2222', eng: '6666', sim: '1111' },
-      { heb: '3333', eng: '6666', sim: '1111' },
-      { heb: '4444', eng: '6666', sim: '1111' },
-    ];
+    // Shuffle combos
+    const shuffledCombos = [...workingCombos].sort(() => Math.random() - 0.5);
 
     let phrase = null;
     let finalHebrew, finalEnglish, finalSimple;
 
-    // Shuffle combos using Fisher-Yates for true randomness across all formats
-    const allCombos = [...knownCombos2Digit, ...knownCombos3DigitWith2DigitAiq, ...knownCombos3Digit, ...knownCombos4Digit];
-    for (let i = allCombos.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [allCombos[i], allCombos[j]] = [allCombos[j], allCombos[i]];
-    }
-    const shuffledCombos = allCombos;
-
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: generate 3-way matches and check if Aik Bekar is also a repdigit
       console.log('🎲 Searching for 4-way random repdigit match...');
 
-      const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
       const startTime = Date.now();
-      const maxTimeMs = 30000; // 30 second total timeout
-      let phrasesGenerated = 0;
+      const maxTime = 60000; // 60 second total timeout
 
-      // Try many 3-way generations and check if Aik Bekar lands on a repdigit
-      comboLoop:
-      for (const combo of shuffledCombos.slice(0, 10)) {
-        if (Date.now() - startTime > maxTimeMs) break;
-
-        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
-
-        // Generate multiple 3-way phrases for each combo
-        for (let i = 0; i < 20; i++) {
-          if (Date.now() - startTime > maxTimeMs) break;
-
-          const candidate = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
-            enabledFlags3way,
-            500000,  // More attempts
-            1500     // 1.5 second timeout
-          );
-
-          if (candidate) {
-            phrasesGenerated++;
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
-
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match! "${candidate}" - Aik Bekar = ${aVal}`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break comboLoop;
-            } else {
-              console.log(`   Got: "${candidate.slice(0, 25)}..." A=${aVal}`);
-            }
+      // Pair combos with compatible A values (smaller combos need smaller A)
+      const comboWithAiq = [];
+      for (const combo of workingCombos) {
+        // Small combos (2-digit) pair with small A values
+        if (combo.sim === 11) {
+          for (const a of [11, 22, 33, 44, 55]) {
+            comboWithAiq.push({ ...combo, aiq: a });
           }
-
-          await new Promise(resolve => setTimeout(resolve, 0));
+        }
+        // Medium combos (3-digit) pair with medium A values
+        else if (combo.sim === 77 || combo.sim === 111) {
+          for (const a of [55, 66, 77, 88, 99, 111, 222]) {
+            comboWithAiq.push({ ...combo, aiq: a });
+          }
+        }
+        // Large combos (4-digit) pair with larger A values
+        else if (combo.sim === 1111) {
+          for (const a of [333, 444, 555, 666, 777, 888, 999, 1111]) {
+            comboWithAiq.push({ ...combo, aiq: a });
+          }
         }
       }
 
-      if (!phrase) {
-        console.log(`❌ No 4-way match after ${phrasesGenerated} phrases, ${Date.now() - startTime}ms`);
+      // Shuffle all combo+A pairs
+      const shuffledPairs = comboWithAiq.sort(() => Math.random() - 0.5);
+
+      console.log(`  Testing ${shuffledPairs.length} combo+A pairs...`);
+
+      // Try each pair with TRUE 4-way search
+      for (const pair of shuffledPairs) {
+        if (Date.now() - startTime > maxTime) break;
+
+        console.log(`  Trying H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}...`);
+
+        const candidate = await generatePhrase(
+          pair.heb, pair.eng, pair.sim, pair.aiq,
+          enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
+        );
+
+        if (candidate) {
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+          if (aVal === pair.aiq) {
+            console.log(`✅ Found 4-way match! H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}`);
+            phrase = candidate;
+            finalHebrew = pair.heb;
+            finalEnglish = pair.eng;
+            finalSimple = pair.sim;
+            break;
+          }
+        }
       }
     } else {
-      // Aik Bekar disabled - just find any H/E/S match
       console.log('🎲 Searching for 3-way random repdigit match...');
 
-      for (const combo of shuffledCombos.slice(0, 5)) {
-        phrase = await generatePhrase(
-          parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
-          0,
-          enabledFlags3,
-          1000000,
-          5000
+      for (const combo of shuffledCombos) {
+        const candidate = await generatePhrase(
+          combo.heb, combo.eng, combo.sim, 0,
+          enabledFlags3, 1000000, 4000
         );
-        if (phrase) {
+
+        if (candidate) {
+          console.log(`✅ Found 3-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
+          phrase = candidate;
           finalHebrew = combo.heb;
           finalEnglish = combo.eng;
           finalSimple = combo.sim;
@@ -993,6 +1116,26 @@ const GematriaCalculator = () => {
     }
 
     console.log('Generation complete. Result:', phrase);
+
+    // Check for duplicate - if same as last phrase, try again
+    const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
+    const repdigitSet = new Set(aiqRepdigits);
+    let retries = 0;
+    while (phrase && phrase === lastPhrase && retries < 3) {
+      console.log(`⚠️ Duplicate phrase, retrying...`);
+      retries++;
+      const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
+      const candidate = await generatePhrase(
+        retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
+        enabledFlags3, 300000, 1500
+      );
+      if (candidate) {
+        const aVal = calculateGematria(candidate, aiqBekarValues).total;
+        if (!aiqBekarEnabled || repdigitSet.has(aVal)) {
+          phrase = candidate;
+        }
+      }
+    }
 
     if (phrase) {
       setInput(phrase);
@@ -1244,7 +1387,7 @@ const GematriaCalculator = () => {
                             ⓘ
                           </span>
                           <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard if you actually get one!
+                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
                           </div>
                         </span>
                       </label>
@@ -1340,7 +1483,7 @@ const GematriaCalculator = () => {
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   <Download className="w-5 h-5" />
-                  Download {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
                 </button>
                 <button
                   onClick={handleClearPhrases}
