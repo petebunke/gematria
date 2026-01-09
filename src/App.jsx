@@ -616,12 +616,14 @@ const GematriaCalculator = () => {
           candidateSets.sort((a, b) => a.candidates.length - b.candidates.length);
           const candidates = candidateSets.length > 0 ? candidateSets[0].candidates : wordData;
 
-          // Use random offset for variety (much faster than shuffling on every attempt)
+          // Check a limited sample of random candidates (prevents getting stuck on large arrays)
           let perfectMatch = null;
           if (candidates.length > 0) {
-            const startIdx = Math.floor(Math.random() * candidates.length);
-            for (let j = 0; j < candidates.length; j++) {
-              const w = candidates[(startIdx + j) % candidates.length];
+            // Sample up to 100 random candidates for variety without blocking
+            const sampleSize = Math.min(candidates.length, 100);
+            for (let j = 0; j < sampleSize; j++) {
+              const idx = Math.floor(Math.random() * candidates.length);
+              const w = candidates[idx];
               if ((!enabledFlags.heb || w.heb === needHeb) &&
                   (!enabledFlags.eng || w.eng === needEng) &&
                   (!enabledFlags.sim || w.sim === needSim) &&
