@@ -519,43 +519,10 @@ const GematriaCalculator = () => {
       byAiqBekar.get(data.aiq).push(data);
     });
 
-    // Pre-compute valid 4-way 2-word pairs where all 4 systems are repdigits
-    console.log(`🔍 Pre-computing valid 4-way word pairs...`);
-    const repdigitSet = new Set([11, 22, 33, 44, 55, 66, 77, 88, 99,
-                                  111, 222, 333, 444, 555, 666, 777, 888, 999,
-                                  1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
-    const fourWayPairs = [];
-
-    // Sample words to check (checking all pairs would be too slow)
-    const sampleSize = Math.min(wordData.length, 2000);
-    const sampledWords = [...wordData].sort(() => Math.random() - 0.5).slice(0, sampleSize);
-
-    for (let i = 0; i < sampledWords.length; i++) {
-      const w1 = sampledWords[i];
-      for (let j = 0; j < sampledWords.length; j++) {
-        if (i === j) continue;
-        const w2 = sampledWords[j];
-        const sumHeb = w1.heb + w2.heb;
-        const sumEng = w1.eng + w2.eng;
-        const sumSim = w1.sim + w2.sim;
-        const sumAiq = w1.aiq + w2.aiq;
-
-        if (repdigitSet.has(sumHeb) && repdigitSet.has(sumEng) &&
-            repdigitSet.has(sumSim) && repdigitSet.has(sumAiq)) {
-          fourWayPairs.push({
-            phrase: `${w1.word} ${w2.word}`,
-            heb: sumHeb, eng: sumEng, sim: sumSim, aiq: sumAiq
-          });
-        }
-      }
-      // Limit to 500 pairs for memory
-      if (fourWayPairs.length >= 500) break;
-    }
-
-    console.log(`✅ Found ${fourWayPairs.length} valid 4-way pairs`);
     console.log(`✅ Word cache built in ${Date.now() - startTime}ms`);
+    console.log(`   Index sizes - H:${byHebrew.size} E:${byEnglish.size} S:${bySimple.size} A:${byAiqBekar.size}`);
 
-    return { wordData, byHebrew, byEnglish, bySimple, byAiqBekar, fourWayPairs };
+    return { wordData, byHebrew, byEnglish, bySimple, byAiqBekar };
   }, [wordList]);
 
   const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
@@ -820,62 +787,68 @@ const GematriaCalculator = () => {
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled, search for the specific target value from the dropdown
-      console.log(`Searching for 4-way repdigit match with Aik Bekar⁹ = ${targetAiqBekar}...`);
+      // When Aik Bekar is enabled, search for the specific target value
+      console.log(`Searching for 4-way match: H=${targetHebrew} E=${targetEnglish} S=${targetSimple} A=${targetAiqBekar}...`);
 
       const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+      const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
+      const targetAiq = parseInt(targetAiqBekar);
+      const startTime = Date.now();
 
       // First try exact 4-way match
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
         parseInt(targetSimple),
-        parseInt(targetAiqBekar),
+        targetAiq,
         enabledFlags4,
-        2000000,  // More attempts for 4-way search
-        15000     // 15 second timeout
+        2000000,
+        20000  // 20 second timeout
       );
 
       if (phrase) {
-        // Verify all 4 values are correct
-        const hVal = calculateGematria(phrase, hebrewValues).total;
-        const eVal = calculateGematria(phrase, englishValues).total;
-        const sVal = calculateGematria(phrase, simpleValues).total;
         const aVal = calculateGematria(phrase, aiqBekarValues).total;
-
-        if (hVal === parseInt(targetHebrew) && eVal === parseInt(targetEnglish) &&
-            sVal === parseInt(targetSimple) && aVal === parseInt(targetAiqBekar)) {
-          console.log(`✅ Found exact 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
+        if (aVal === targetAiq) {
+          console.log(`✅ Found exact 4-way match!`);
         } else {
-          console.log(`❌ Verification failed, trying fallback...`);
+          console.log(`❌ Aik Bekar mismatch (got ${aVal}, wanted ${targetAiq}), trying generate-and-check...`);
           phrase = null;
         }
       }
 
-      // FALLBACK: If exact match fails, use pre-computed pairs with matching Aik Bekar
-      if (!phrase && wordCache && wordCache.fourWayPairs && wordCache.fourWayPairs.length > 0) {
-        console.log('🔄 Exact match failed, using pre-computed 4-way pair...');
-        const targetAiq = parseInt(targetAiqBekar);
+      // FALLBACK: Generate 3-way matches and find one where A matches target
+      if (!phrase) {
+        console.log('🔄 Trying generate-and-check for Aik Bekar...');
+        const maxTimeMs = 40000; // 40 more seconds
 
-        // Try to find a pair with matching Aik Bekar value
-        let matchingPairs = wordCache.fourWayPairs.filter(p => p.aiq === targetAiq);
+        for (let attempt = 0; attempt < 100; attempt++) {
+          if (Date.now() - startTime > maxTimeMs) {
+            console.log(`⏱️ Timeout after ${attempt} attempts`);
+            break;
+          }
 
-        // If no exact Aik Bekar match, use any pair
-        if (matchingPairs.length === 0) {
-          matchingPairs = wordCache.fourWayPairs;
+          const candidate = await generatePhrase(
+            parseInt(targetHebrew),
+            parseInt(targetEnglish),
+            parseInt(targetSimple),
+            0,
+            enabledFlags3,
+            500000,
+            800
+          );
+
+          if (candidate) {
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            console.log(`   [${attempt + 1}] A=${aVal} (want ${targetAiq})`);
+
+            if (aVal === targetAiq) {
+              console.log(`✅ Found matching Aik Bekar after ${attempt + 1} attempts!`);
+              phrase = candidate;
+              break;
+            }
+          }
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
-
-        const randomPair = matchingPairs[Math.floor(Math.random() * matchingPairs.length)];
-        phrase = randomPair.phrase;
-
-        // Update dropdowns to match what we found
-        setTargetHebrew(randomPair.heb.toString());
-        setTargetEnglish(randomPair.eng.toString());
-        setTargetSimple(randomPair.sim.toString());
-        setTargetAiqBekar(randomPair.aiq.toString());
-
-        console.log(`✅ Using pre-computed pair: "${phrase}"`);
-        console.log(`   H:${randomPair.heb} E:${randomPair.eng} S:${randomPair.sim} A:${randomPair.aiq}`);
       }
     } else {
       // Aik Bekar disabled - just do 3-way search
@@ -997,51 +970,53 @@ const GematriaCalculator = () => {
     const shuffledCombos = allCombos;
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: use pre-computed 4-way pairs for GUARANTEED success
+      // When Aik Bekar is enabled: generate 3-way matches and find one where Aik Bekar is also repdigit
       console.log('🎲 Searching for 4-way random repdigit match...');
 
-      if (wordCache && wordCache.fourWayPairs && wordCache.fourWayPairs.length > 0) {
-        // GUARANTEED: Pick from pre-computed valid 4-way pairs
-        const pairs = wordCache.fourWayPairs;
-        const randomPair = pairs[Math.floor(Math.random() * pairs.length)];
-        phrase = randomPair.phrase;
-        finalHebrew = randomPair.heb.toString();
-        finalEnglish = randomPair.eng.toString();
-        finalSimple = randomPair.sim.toString();
-        console.log(`✅ Found 4-way match from pre-computed pairs: "${phrase}"`);
-        console.log(`   H:${randomPair.heb} E:${randomPair.eng} S:${randomPair.sim} A:${randomPair.aiq}`);
-      } else {
-        // Fallback: try probabilistic approach
-        console.log('⚠️ No pre-computed pairs, trying probabilistic approach...');
-        const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
-        const startTime = Date.now();
-        const maxTimeMs = 30000;
+      const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
+      const startTime = Date.now();
+      const maxTimeMs = 60000; // 60 second timeout
+      let attempts = 0;
 
-        comboLoop:
-        for (const combo of shuffledCombos.slice(0, 10)) {
+      // Try all combos aggressively until we find a 4-way match
+      comboLoop:
+      for (const combo of shuffledCombos) {
+        if (Date.now() - startTime > maxTimeMs) {
+          console.log(`⏱️ Timeout after ${attempts} 3-way phrases checked`);
+          break;
+        }
+
+        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+
+        // Generate many phrases per combo
+        for (let i = 0; i < 50; i++) {
           if (Date.now() - startTime > maxTimeMs) break;
 
-          for (let i = 0; i < 20; i++) {
-            if (Date.now() - startTime > maxTimeMs) break;
+          const candidate = await generatePhrase(
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
+            enabledFlags3way, 500000, 800  // Quick timeout per attempt
+          );
 
-            const candidate = await generatePhrase(
-              parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
-              enabledFlags3way, 500000, 1000
-            );
+          if (candidate) {
+            attempts++;
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            console.log(`   [${attempts}] "${candidate.slice(0,30)}..." A=${aVal}`);
 
-            if (candidate) {
-              const aVal = calculateGematria(candidate, aiqBekarValues).total;
-              if (repdigitSet.has(aVal)) {
-                phrase = candidate;
-                finalHebrew = combo.heb;
-                finalEnglish = combo.eng;
-                finalSimple = combo.sim;
-                break comboLoop;
-              }
+            if (repdigitSet.has(aVal)) {
+              console.log(`✅ Found 4-way match after ${attempts} phrases! A=${aVal}`);
+              phrase = candidate;
+              finalHebrew = combo.heb;
+              finalEnglish = combo.eng;
+              finalSimple = combo.sim;
+              break comboLoop;
             }
-            await new Promise(resolve => setTimeout(resolve, 0));
           }
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
+      }
+
+      if (!phrase) {
+        console.log(`❌ No 4-way match found after ${attempts} phrases`);
       }
     } else {
       // Aik Bekar disabled - just find any H/E/S match
@@ -1412,7 +1387,7 @@ const GematriaCalculator = () => {
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   <Download className="w-5 h-5" />
-                  Download {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
                 </button>
                 <button
                   onClick={handleClearPhrases}
