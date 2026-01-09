@@ -657,14 +657,13 @@ const GematriaCalculator = () => {
             return phrase;
           }
 
-          // No single-word match - try TWO-WORD ending (limited search for speed)
+          // No single-word match - try TWO-WORD ending
           if (!perfectMatch && nonEmptySets.length > 0) {
             const word1Pool = nonEmptySets[0].candidates;
-            const maxWord1 = Math.min(word1Pool.length, 300);
-            const startIdx = Math.floor(Math.random() * Math.max(1, word1Pool.length));
 
-            for (let w1 = 0; w1 < maxWord1; w1++) {
-              const word1 = word1Pool[(startIdx + w1) % word1Pool.length];
+            // Search all word1 candidates (they're already from smallest bucket)
+            for (let w1 = 0; w1 < word1Pool.length; w1++) {
+              const word1 = word1Pool[w1];
 
               // Calculate what word2 needs to hit
               const need2Heb = needHeb - word1.heb;
@@ -689,11 +688,8 @@ const GematriaCalculator = () => {
               word2Sets.sort((a, b) => a.candidates.length - b.candidates.length);
               const word2Pool = word2Sets[0].candidates;
 
-              // Search word2 candidates (limit for speed)
-              const maxWord2 = Math.min(word2Pool.length, 100);
-              for (let w2 = 0; w2 < maxWord2; w2++) {
-                const word2 = word2Pool[w2];
-                // Check if word2 completes the match
+              // Search all word2 candidates
+              for (const word2 of word2Pool) {
                 if ((!enabledFlags.heb || word2.heb === need2Heb) &&
                     (!enabledFlags.eng || word2.eng === need2Eng) &&
                     (!enabledFlags.sim || word2.sim === need2Sim) &&
@@ -1051,7 +1047,7 @@ const GematriaCalculator = () => {
         for (const aiq of shuffledAiq) {
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, aiq,
-            enabledFlags4, 500000, 2000
+            enabledFlags4, 1000000, 4000
           );
 
           if (candidate) {
@@ -1073,7 +1069,7 @@ const GematriaCalculator = () => {
       for (const combo of shuffledCombos) {
         const candidate = await generatePhrase(
           combo.heb, combo.eng, combo.sim, 0,
-          enabledFlags3, 500000, 2000
+          enabledFlags3, 1000000, 4000
         );
 
         if (candidate) {
@@ -1100,7 +1096,7 @@ const GematriaCalculator = () => {
       phrase = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, retryAiq,
         aiqBekarEnabled ? enabledFlags4 : enabledFlags3,
-        500000, 2000
+        1000000, 4000
       );
     }
 
