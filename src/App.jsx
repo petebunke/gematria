@@ -681,33 +681,40 @@ const GematriaCalculator = () => {
           totalSim += randomWord.sim;
           totalAiq += randomWord.aiq;
         } else {
-          // For non-last words, pick randomly but avoid exceeding targets
+          // For non-last words, pick words that keep us on track for targets
           let attempts = 0;
           let picked = null;
+
+          // Calculate ideal progress - what fraction of target should we have after this word?
+          const progressFraction = (i + 1) / numWords;
+          const idealHeb = targetHeb * progressFraction;
+          const idealEng = targetEng * progressFraction;
+          const idealSim = targetSim * progressFraction;
+          const idealAiq = targetAiq * progressFraction;
 
           // For first word, prefer words starting with the selected letter
           let pool = wordData;
           if (i === 0) {
             const letterWords = wordData.filter(w => w.word.startsWith(startingLetter));
-            if (attempt < 5) {
-              console.log(`  Found ${letterWords.length} words starting with '${startingLetter}'`);
-            }
             if (letterWords.length > 0 && Math.random() < 0.7) {
               pool = letterWords;
-              if (attempt < 5) {
-                console.log(`  Using filtered pool of ${pool.length} words`);
-              }
             }
           }
 
+          // Try to find a word that keeps us close to ideal progress
           while (attempts < 100) {
             const candidate = pool[Math.floor(Math.random() * pool.length)];
 
-            // Soft constraint: prefer words that don't exceed any enabled target
-            const hebOk = !enabledFlags.heb || totalHeb + candidate.heb < targetHeb;
-            const engOk = !enabledFlags.eng || totalEng + candidate.eng < targetEng;
-            const simOk = !enabledFlags.sim || totalSim + candidate.sim < targetSim;
-            const aiqOk = !enabledFlags.aiq || totalAiq + candidate.aiq < targetAiq;
+            const newHeb = totalHeb + candidate.heb;
+            const newEng = totalEng + candidate.eng;
+            const newSim = totalSim + candidate.sim;
+            const newAiq = totalAiq + candidate.aiq;
+
+            // Check if this word keeps us reasonably on track
+            const hebOk = !enabledFlags.heb || (newHeb <= targetHeb && newHeb >= idealHeb * 0.5);
+            const engOk = !enabledFlags.eng || (newEng <= targetEng && newEng >= idealEng * 0.5);
+            const simOk = !enabledFlags.sim || (newSim <= targetSim && newSim >= idealSim * 0.5);
+            const aiqOk = !enabledFlags.aiq || (newAiq <= targetAiq && newAiq >= idealAiq * 0.3);
 
             if (hebOk && engOk && simOk && aiqOk) {
               picked = candidate;
@@ -716,7 +723,21 @@ const GematriaCalculator = () => {
             attempts++;
           }
 
-          // If no good candidate found after 100 tries, just pick randomly from pool
+          // If no good candidate found, pick one that at least doesn't exceed targets
+          if (!picked) {
+            for (let t = 0; t < 50; t++) {
+              const candidate = pool[Math.floor(Math.random() * pool.length)];
+              if (totalHeb + candidate.heb <= targetHeb &&
+                  totalEng + candidate.eng <= targetEng &&
+                  totalSim + candidate.sim <= targetSim &&
+                  totalAiq + candidate.aiq <= targetAiq) {
+                picked = candidate;
+                break;
+              }
+            }
+          }
+
+          // Last resort: just pick randomly
           if (!picked) {
             picked = pool[Math.floor(Math.random() * pool.length)];
           }
