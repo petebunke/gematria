@@ -734,42 +734,33 @@ const GematriaCalculator = () => {
     const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled, use generate-and-check approach:
-      // Generate 3-way H/E/S matches quickly, then check if Aik Bekar lands on a repdigit
-      console.log('Searching for 4-way repdigit match (generate-and-check approach)...');
+      // When Aik Bekar is enabled, search for the specific target value from the dropdown
+      console.log(`Searching for 4-way repdigit match with Aik Bekar⁹ = ${targetAiqBekar}...`);
 
-      const maxRounds = 50; // Try up to 50 different 3-way matches
-      for (let round = 0; round < maxRounds && !phrase; round++) {
-        console.log(`Round ${round + 1}/${maxRounds}: Finding 3-way match...`);
+      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
+      phrase = await generatePhrase(
+        parseInt(targetHebrew),
+        parseInt(targetEnglish),
+        parseInt(targetSimple),
+        parseInt(targetAiqBekar),
+        enabledFlags4,
+        2000000, // More attempts for 4-way search
+        30000    // Longer timeout for 4-way search
+      );
 
-        const candidate = await generatePhrase(
-          parseInt(targetHebrew),
-          parseInt(targetEnglish),
-          parseInt(targetSimple),
-          0,
-          enabledFlags3,
-          200000, // Fewer attempts per round since we'll try multiple rounds
-          2000    // Shorter timeout per round
-        );
+      if (phrase) {
+        // Verify all 4 values are correct
+        const hVal = calculateGematria(phrase, hebrewValues).total;
+        const eVal = calculateGematria(phrase, englishValues).total;
+        const sVal = calculateGematria(phrase, simpleValues).total;
+        const aVal = calculateGematria(phrase, aiqBekarValues).total;
 
-        if (candidate) {
-          // Check if Aik Bekar happens to be a repdigit
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
-
-          if (repdigitSet.has(aVal)) {
-            // Verify all values
-            const hVal = calculateGematria(candidate, hebrewValues).total;
-            const eVal = calculateGematria(candidate, englishValues).total;
-            const sVal = calculateGematria(candidate, simpleValues).total;
-
-            if (hVal === parseInt(targetHebrew) && eVal === parseInt(targetEnglish) &&
-                sVal === parseInt(targetSimple)) {
-              console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
-              phrase = candidate;
-            }
-          } else {
-            console.log(`   Found 3-way but Aik Bekar = ${aVal} (not a repdigit), trying again...`);
-          }
+        if (hVal === parseInt(targetHebrew) && eVal === parseInt(targetEnglish) &&
+            sVal === parseInt(targetSimple) && aVal === parseInt(targetAiqBekar)) {
+          console.log(`✅ Found 4-way match! H:${hVal} E:${eVal} S:${sVal} A:${aVal}`);
+        } else {
+          console.log(`❌ Verification failed, discarding result`);
+          phrase = null;
         }
       }
     } else {
@@ -812,7 +803,7 @@ const GematriaCalculator = () => {
       console.log('No phrase found (timeout or max attempts reached)');
       setGeneratingTargeted(false); // Enable button immediately
       const baseMessage = `Couldn't find a phrase matching Hebrew = ${targetHebrew}, English = ${targetEnglish}, Simple = ${targetSimple}`;
-      const aiqMessage = aiqBekarEnabled ? `, Aik Bekar⁹ = any repdigit` : '';
+      const aiqMessage = aiqBekarEnabled ? `, Aik Bekar⁹ = ${targetAiqBekar}` : '';
       setErrorModal({
         show: true,
         message: `${baseMessage}${aiqMessage}. Please try a different combination!`
