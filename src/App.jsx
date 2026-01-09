@@ -969,41 +969,43 @@ const GematriaCalculator = () => {
     }
     const shuffledCombos = allCombos;
 
+    // Aik Bekar repdigit values that are achievable for typical phrases
+    const aiqRepdigits = [11, 22, 33, 44, 55, 66, 77, 88, 99, 111];
+
     if (aiqBekarEnabled) {
-      // When Aik Bekar is enabled: generate 3-way matches and find one where Aik Bekar is also repdigit
+      // When Aik Bekar is enabled: do TRUE 4-way search with A as a constraint
       console.log('🎲 Searching for 4-way random repdigit match...');
 
-      const enabledFlags3way = { heb: true, eng: true, sim: true, aiq: false };
+      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
       const startTime = Date.now();
-      const maxTimeMs = 60000; // 60 second timeout
-      let attempts = 0;
+      const maxTimeMs = 45000; // 45 second timeout
 
-      // Try all combos aggressively until we find a 4-way match
+      // Try each H/E/S combo with different Aik Bekar targets
       comboLoop:
       for (const combo of shuffledCombos) {
         if (Date.now() - startTime > maxTimeMs) {
-          console.log(`⏱️ Timeout after ${attempts} 3-way phrases checked`);
+          console.log(`⏱️ Timeout`);
           break;
         }
 
-        console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+        // Shuffle Aik Bekar targets for variety
+        const shuffledAiq = [...aiqRepdigits].sort(() => Math.random() - 0.5);
 
-        // Generate many phrases per combo
-        for (let i = 0; i < 50; i++) {
+        for (const aiqTarget of shuffledAiq) {
           if (Date.now() - startTime > maxTimeMs) break;
 
+          console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${aiqTarget}...`);
+
           const candidate = await generatePhrase(
-            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), 0,
-            enabledFlags3way, 500000, 800  // Quick timeout per attempt
+            parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim), aiqTarget,
+            enabledFlags4, 500000, 1500
           );
 
           if (candidate) {
-            attempts++;
+            // Verify
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            console.log(`   [${attempts}] "${candidate.slice(0,30)}..." A=${aVal}`);
-
-            if (repdigitSet.has(aVal)) {
-              console.log(`✅ Found 4-way match after ${attempts} phrases! A=${aVal}`);
+            if (aVal === aiqTarget) {
+              console.log(`✅ Found 4-way match! "${candidate}" A=${aVal}`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
@@ -1011,12 +1013,11 @@ const GematriaCalculator = () => {
               break comboLoop;
             }
           }
-          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
 
       if (!phrase) {
-        console.log(`❌ No 4-way match found after ${attempts} phrases`);
+        console.log(`❌ No 4-way match found`);
       }
     } else {
       // Aik Bekar disabled - just find any H/E/S match
