@@ -763,8 +763,8 @@ const GematriaCalculator = () => {
         parseInt(targetSimple),
         parseInt(targetAiqBekar),
         enabledFlags4,
-        2000000, // More attempts for 4-way search
-        30000    // Longer timeout for 4-way search
+        500000,  // Reduced - with smart indexing, matches are found quickly if they exist
+        10000    // 10 second timeout
       );
 
       if (phrase) {
@@ -907,10 +907,10 @@ const GematriaCalculator = () => {
 
       const enabledFlags3 = { heb: true, eng: true, sim: true, aiq: false };
 
-      // Try multiple phrases per combo to increase hit rate
-      const phrasesPerCombo = 10;
+      // Try multiple phrases per combo - reduced to avoid slow pre-computation overhead
+      const phrasesPerCombo = 3;
       comboLoop:
-      for (const combo of shuffledCombos.slice(0, 10)) {
+      for (const combo of shuffledCombos.slice(0, 8)) {
         console.log(`Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} (up to ${phrasesPerCombo} phrases)...`);
 
         for (let attempt = 0; attempt < phrasesPerCombo; attempt++) {
@@ -918,8 +918,8 @@ const GematriaCalculator = () => {
             parseInt(combo.heb), parseInt(combo.eng), parseInt(combo.sim),
             0,
             enabledFlags3,
-            100000,  // Fewer attempts per phrase
-            1500     // Shorter timeout per phrase
+            200000,  // More attempts per call to reduce total calls
+            3000     // 3 second timeout per phrase
           );
 
           if (candidate) {
