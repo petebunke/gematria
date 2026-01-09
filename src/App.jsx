@@ -1041,15 +1041,18 @@ const GematriaCalculator = () => {
     if (aiqBekarEnabled) {
       console.log('🎲 Searching for 4-way random repdigit match...');
 
-      // Prioritize smaller Aik Bekar values (more achievable)
-      const priorityAiq = [99, 111, 333, 77, 66, 55, 44, 33, 22, 11, 222, 444, 555, 666, 777, 888, 999, 1111];
+      // Achievable Aik Bekar values
+      const aiqValues = [99, 111, 333, 77, 66, 55, 44, 33, 22, 11, 222];
 
       comboLoop:
       for (const combo of shuffledCombos) {
-        for (const aiq of priorityAiq) {
+        // Only try 3 random Aik Bekar values per combo to cycle faster
+        const shuffledAiq = [...aiqValues].sort(() => Math.random() - 0.5).slice(0, 3);
+
+        for (const aiq of shuffledAiq) {
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, aiq,
-            enabledFlags4, 2000000, 8000
+            enabledFlags4, 1000000, 5000
           );
 
           if (candidate) {
@@ -1098,7 +1101,7 @@ const GematriaCalculator = () => {
       phrase = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, retryAiq,
         aiqBekarEnabled ? enabledFlags4 : enabledFlags3,
-        2000000, 8000
+        1000000, 5000
       );
     }
 
