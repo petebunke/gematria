@@ -1333,6 +1333,44 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
+      // PREFERRED combos - more obscure/interesting ones to prioritize
+      const preferredCombos = new Set([
+        '11/66/11/33',
+        '111/666/111/333',
+        '222/666/111/99',
+        '333/666/111/99',
+        '444/666/111/99',
+        '777/666/111/99',
+        '777/666/111/111',
+        '888/666/111/99',
+        '888/666/111/111',
+        '999/666/111/99',
+        '1111/666/111/99',
+        '5555/6666/1111/111',
+        '5555/6666/1111/1111',
+        '6666/6666/1111/1111',
+        '7777/6666/1111/1111',
+        '8888/6666/1111/1111',
+        // Also add some non-666 patterns for variety
+        '333/888/111/77',
+        '444/555/99/66',
+        '222/444/88/55',
+        '111/333/77/44',
+        '555/999/111/88',
+        '666/888/111/99',
+        '777/999/111/111',
+        '888/999/111/111',
+      ]);
+
+      // OVERUSED combos - only use as last resort
+      const overusedCombos = new Set([
+        '555/666/111/111',
+        '555/666/111/99',
+        '1111/666/111/111',
+        '1111/666/111/99',
+        '11/33/11/99',
+      ]);
+
       // Get word data from cache
       const { wordData, bySimple } = wordCache;
 
@@ -1350,21 +1388,22 @@ const GematriaCalculator = () => {
         [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
       }
 
-      // Collect ALL matches we can find, grouped by combo
-      const matchesByCombo = new Map();
+      // Collect matches into priority groups
+      const preferredMatches = new Map();  // High priority - obscure combos
+      const normalMatches = new Map();     // Medium priority - other combos
+      const fallbackMatches = new Map();   // Low priority - overused combos
       let totalMatches = 0;
       let scannedWords = 0;
 
-      console.log(`  Scanning for unique 4-way combos (shuffled)...`);
+      console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
 
       // Scan through shuffled words - collect as many combos as possible
       for (const w1 of shuffledWords) {
-        if (Date.now() - startTime > 20000) break; // 20s for collection
+        if (Date.now() - startTime > 25000) break; // 25s for collection
         scannedWords++;
 
         for (const targetS of shuffledRepdigits) {
           const needSim = targetS - w1.sim;
-          // Allow larger needSim for bigger Simple targets
           if (needSim < 1 || needSim > targetS) continue;
 
           const candidates = bySimple.get(needSim);
@@ -1380,17 +1419,23 @@ const GematriaCalculator = () => {
             if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
               const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
-              if (!matchesByCombo.has(comboKey)) {
-                matchesByCombo.set(comboKey, []);
-                // Log first discovery of each new combo
-                if (matchesByCombo.size <= 10) {
-                  console.log(`    New combo: ${comboKey}`);
-                }
+              // Determine which priority bucket
+              let targetMap;
+              if (preferredCombos.has(comboKey)) {
+                targetMap = preferredMatches;
+              } else if (overusedCombos.has(comboKey)) {
+                targetMap = fallbackMatches;
+              } else {
+                targetMap = normalMatches;
               }
 
-              // Store up to 3 phrases per combo
-              if (matchesByCombo.get(comboKey).length < 3) {
-                matchesByCombo.get(comboKey).push({
+              if (!targetMap.has(comboKey)) {
+                targetMap.set(comboKey, []);
+              }
+
+              // Store up to 5 phrases per combo
+              if (targetMap.get(comboKey).length < 5) {
+                targetMap.get(comboKey).push({
                   phrase: `${w1.word} ${w2.word}`,
                   h: sumH, e: sumE, s: targetS, a: sumA
                 });
@@ -1401,20 +1446,35 @@ const GematriaCalculator = () => {
         }
       }
 
-      console.log(`  Scanned ${scannedWords} words, found ${matchesByCombo.size} unique combos with ${totalMatches} phrases`);
+      console.log(`  Scanned ${scannedWords} words:`);
+      console.log(`    Preferred combos: ${preferredMatches.size}`);
+      console.log(`    Normal combos: ${normalMatches.size}`);
+      console.log(`    Fallback combos: ${fallbackMatches.size}`);
 
-      // If we found matches, randomly select one
-      if (matchesByCombo.size > 0) {
-        const comboKeys = Array.from(matchesByCombo.keys());
+      // Select from matches in priority order
+      let selectedMap = null;
+      if (preferredMatches.size > 0) {
+        selectedMap = preferredMatches;
+        console.log(`  Using PREFERRED combo`);
+      } else if (normalMatches.size > 0) {
+        selectedMap = normalMatches;
+        console.log(`  Using normal combo`);
+      } else if (fallbackMatches.size > 0) {
+        selectedMap = fallbackMatches;
+        console.log(`  Using fallback combo`);
+      }
+
+      if (selectedMap && selectedMap.size > 0) {
+        const comboKeys = Array.from(selectedMap.keys());
         const randomComboKey = comboKeys[Math.floor(Math.random() * comboKeys.length)];
-        const phrasesForCombo = matchesByCombo.get(randomComboKey);
+        const phrasesForCombo = selectedMap.get(randomComboKey);
         const selected = phrasesForCombo[Math.floor(Math.random() * phrasesForCombo.length)];
 
         phrase = selected.phrase;
         finalHebrew = selected.h;
         finalEnglish = selected.e;
         finalSimple = selected.s;
-        console.log(`✅ Selected from ${comboKeys.length} combos: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
+        console.log(`✅ Selected: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
       }
 
       // FALLBACK: If no diverse combos found, allow any combo including overused ones
