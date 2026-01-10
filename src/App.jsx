@@ -1679,8 +1679,8 @@ const GematriaCalculator = () => {
 
       console.log(`  Sorted good: ${filteredGood.length} (4d=${filteredGood.filter(c=>c.digits===4).length}, 3d=${filteredGood.filter(c=>c.digits===3).length}, 2d=${filteredGood.filter(c=>c.digits===2).length})`);
 
-      // Use good combos if any exist, otherwise fallback
-      let combosToUse = filteredGood.length > 0 ? filteredGood : filteredFallback;
+      // Use good combos ONLY - never fall back to overused combos like 555/666/111/111
+      let combosToUse = filteredGood;
 
       if (combosToUse.length > 0) {
         // Select from highest digit count available
@@ -1700,40 +1700,7 @@ const GematriaCalculator = () => {
         console.log(`✅ Selected: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
       }
 
-      // FALLBACK: If no diverse combos found, allow any combo including overused ones
-      if (!phrase) {
-        console.log('  No diverse combos found, allowing all combos...');
-
-        for (const w1 of shuffledWords) {
-          if (phrase) break;
-
-          for (const targetS of repdigitList) {
-            const needSim = targetS - w1.sim;
-            if (needSim < 1 || needSim > 500) continue;
-
-            const candidates = bySimple.get(needSim);
-            if (!candidates) continue;
-
-            for (const w2 of candidates) {
-              if (w2.word === w1.word) continue;
-
-              const sumH = w1.heb + w2.heb;
-              const sumE = w1.eng + w2.eng;
-              const sumA = w1.aiq + w2.aiq;
-
-              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA) && sumA !== 33) {
-                phrase = `${w1.word} ${w2.word}`;
-                finalHebrew = sumH;
-                finalEnglish = sumE;
-                finalSimple = targetS;
-                console.log(`✅ Found fallback: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
-                break;
-              }
-            }
-            if (phrase) break;
-          }
-        }
-      }
+      // No fallback to overused combos - if we can't find good combos, show error
 
       if (!phrase) {
         console.log('❌ No 4-way repdigit match found');
