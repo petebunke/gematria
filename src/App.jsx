@@ -706,7 +706,7 @@ const GematriaCalculator = () => {
       let attempts3 = 0;
       for (const w1 of allWords) {
         if (Date.now() - startTime > timeoutMs) break;
-        if (attempts3++ > 3000) break;
+        if (attempts3++ > 10000) break;
 
         for (const w2 of allWords) {
           if (Date.now() - startTime > timeoutMs) break;
@@ -734,14 +734,14 @@ const GematriaCalculator = () => {
       // Try 4-word phrases
       console.log('  Trying 4-word 4-way combinations...');
       let attempts4 = 0;
-      for (const w1 of allWords.slice(0, 150)) {
+      for (const w1 of allWords.slice(0, 300)) {
         if (Date.now() - startTime > timeoutMs) break;
 
-        for (const w2 of allWords.slice(0, 150)) {
+        for (const w2 of allWords.slice(0, 300)) {
           if (Date.now() - startTime > timeoutMs) break;
           if (w2.word === w1.word) continue;
           attempts4++;
-          if (attempts4 > 5000) break;
+          if (attempts4 > 20000) break;
 
           for (const w3 of allWords) {
             if (Date.now() - startTime > timeoutMs) break;
@@ -761,6 +761,46 @@ const GematriaCalculator = () => {
                 const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word}`;
                 console.log(`✅ Found 4-word 4-way match: "${phrase}"`);
                 return phrase;
+              }
+            }
+          }
+        }
+      }
+
+      // Try 5-word phrases for very large targets
+      if (targetSim >= 1111 || targetHeb >= 5000) {
+        console.log('  Trying 5-word 4-way combinations...');
+        for (const w1 of allWords.slice(0, 100)) {
+          if (Date.now() - startTime > timeoutMs) break;
+
+          for (const w2 of allWords.slice(0, 100)) {
+            if (w2.word === w1.word) continue;
+            if (Date.now() - startTime > timeoutMs) break;
+
+            for (const w3 of allWords.slice(0, 100)) {
+              if (w3.word === w1.word || w3.word === w2.word) continue;
+              if (Date.now() - startTime > timeoutMs) break;
+
+              for (const w4 of allWords) {
+                if (w4.word === w1.word || w4.word === w2.word || w4.word === w3.word) continue;
+                if (Date.now() - startTime > timeoutMs) break;
+
+                const needHeb = targetHeb - w1.heb - w2.heb - w3.heb - w4.heb;
+                const needEng = targetEng - w1.eng - w2.eng - w3.eng - w4.eng;
+                const needSim = targetSim - w1.sim - w2.sim - w3.sim - w4.sim;
+                const needAiq = targetAiq - w1.aiq - w2.aiq - w3.aiq - w4.aiq;
+
+                if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+                const candidates = bySimple.get(needSim) || [];
+                for (const w5 of candidates) {
+                  if (w5.heb === needHeb && w5.eng === needEng && w5.aiq === needAiq &&
+                      w5.word !== w1.word && w5.word !== w2.word && w5.word !== w3.word && w5.word !== w4.word) {
+                    const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word} ${w5.word}`;
+                    console.log(`✅ Found 5-word 4-way match: "${phrase}"`);
+                    return phrase;
+                  }
+                }
               }
             }
           }
@@ -1293,14 +1333,6 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // Common combos that appear too frequently - skip these to find variety
-      const overusedCombos = new Set([
-        '222/666/111/99', '555/666/111/111', '11/66/11/33', '1111/666/111/111',
-        // Add more patterns with /666/ which seem overrepresented
-        '333/666/111/99', '444/666/111/99', '666/666/111/111', '777/666/111/111',
-        '888/666/111/111', '999/666/111/111', '111/666/111/99'
-      ]);
-
       // Get word data from cache
       const { wordData, bySimple } = wordCache;
 
@@ -1321,16 +1353,19 @@ const GematriaCalculator = () => {
       // Collect ALL matches we can find, grouped by combo
       const matchesByCombo = new Map();
       let totalMatches = 0;
+      let scannedWords = 0;
 
       console.log(`  Scanning for unique 4-way combos (shuffled)...`);
 
-      // Scan through shuffled words - don't stop early, collect everything
+      // Scan through shuffled words - collect as many combos as possible
       for (const w1 of shuffledWords) {
-        if (Date.now() - startTime > 15000) break; // 15s for collection
+        if (Date.now() - startTime > 20000) break; // 20s for collection
+        scannedWords++;
 
         for (const targetS of shuffledRepdigits) {
           const needSim = targetS - w1.sim;
-          if (needSim < 1 || needSim > 500) continue;
+          // Allow larger needSim for bigger Simple targets
+          if (needSim < 1 || needSim > targetS) continue;
 
           const candidates = bySimple.get(needSim);
           if (!candidates) continue;
@@ -1345,15 +1380,16 @@ const GematriaCalculator = () => {
             if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
               const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
-              // Skip overused combos during collection
-              if (overusedCombos.has(comboKey)) continue;
-
               if (!matchesByCombo.has(comboKey)) {
                 matchesByCombo.set(comboKey, []);
+                // Log first discovery of each new combo
+                if (matchesByCombo.size <= 10) {
+                  console.log(`    New combo: ${comboKey}`);
+                }
               }
 
-              // Store up to 5 phrases per combo
-              if (matchesByCombo.get(comboKey).length < 5) {
+              // Store up to 3 phrases per combo
+              if (matchesByCombo.get(comboKey).length < 3) {
                 matchesByCombo.get(comboKey).push({
                   phrase: `${w1.word} ${w2.word}`,
                   h: sumH, e: sumE, s: targetS, a: sumA
@@ -1365,7 +1401,7 @@ const GematriaCalculator = () => {
         }
       }
 
-      console.log(`  Found ${matchesByCombo.size} unique combos with ${totalMatches} total phrases`);
+      console.log(`  Scanned ${scannedWords} words, found ${matchesByCombo.size} unique combos with ${totalMatches} phrases`);
 
       // If we found matches, randomly select one
       if (matchesByCombo.size > 0) {
