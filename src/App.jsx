@@ -703,8 +703,10 @@ const GematriaCalculator = () => {
 
       // Try 2-word phrases
       console.log('  Trying 2-word 4-way combinations...');
+      let yieldCounter = 0;
       for (const w1 of allWords) {
         if (Date.now() - startTime > timeoutMs) break;
+        if (++yieldCounter % 500 === 0) await new Promise(r => setTimeout(r, 0));
 
         const needHeb = targetHeb - w1.heb;
         const needEng = targetEng - w1.eng;
@@ -730,6 +732,7 @@ const GematriaCalculator = () => {
       for (const w1 of allWords) {
         if (Date.now() - startTime > timeoutMs) break;
         if (attempts3++ > 10000) break;
+        if (attempts3 % 200 === 0) await new Promise(r => setTimeout(r, 0));
 
         for (const w2 of allWords) {
           if (Date.now() - startTime > timeoutMs) break;
@@ -759,6 +762,7 @@ const GematriaCalculator = () => {
       let attempts4 = 0;
       for (const w1 of allWords.slice(0, 300)) {
         if (Date.now() - startTime > timeoutMs) break;
+        await new Promise(r => setTimeout(r, 0)); // Yield each outer iteration
 
         for (const w2 of allWords.slice(0, 300)) {
           if (Date.now() - startTime > timeoutMs) break;
@@ -797,6 +801,7 @@ const GematriaCalculator = () => {
         const searchLimit = 300;
         for (const w1 of allWords.slice(0, searchLimit)) {
           if (Date.now() - startTime > timeoutMs) break;
+          await new Promise(r => setTimeout(r, 0)); // Yield each outer iteration
 
           for (const w2 of allWords.slice(0, searchLimit)) {
             if (w2.word === w1.word) continue;
@@ -838,6 +843,7 @@ const GematriaCalculator = () => {
         const searchLimit6 = 150;
         for (const w1 of allWords.slice(0, searchLimit6)) {
           if (Date.now() - startTime > timeoutMs) break;
+          await new Promise(r => setTimeout(r, 0)); // Yield each outer iteration
 
           for (const w2 of allWords.slice(0, searchLimit6)) {
             if (w2.word === w1.word) continue;
@@ -885,6 +891,7 @@ const GematriaCalculator = () => {
         const searchLimit7 = 80;
         for (const w1 of allWords.slice(0, searchLimit7)) {
           if (Date.now() - startTime > timeoutMs) break;
+          await new Promise(r => setTimeout(r, 0)); // Yield each outer iteration
 
           for (const w2 of allWords.slice(0, searchLimit7)) {
             if (w2.word === w1.word) continue;
