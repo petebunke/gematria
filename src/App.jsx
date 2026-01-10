@@ -1452,258 +1452,143 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     if (aiqBekarEnabled) {
-      console.log('🎲 Collecting diverse 4-way repdigit phrases...');
+      console.log('🎲 DISCOVERY MODE: Finding phrases where ALL 4 values are repdigits...');
 
       const startTime = Date.now();
+      const maxSearchTime = 60000; // 60 seconds max
 
-      // All repdigits we care about
+      // All repdigits
       const repdigitList = [11, 22, 33, 44, 55, 66, 77, 88, 99,
                            111, 222, 333, 444, 555, 666, 777, 888, 999,
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
+      const fourDigitSet = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
 
-      // PREFERRED combos - any XXXX/XXXX/XXXX/XXXX pattern (all 4-digit repdigits)
-      const fourDigitRepdigits = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
-      const isPreferredCombo = (h, e, s, a) => {
-        return fourDigitRepdigits.has(h) && fourDigitRepdigits.has(e) &&
-               fourDigitRepdigits.has(s) && fourDigitRepdigits.has(a);
-      };
-
-      // OVERUSED combos - use as last resort (includes all /99 and /111 patterns)
+      // Overused combos to skip
       const overusedCombos = new Set([
-        '555/666/111/111',
-        '555/666/111/99',
-        '1111/666/111/111',
-        '1111/666/111/99',
-        '11/33/11/99',
-        '222/666/111/99',
-        '333/666/111/99',
-        '444/666/111/99',
-        '777/666/111/99',
-        '777/666/111/111',
-        '888/666/111/99',
-        '888/666/111/111',
-        '999/666/111/99',
+        '555/666/111/111', '555/666/111/99', '1111/666/111/111', '1111/666/111/99',
+        '222/666/111/99', '333/666/111/99', '444/666/111/99', '777/666/111/99',
+        '777/666/111/111', '888/666/111/99', '888/666/111/111', '999/666/111/99',
       ]);
 
-      // Get word data from cache
-      const { wordData, bySimple } = wordCache;
+      // Get word data - use HIGH VALUE words for XXXX discovery
+      const { wordData } = wordCache;
 
-      // Shuffle words for variety in what we find
-      const shuffledWords = [...wordData];
-      for (let i = shuffledWords.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
-      }
+      // Filter to high-value words only (simple >= 40) and sort by value
+      const highValueWords = wordData
+        .filter(w => w.sim >= 40)
+        .sort((a, b) => b.sim - a.sim);
 
-      // Shuffle repdigit targets too
-      const shuffledRepdigits = [...repdigitList];
-      for (let i = shuffledRepdigits.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
-      }
+      console.log(`  Using ${highValueWords.length} high-value words (simple >= 40)`);
 
-      // Collect matches - prioritize XXXX/XXXX/XXXX/XXXX combos
-      const goodMatches = new Map();
-      const fallbackMatches = new Map();
-      let totalMatches = 0;
-
-      // 4-digit repdigits for Hebrew/English/Simple/Aiq
-      const fourDigitReps = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
-      const fourDigitSet = new Set(fourDigitReps);
-
-      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (20 seconds, with UI yields)
-      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (20s)...`);
-      const phase1End = 20000;
-
-      // Priority XXXX combos - these are known to be achievable
-      const priorityXXXXCombos = [
-        [4444, 6666, 1111, 1111],
-        [5555, 6666, 1111, 1111],
-        [6666, 6666, 1111, 1111],
-        [7777, 6666, 1111, 1111],
-        [8888, 6666, 1111, 1111],
-        [9999, 6666, 1111, 1111],
-        [3333, 4444, 1111, 1111],
-        [4444, 5555, 1111, 1111],
-        [5555, 5555, 1111, 1111],
-        [6666, 5555, 1111, 1111],
-        [7777, 5555, 1111, 1111],
-        [8888, 5555, 1111, 1111],
-        [3333, 3333, 1111, 1111],
-        [4444, 4444, 1111, 1111],
-        [2222, 3333, 1111, 1111],
-        [1111, 2222, 1111, 1111],
-      ];
-
-      // Also generate additional combos with variety
-      const xxxx = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
-      const additionalCombos = [];
-      for (const h of xxxx) {
-        for (const e of xxxx) {
-          // Simple and Aik Bekar limited to 1111-2222 (higher is very hard)
-          for (const s of [1111, 2222]) {
-            for (const a of [1111, 2222]) {
-              const combo = [h, e, s, a];
-              // Don't duplicate priority combos
-              if (!priorityXXXXCombos.some(p => p[0] === h && p[1] === e && p[2] === s && p[3] === a)) {
-                additionalCombos.push(combo);
-              }
-            }
-          }
-        }
-      }
-
-      // Priority combos first (shuffled), then additional (shuffled)
-      const shuffledPriority = [...priorityXXXXCombos].sort(() => Math.random() - 0.5);
-      const shuffledAdditional = [...additionalCombos].sort(() => Math.random() - 0.5);
-      const shuffledXXXX = [...shuffledPriority, ...shuffledAdditional];
-      console.log(`  ${priorityXXXXCombos.length} priority + ${additionalCombos.length} additional XXXX combos`);
+      // Collect discovered phrases
+      const xxxxMatches = []; // All 4 are XXXX
+      const xxxMatches = [];  // All 4 are repdigits, at least one is XXX+
       let attempts = 0;
 
-      for (const [targetH, targetE, targetS, targetA] of shuffledXXXX) {
-        if (Date.now() - startTime > phase1End) break;
-        if (goodMatches.size >= 2) break;
+      // DISCOVERY: Generate random multi-word phrases and check if all 4 are repdigits
+      console.log(`  Searching for up to 60 seconds...`);
 
-        // Yield to UI every attempt
-        await new Promise(resolve => setTimeout(resolve, 0));
-
-        // 5 second timeout per attempt - smarter search with high-value words should find faster
-        const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
-          { heb: true, eng: true, sim: true, aiq: true }, 100000, 5000);
-
+      while (Date.now() - startTime < maxSearchTime) {
         attempts++;
-        if (phrase) {
-          const comboKey = `${targetH}/${targetE}/${targetS}/${targetA}`;
-          if (!goodMatches.has(comboKey)) {
-            goodMatches.set(comboKey, []);
+
+        // Yield to UI every 1000 attempts
+        if (attempts % 1000 === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
+          if (attempts % 10000 === 0) {
+            console.log(`    ${attempts} attempts, ${xxxxMatches.length} XXXX found, ${xxxMatches.length} XXX found`);
           }
-          goodMatches.get(comboKey).push({
-            phrase, h: targetH, e: targetE, s: targetS, a: targetA
-          });
-          totalMatches++;
-          console.log(`  Found XXXX combo: ${comboKey}`);
+        }
+
+        // Stop early if we found enough XXXX matches
+        if (xxxxMatches.length >= 5) {
+          console.log(`  Found ${xxxxMatches.length} XXXX matches, stopping early`);
+          break;
+        }
+
+        // Generate a random phrase with 8-15 high-value words
+        const numWords = 8 + Math.floor(Math.random() * 8); // 8-15 words
+        const selectedWords = [];
+        const usedIndices = new Set();
+
+        for (let i = 0; i < numWords; i++) {
+          // Pick random word from high-value list
+          let idx;
+          let tries = 0;
+          do {
+            idx = Math.floor(Math.random() * highValueWords.length);
+            tries++;
+          } while (usedIndices.has(idx) && tries < 50);
+
+          if (!usedIndices.has(idx)) {
+            usedIndices.add(idx);
+            selectedWords.push(highValueWords[idx]);
+          }
+        }
+
+        if (selectedWords.length < 6) continue;
+
+        // Calculate sums
+        let sumH = 0, sumE = 0, sumS = 0, sumA = 0;
+        for (const w of selectedWords) {
+          sumH += w.heb;
+          sumE += w.eng;
+          sumS += w.sim;
+          sumA += w.aiq;
+        }
+
+        // Check if ALL 4 are repdigits
+        if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) {
+          continue;
+        }
+
+        // Skip /33 endings
+        if (sumA === 33) continue;
+
+        const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
+
+        // Skip overused
+        if (overusedCombos.has(comboKey)) continue;
+
+        const phraseText = selectedWords.map(w => w.word).join(' ');
+
+        // Check if ALL 4 are XXXX (4-digit)
+        if (fourDigitSet.has(sumH) && fourDigitSet.has(sumE) && fourDigitSet.has(sumS) && fourDigitSet.has(sumA)) {
+          xxxxMatches.push({ phrase: phraseText, h: sumH, e: sumE, s: sumS, a: sumA, combo: comboKey });
+          console.log(`  ✅ XXXX FOUND: ${comboKey} - "${phraseText.substring(0, 50)}..."`);
+        } else {
+          // At least it's a valid 4-way match
+          xxxMatches.push({ phrase: phraseText, h: sumH, e: sumE, s: sumS, a: sumA, combo: comboKey });
         }
       }
 
-      console.log(`  After phase 1: ${goodMatches.size} XXXX combos (${attempts} attempts)`);
+      console.log(`  Discovery complete: ${attempts} attempts, ${xxxxMatches.length} XXXX, ${xxxMatches.length} other`);
 
-      // PHASE 2: If no XXXX combos, search for 2-word combos (10 seconds)
-      if (goodMatches.size === 0) {
-        console.log(`  Phase 2: Searching for 2-word combos (10s)...`);
-        const phase2End = 25000;
-        let wordCount = 0;
-
-        for (const w1 of shuffledWords) {
-          if (Date.now() - startTime > phase2End) break;
-
-          // Yield to UI periodically
-          wordCount++;
-          if (wordCount % 500 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-
-          for (const targetS of shuffledRepdigits) {
-            const needSim = targetS - w1.sim;
-            if (needSim < 1 || needSim > targetS) continue;
-
-            const candidates = bySimple.get(needSim);
-            if (!candidates) continue;
-
-            for (const w2 of candidates) {
-              if (w2.word === w1.word) continue;
-
-              const sumH = w1.heb + w2.heb;
-              const sumE = w1.eng + w2.eng;
-              const sumA = w1.aiq + w2.aiq;
-
-              if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
-              if (sumA === 33) continue;
-
-              const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
-
-              if (overusedCombos.has(comboKey)) {
-                if (!fallbackMatches.has(comboKey)) fallbackMatches.set(comboKey, []);
-                if (fallbackMatches.get(comboKey).length < 3) {
-                  fallbackMatches.get(comboKey).push({
-                    phrase: `${w1.word} ${w2.word}`, h: sumH, e: sumE, s: targetS, a: sumA
-                  });
-                }
-                continue;
-              }
-
-              if (!goodMatches.has(comboKey)) goodMatches.set(comboKey, []);
-              if (goodMatches.get(comboKey).length < 5) {
-                goodMatches.get(comboKey).push({
-                  phrase: `${w1.word} ${w2.word}`, h: sumH, e: sumE, s: targetS, a: sumA
-                });
-                totalMatches++;
-              }
-            }
-          }
-        }
-      }
-
-      console.log(`  Total: Good=${goodMatches.size}, Fallback=${fallbackMatches.size}`);
-
-      // Helper to get Aik Bekar digit count from combo key
-      const getAiqDigits = (k) => {
-        const aiqValue = parseInt(k.split('/')[3]);
-        if (aiqValue >= 1111) return 4;
-        if (aiqValue >= 111) return 3;
-        return 2;
-      };
-
-      // Convert maps to arrays for selection, sorted by digit count (4 > 3 > 2)
-      const goodCombos = [];
-      const fallbackArr = [];
-
-      for (const [key, phrases] of goodMatches) {
-        goodCombos.push({ key, phrases, digits: getAiqDigits(key) });
-      }
-      for (const [key, phrases] of fallbackMatches) {
-        fallbackArr.push({ key, phrases, digits: getAiqDigits(key) });
-      }
-
-      // Filter out any /33 combos that might have slipped through
-      const filterNo33 = (arr) => arr.filter(c => {
-        const aiqVal = parseInt(c.key.split('/')[3]);
-        return aiqVal !== 33;
-      });
-      const filteredGood = filterNo33(goodCombos);
-      const filteredFallback = filterNo33(fallbackArr);
-
-      // Sort by digits DESC (4 > 3 > 2)
-      filteredGood.sort((a, b) => b.digits - a.digits);
-      filteredFallback.sort((a, b) => b.digits - a.digits);
-
-      console.log(`  Sorted good: ${filteredGood.length} (4d=${filteredGood.filter(c=>c.digits===4).length}, 3d=${filteredGood.filter(c=>c.digits===3).length}, 2d=${filteredGood.filter(c=>c.digits===2).length})`);
-
-      // Use good combos ONLY - never fall back to overused combos like 555/666/111/111
-      let combosToUse = filteredGood;
-
-      if (combosToUse.length > 0) {
-        // Select from highest digit count available
-        const bestDigits = combosToUse[0].digits;
-        const topCombos = combosToUse.filter(c => c.digits === bestDigits);
-
-        console.log(`  Selecting from ${topCombos.length} ${bestDigits}-digit combos`);
-
-        // Pick a random combo
-        const chosen = topCombos[Math.floor(Math.random() * topCombos.length)];
-        const selected = chosen.phrases[Math.floor(Math.random() * chosen.phrases.length)];
-
+      // Select result - prefer XXXX matches
+      if (xxxxMatches.length > 0) {
+        const selected = xxxxMatches[Math.floor(Math.random() * xxxxMatches.length)];
         phrase = selected.phrase;
         finalHebrew = selected.h;
         finalEnglish = selected.e;
         finalSimple = selected.s;
-        console.log(`✅ Selected: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
-      }
-
-      // No fallback to overused combos - if we can't find good combos, show error
-
-      if (!phrase) {
-        console.log('❌ No 4-way repdigit match found');
+        console.log(`✅ Selected XXXX: "${phrase.substring(0, 60)}..." (${selected.combo})`);
+      } else if (xxxMatches.length > 0) {
+        // Sort by digit count and pick best
+        xxxMatches.sort((a, b) => {
+          const aDigits = (fourDigitSet.has(a.h) ? 1 : 0) + (fourDigitSet.has(a.e) ? 1 : 0) +
+                          (fourDigitSet.has(a.s) ? 1 : 0) + (fourDigitSet.has(a.a) ? 1 : 0);
+          const bDigits = (fourDigitSet.has(b.h) ? 1 : 0) + (fourDigitSet.has(b.e) ? 1 : 0) +
+                          (fourDigitSet.has(b.s) ? 1 : 0) + (fourDigitSet.has(b.a) ? 1 : 0);
+          return bDigits - aDigits;
+        });
+        const selected = xxxMatches[0];
+        phrase = selected.phrase;
+        finalHebrew = selected.h;
+        finalEnglish = selected.e;
+        finalSimple = selected.s;
+        console.log(`✅ Selected best match: "${phrase.substring(0, 60)}..." (${selected.combo})`);
+      } else {
+        console.log('❌ No 4-way repdigit match found after 60 seconds');
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
