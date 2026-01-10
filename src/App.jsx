@@ -1510,7 +1510,8 @@ const GematriaCalculator = () => {
       // Shuffle and try a few
       const shuffledXXXX = [...knownXXXXCombos].sort(() => Math.random() - 0.5);
 
-      for (let i = 0; i < Math.min(5, shuffledXXXX.length); i++) {
+      // Try just 2 combos with 3 seconds each (6 seconds max instead of 75)
+      for (let i = 0; i < Math.min(2, shuffledXXXX.length); i++) {
         const [targetH, targetE, targetS, targetA] = shuffledXXXX[i];
 
         // Yield to UI
@@ -1521,8 +1522,8 @@ const GematriaCalculator = () => {
         const result = await generatePhrase(
           targetH, targetE, targetS, targetA,
           { heb: true, eng: true, sim: true, aiq: true },
-          500000,  // iterations
-          15000    // 15 seconds per target
+          100000,  // iterations
+          3000     // 3 seconds per target
         );
 
         if (result) {
