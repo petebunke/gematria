@@ -1428,72 +1428,114 @@ const GematriaCalculator = () => {
         [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
       }
 
-      // Collect matches - skip overused combos entirely unless nothing else found
-      const goodMatches = new Map();  // preferred + normal combos
-      const fallbackMatches = new Map();   // overused combos - last resort
+      // Collect matches - prioritize XXXX/XXXX/XXXX/XXXX combos
+      const goodMatches = new Map();
+      const fallbackMatches = new Map();
       let totalMatches = 0;
-      let scannedWords = 0;
 
-      console.log(`  Searching for diverse 4-way combos (20s, skipping overused and /33)...`);
-      const maxSearchTime = 20000;
+      // 4-digit repdigits for Hebrew/English/Simple/Aiq
+      const fourDigitReps = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
+      const fourDigitSet = new Set(fourDigitReps);
 
-      for (const w1 of shuffledWords) {
-        const elapsed = Date.now() - startTime;
-        if (elapsed > maxSearchTime) {
-          console.log(`  Search complete: ${elapsed/1000}s`);
-          break;
+      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (multi-word, 45 seconds)
+      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (45s, multi-word)...`);
+      const phase1End = 45000;
+
+      // Shuffle 4-digit targets for variety
+      const shuffled4Digit = [...fourDigitReps].sort(() => Math.random() - 0.5);
+
+      // Try multi-word combinations to hit 4-digit targets
+      for (const targetH of shuffled4Digit) {
+        if (Date.now() - startTime > phase1End) break;
+        for (const targetE of shuffled4Digit) {
+          if (Date.now() - startTime > phase1End) break;
+          for (const targetS of shuffled4Digit) {
+            if (Date.now() - startTime > phase1End) break;
+            for (const targetA of shuffled4Digit) {
+              if (Date.now() - startTime > phase1End) break;
+              if (targetA === 33) continue;
+
+              // Try to build a phrase that hits these targets
+              // Use generatePhrase logic but simplified
+              const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
+                { heb: true, eng: true, sim: true, aiq: true }, 100000, 2000);
+
+              if (phrase) {
+                const comboKey = `${targetH}/${targetE}/${targetS}/${targetA}`;
+                if (!goodMatches.has(comboKey)) {
+                  goodMatches.set(comboKey, []);
+                }
+                if (goodMatches.get(comboKey).length < 3) {
+                  goodMatches.get(comboKey).push({
+                    phrase, h: targetH, e: targetE, s: targetS, a: targetA
+                  });
+                  totalMatches++;
+                  console.log(`  Found XXXX combo: ${comboKey}`);
+                }
+              }
+
+              // Stop if we have enough 4-digit combos
+              if (goodMatches.size >= 5) break;
+            }
+            if (goodMatches.size >= 5) break;
+          }
+          if (goodMatches.size >= 5) break;
         }
-        scannedWords++;
+        if (goodMatches.size >= 5) break;
+      }
 
-        for (const targetS of shuffledRepdigits) {
-          const needSim = targetS - w1.sim;
-          if (needSim < 1 || needSim > targetS) continue;
+      console.log(`  After phase 1: ${goodMatches.size} XXXX combos found`);
 
-          const candidates = bySimple.get(needSim);
-          if (!candidates) continue;
+      // PHASE 2: If no XXXX combos, search for 2-word combos (15 seconds)
+      if (goodMatches.size === 0) {
+        console.log(`  Phase 2: Searching for 2-word combos (15s)...`);
+        const phase2End = 60000;
 
-          for (const w2 of candidates) {
-            if (w2.word === w1.word) continue;
+        for (const w1 of shuffledWords) {
+          if (Date.now() - startTime > phase2End) break;
 
-            const sumH = w1.heb + w2.heb;
-            const sumE = w1.eng + w2.eng;
-            const sumA = w1.aiq + w2.aiq;
+          for (const targetS of shuffledRepdigits) {
+            const needSim = targetS - w1.sim;
+            if (needSim < 1 || needSim > targetS) continue;
 
-            if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
-            // Strictly exclude /33 - it produces incoherent phrases
-            if (sumA === 33) continue;
+            const candidates = bySimple.get(needSim);
+            if (!candidates) continue;
 
-            const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
+            for (const w2 of candidates) {
+              if (w2.word === w1.word) continue;
 
-            // Skip overused combos during main search - collect them separately
-            if (overusedCombos.has(comboKey)) {
-              if (!fallbackMatches.has(comboKey)) {
-                fallbackMatches.set(comboKey, []);
+              const sumH = w1.heb + w2.heb;
+              const sumE = w1.eng + w2.eng;
+              const sumA = w1.aiq + w2.aiq;
+
+              if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
+              if (sumA === 33) continue;
+
+              const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
+
+              if (overusedCombos.has(comboKey)) {
+                if (!fallbackMatches.has(comboKey)) fallbackMatches.set(comboKey, []);
+                if (fallbackMatches.get(comboKey).length < 3) {
+                  fallbackMatches.get(comboKey).push({
+                    phrase: `${w1.word} ${w2.word}`, h: sumH, e: sumE, s: targetS, a: sumA
+                  });
+                }
+                continue;
               }
-              if (fallbackMatches.get(comboKey).length < 3) {
-                fallbackMatches.get(comboKey).push({
-                  phrase: `${w1.word} ${w2.word}`,
-                  h: sumH, e: sumE, s: targetS, a: sumA
+
+              if (!goodMatches.has(comboKey)) goodMatches.set(comboKey, []);
+              if (goodMatches.get(comboKey).length < 5) {
+                goodMatches.get(comboKey).push({
+                  phrase: `${w1.word} ${w2.word}`, h: sumH, e: sumE, s: targetS, a: sumA
                 });
+                totalMatches++;
               }
-              continue;
-            }
-
-            if (!goodMatches.has(comboKey)) {
-              goodMatches.set(comboKey, []);
-            }
-            if (goodMatches.get(comboKey).length < 5) {
-              goodMatches.get(comboKey).push({
-                phrase: `${w1.word} ${w2.word}`,
-                h: sumH, e: sumE, s: targetS, a: sumA
-              });
-              totalMatches++;
             }
           }
         }
       }
 
-      console.log(`  Good combos: ${goodMatches.size}, Fallback: ${fallbackMatches.size}`);
+      console.log(`  Total: Good=${goodMatches.size}, Fallback=${fallbackMatches.size}`);
 
       // Helper to get Aik Bekar digit count from combo key
       const getAiqDigits = (k) => {
