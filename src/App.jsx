@@ -667,7 +667,7 @@ const GematriaCalculator = () => {
       // For XXXX targets (>= 1111), prioritize HIGH-VALUE words
       // Otherwise we waste time on tiny words that can never sum to 1111
       const isXXXXTarget = targetSim >= 1111 || targetHeb >= 5000;
-      const minWordValue = isXXXXTarget ? 50 : 1; // Only use words with simple >= 50 for XXXX
+      const minWordValue = isXXXXTarget ? 20 : 1; // Only use words with simple >= 20 for XXXX
 
       for (let s = minWordValue; s < minVal; s++) {
         const words = bySimple.get(s);
@@ -1470,9 +1470,17 @@ const GematriaCalculator = () => {
       const repSet = new Set(repdigitList);
       const fourDigitSet = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
 
-      // Only skip the most common overused combo
+      // Skip common overused combos - we want XXXX/XXXX/XXXX/XXXX
       const overusedCombos = new Set([
         '555/666/111/111',
+        '1111/666/111/111',
+        '222/666/111/111',
+        '333/666/111/111',
+        '444/666/111/111',
+        '666/666/111/111',
+        '777/666/111/111',
+        '888/666/111/111',
+        '999/666/111/111',
       ]);
 
       // Get word data
