@@ -657,6 +657,119 @@ const GematriaCalculator = () => {
       console.log('  Deterministic search exhausted, falling back to random...');
     }
 
+    // DETERMINISTIC SEARCH for 4-way targets (with Aik Bekar)
+    if (enabledFlags.aiq && enabledFlags.heb && enabledFlags.eng && enabledFlags.sim && targetAiq > 0) {
+      console.log('🔍 Using deterministic search for 4-way match...');
+
+      // Get all words that could be part of the phrase (based on smallest target)
+      const minVal = Math.min(targetSim, targetAiq);
+      const allWords = [];
+      for (let s = 1; s < minVal; s++) {
+        const words = bySimple.get(s);
+        if (words) allWords.push(...words);
+      }
+      // Also add words matching exactly the targets (for single-word edge cases)
+      const exactSim = bySimple.get(targetSim) || [];
+      allWords.push(...exactSim);
+
+      // Shuffle for variety
+      for (let i = allWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+      }
+
+      // Try 2-word phrases
+      console.log('  Trying 2-word 4-way combinations...');
+      for (const w1 of allWords) {
+        if (Date.now() - startTime > timeoutMs) break;
+
+        const needHeb = targetHeb - w1.heb;
+        const needEng = targetEng - w1.eng;
+        const needSim = targetSim - w1.sim;
+        const needAiq = targetAiq - w1.aiq;
+
+        if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+        // Use smallest bucket for lookup
+        const candidates = bySimple.get(needSim) || [];
+        for (const w2 of candidates) {
+          if (w2.heb === needHeb && w2.eng === needEng && w2.aiq === needAiq && w2.word !== w1.word) {
+            const phrase = `${w1.word} ${w2.word}`;
+            console.log(`✅ Found 2-word 4-way match: "${phrase}"`);
+            return phrase;
+          }
+        }
+      }
+
+      // Try 3-word phrases
+      console.log('  Trying 3-word 4-way combinations...');
+      let attempts3 = 0;
+      for (const w1 of allWords) {
+        if (Date.now() - startTime > timeoutMs) break;
+        if (attempts3++ > 3000) break;
+
+        for (const w2 of allWords) {
+          if (Date.now() - startTime > timeoutMs) break;
+          if (w2.word === w1.word) continue;
+
+          const needHeb = targetHeb - w1.heb - w2.heb;
+          const needEng = targetEng - w1.eng - w2.eng;
+          const needSim = targetSim - w1.sim - w2.sim;
+          const needAiq = targetAiq - w1.aiq - w2.aiq;
+
+          if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+          const candidates = bySimple.get(needSim) || [];
+          for (const w3 of candidates) {
+            if (w3.heb === needHeb && w3.eng === needEng && w3.aiq === needAiq &&
+                w3.word !== w1.word && w3.word !== w2.word) {
+              const phrase = `${w1.word} ${w2.word} ${w3.word}`;
+              console.log(`✅ Found 3-word 4-way match: "${phrase}"`);
+              return phrase;
+            }
+          }
+        }
+      }
+
+      // Try 4-word phrases
+      console.log('  Trying 4-word 4-way combinations...');
+      let attempts4 = 0;
+      for (const w1 of allWords.slice(0, 150)) {
+        if (Date.now() - startTime > timeoutMs) break;
+
+        for (const w2 of allWords.slice(0, 150)) {
+          if (Date.now() - startTime > timeoutMs) break;
+          if (w2.word === w1.word) continue;
+          attempts4++;
+          if (attempts4 > 5000) break;
+
+          for (const w3 of allWords) {
+            if (Date.now() - startTime > timeoutMs) break;
+            if (w3.word === w1.word || w3.word === w2.word) continue;
+
+            const needHeb = targetHeb - w1.heb - w2.heb - w3.heb;
+            const needEng = targetEng - w1.eng - w2.eng - w3.eng;
+            const needSim = targetSim - w1.sim - w2.sim - w3.sim;
+            const needAiq = targetAiq - w1.aiq - w2.aiq - w3.aiq;
+
+            if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+            const candidates = bySimple.get(needSim) || [];
+            for (const w4 of candidates) {
+              if (w4.heb === needHeb && w4.eng === needEng && w4.aiq === needAiq &&
+                  w4.word !== w1.word && w4.word !== w2.word && w4.word !== w3.word) {
+                const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word}`;
+                console.log(`✅ Found 4-word 4-way match: "${phrase}"`);
+                return phrase;
+              }
+            }
+          }
+        }
+      }
+
+      console.log('  4-way deterministic search exhausted, falling back to random...');
+    }
+
     // Dynamically adjust phrase length based on enabled target values
     // Use MINIMUM target to constrain maxWords (prevents wasted attempts)
     const enabledTargets = [];
@@ -1170,55 +1283,71 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     if (aiqBekarEnabled) {
-      console.log('🎲 Searching for random repdigit match with Aik Bekar...');
+      console.log('🎲 Searching for random 4-way repdigit match with Aik Bekar...');
 
       const startTime = Date.now();
-      const maxTime = 90000; // 90 second total timeout
-      const aiqRepSet = new Set(aiqRepdigits);
+      const maxTime = 120000; // 120 second total timeout
+      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
 
-      // STRATEGY: Generate 3-way matches quickly and check if A is a repdigit
-      // The key is to generate MANY successful 3-way matches fast
-      console.log('  Generating 3-way matches, checking for repdigit A values...');
+      // DETERMINISTIC STRATEGY: Try each (H, E, S) combo with each compatible A repdigit
+      // The deterministic 4-way search in generatePhrase will find a match if one exists
 
-      let successfulGenerations = 0;
-      let totalAttempts = 0;
+      // Build list of (H, E, S, A) 4-tuples to try
+      const fourWayCombos = [];
+      for (const combo of workingCombos) {
+        // Pair each combo with compatible A values based on size
+        let compatibleA;
+        if (combo.sim <= 77) {
+          compatibleA = [11, 22, 33, 44, 55, 66, 77, 88, 99];
+        } else if (combo.sim <= 111) {
+          compatibleA = [33, 44, 55, 66, 77, 88, 99, 111, 222];
+        } else if (combo.sim <= 1111) {
+          compatibleA = [111, 222, 333, 444, 555, 666, 777, 888, 999, 1111];
+        } else {
+          compatibleA = [333, 444, 555, 666, 777, 888, 999, 1111];
+        }
+        for (const a of compatibleA) {
+          fourWayCombos.push({ ...combo, aiq: a });
+        }
+      }
 
-      // Try each combo with generous per-attempt timeout
-      for (const combo of shuffledCombos) {
-        if (Date.now() - startTime > maxTime) break;
+      // Shuffle for variety
+      for (let i = fourWayCombos.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
+      }
 
-        console.log(`  Trying combo H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+      console.log(`  Trying ${fourWayCombos.length} 4-way combinations...`);
 
-        // Generate candidates - need enough to find repdigit A (~5% probability)
-        // With 30 attempts at 3s each, we should get many successful matches
-        for (let attempt = 0; attempt < 30; attempt++) {
-          if (Date.now() - startTime > maxTime) break;
-          totalAttempts++;
+      for (const combo of fourWayCombos) {
+        if (Date.now() - startTime > maxTime) {
+          console.log('⏱️ Timeout reached');
+          break;
+        }
 
-          const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 500000, 3000  // Longer timeout for reliable 3-way match
-          );
+        console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}...`);
 
-          if (candidate) {
-            successfulGenerations++;
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            console.log(`    Generated: "${candidate.substring(0, 30)}..." A=${aVal}`);
-            if (aiqRepSet.has(aVal)) {
-              console.log(`✅ Found match with repdigit A=${aVal}! (${successfulGenerations} generations, ${totalAttempts} attempts)`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break;
-            }
+        const candidate = await generatePhrase(
+          combo.heb, combo.eng, combo.sim, combo.aiq,
+          enabledFlags4, 500000, 8000  // 8 seconds per combo - deterministic search is fast
+        );
+
+        if (candidate) {
+          // Verify the match
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+          if (aVal === combo.aiq) {
+            console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}`);
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
           }
         }
-        if (phrase) break;
       }
 
       if (!phrase) {
-        console.log(`❌ No repdigit A found after ${successfulGenerations} successful generations`);
+        console.log('❌ No 4-way match found');
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
@@ -1246,19 +1375,45 @@ const GematriaCalculator = () => {
     const existingPhrases = new Set(generatedPhrases.map(p => p.phrase.toLowerCase()));
     const repdigitSet = new Set(aiqRepdigits);
     let retries = 0;
-    while (phrase && (existingPhrases.has(phrase.toLowerCase()) || hasDuplicateWords(phrase)) && retries < 5) {
+    while (phrase && (existingPhrases.has(phrase.toLowerCase()) || hasDuplicateWords(phrase)) && retries < 10) {
       const reason = existingPhrases.has(phrase.toLowerCase()) ? 'already generated' : 'has duplicate words';
-      console.log(`⚠️ Phrase ${reason}, retrying...`);
+      console.log(`⚠️ Phrase ${reason}, retrying... (attempt ${retries + 1})`);
       retries++;
+
+      // Pick a random combo to retry with
       const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
-      const candidate = await generatePhrase(
-        retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
-        enabledFlags3, 500000, 3000  // Generous timeout for retries
-      );
-      if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
-        const aVal = calculateGematria(candidate, aiqBekarValues).total;
-        if (!aiqBekarEnabled || repdigitSet.has(aVal)) {
+
+      if (aiqBekarEnabled) {
+        // For Aik Bekar, pick a random compatible A value and use 4-way search
+        const compatibleA = retryCombo.sim <= 111
+          ? [33, 44, 55, 66, 77, 88, 99, 111]
+          : [111, 222, 333, 444, 555, 666, 777, 888, 999];
+        const randomA = compatibleA[Math.floor(Math.random() * compatibleA.length)];
+
+        const candidate = await generatePhrase(
+          retryCombo.heb, retryCombo.eng, retryCombo.sim, randomA,
+          { heb: true, eng: true, sim: true, aiq: true }, 500000, 5000
+        );
+        if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
+          const aVal = calculateGematria(candidate, aiqBekarValues).total;
+          if (aVal === randomA) {
+            phrase = candidate;
+            finalHebrew = retryCombo.heb;
+            finalEnglish = retryCombo.eng;
+            finalSimple = retryCombo.sim;
+          }
+        }
+      } else {
+        // For 3-way, use standard search
+        const candidate = await generatePhrase(
+          retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
+          enabledFlags3, 500000, 3000
+        );
+        if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
           phrase = candidate;
+          finalHebrew = retryCombo.heb;
+          finalEnglish = retryCombo.eng;
+          finalSimple = retryCombo.sim;
         }
       }
     }
