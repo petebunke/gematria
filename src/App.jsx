@@ -550,23 +550,36 @@ const GematriaCalculator = () => {
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds (using cached word data)`);
 
     // Dynamically adjust phrase length based on enabled target values
+    // Use MINIMUM target to constrain maxWords (prevents wasted attempts)
     const enabledTargets = [];
     if (enabledFlags.heb) enabledTargets.push(targetHeb);
     if (enabledFlags.eng) enabledTargets.push(targetEng);
     if (enabledFlags.sim) enabledTargets.push(targetSim);
     if (enabledFlags.aiq) enabledTargets.push(targetAiq);
-    const avgTarget = enabledTargets.length > 0 ? enabledTargets.reduce((a, b) => a + b, 0) / enabledTargets.length : 500;
+    const minTarget = enabledTargets.length > 0 ? Math.min(...enabledTargets) : 500;
+    const maxTarget = enabledTargets.length > 0 ? Math.max(...enabledTargets) : 500;
+
+    // Set minWords based on max target (need enough words to reach high values)
+    // Set maxWords based on min target (can't have too many words for small values)
     let minWords, maxWords;
-    if (avgTarget < 500) {
+    if (maxTarget < 200) {
+      minWords = 2; maxWords = 3;
+    } else if (maxTarget < 500) {
+      minWords = 2; maxWords = 4;
+    } else if (maxTarget < 1000) {
       minWords = 2; maxWords = 5;
-    } else if (avgTarget < 1500) {
-      minWords = 3; maxWords = 7;
-    } else if (avgTarget < 3000) {
-      minWords = 4; maxWords = 10;
-    } else if (avgTarget < 5000) {
-      minWords = 5; maxWords = 12;
+    } else if (maxTarget < 2000) {
+      minWords = 2; maxWords = 7;
+    } else if (maxTarget < 5000) {
+      minWords = 3; maxWords = 10;
     } else {
-      minWords = 6; maxWords = 15;
+      minWords = 4; maxWords = 15;
+    }
+    // Further constrain maxWords based on minimum target
+    if (minTarget < 150) {
+      maxWords = Math.min(maxWords, 4);
+    } else if (minTarget < 300) {
+      maxWords = Math.min(maxWords, 5);
     }
 
     console.log(`✅ Starting smart random search (${maxAttempts.toLocaleString()} attempts, ${minWords}-${maxWords} words)...`);
@@ -1090,7 +1103,7 @@ const GematriaCalculator = () => {
 
         const candidate = await generatePhrase(
           pair.heb, pair.eng, pair.sim, pair.aiq,
-          enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
+          enabledFlags4, 500000, 5000  // TRUE 4-way, 5s per pair
         );
 
         if (candidate) {
@@ -1106,30 +1119,37 @@ const GematriaCalculator = () => {
         }
       }
 
-      // FALLBACK: Generate 3-way matches and check if A happens to be a repdigit
+      // FALLBACK: Generate many 3-way matches and check if A happens to be a repdigit
       if (!phrase) {
         console.log('🔄 Fallback: generating 3-way matches, checking for repdigit A...');
         const aiqRepSet = new Set(aiqRepdigits);
 
+        // Try each combo multiple times - repdigit A has ~10% probability
         for (const combo of shuffledCombos) {
           if (Date.now() - startTime > maxTime) break;
 
-          const candidate = await generatePhrase(
-            combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 500000, 2000
-          );
+          // Generate many candidates per combo to find repdigit A
+          for (let attempt = 0; attempt < 30; attempt++) {
+            if (Date.now() - startTime > maxTime) break;
 
-          if (candidate) {
-            const aVal = calculateGematria(candidate, aiqBekarValues).total;
-            if (aiqRepSet.has(aVal)) {
-              console.log(`✅ Found 3-way with repdigit A=${aVal}! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
-              phrase = candidate;
-              finalHebrew = combo.heb;
-              finalEnglish = combo.eng;
-              finalSimple = combo.sim;
-              break;
+            const candidate = await generatePhrase(
+              combo.heb, combo.eng, combo.sim, 0,
+              enabledFlags3, 200000, 800
+            );
+
+            if (candidate) {
+              const aVal = calculateGematria(candidate, aiqBekarValues).total;
+              if (aiqRepSet.has(aVal)) {
+                console.log(`✅ Found 3-way with repdigit A=${aVal}! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
+                phrase = candidate;
+                finalHebrew = combo.heb;
+                finalEnglish = combo.eng;
+                finalSimple = combo.sim;
+                break;
+              }
             }
           }
+          if (phrase) break;
         }
       }
     } else {
