@@ -1135,6 +1135,37 @@ const GematriaCalculator = () => {
           }
         }
       }
+
+      // FALLBACK: Generate 3-way matches and check if A happens to be a repdigit
+      if (!phrase) {
+        console.log('🔄 Fallback: generating 3-way matches, checking for repdigit A...');
+        const aiqRepSet = new Set(aiqRepdigits);
+
+        for (const combo of shuffledCombos) {
+          if (Date.now() - startTime > maxTime) break;
+
+          // Generate multiple 3-way candidates quickly
+          for (let attempt = 0; attempt < 20; attempt++) {
+            const candidate = await generatePhrase(
+              combo.heb, combo.eng, combo.sim, 0,
+              enabledFlags3, 200000, 500
+            );
+
+            if (candidate) {
+              const aVal = calculateGematria(candidate, aiqBekarValues).total;
+              if (aiqRepSet.has(aVal)) {
+                console.log(`✅ Found 3-way with repdigit A=${aVal}! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
+                phrase = candidate;
+                finalHebrew = combo.heb;
+                finalEnglish = combo.eng;
+                finalSimple = combo.sim;
+                break;
+              }
+            }
+          }
+          if (phrase) break;
+        }
+      }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
 
@@ -1346,7 +1377,7 @@ const GematriaCalculator = () => {
               </h1>
             </div>
             <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
-              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew and English Gematria.
+              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in <a href="https://en.wikipedia.org/wiki/Gematria" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">Hebrew and English Gematria</a>.
             </p>
           </div>
 
@@ -1366,7 +1397,7 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-500 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-500 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                       Try combinations like XXX/666/111/XX, XXX/666/111/XXX, XXXX/666/111/XXX, and XXXX/6666/1111/XXXX!
                     </div>
                   </span>
@@ -1426,7 +1457,7 @@ const GematriaCalculator = () => {
                           >
                             ⓘ
                           </span>
-                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-500 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                             Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
                           </div>
                         </span>
@@ -1461,7 +1492,7 @@ const GematriaCalculator = () => {
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
-                    className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
+                    className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
                     {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>) : 'Generate Random Phrase'}
                   </button>
@@ -1506,7 +1537,7 @@ const GematriaCalculator = () => {
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg text-base md:text-lg"
                     >
                       Generate Anagram
                     </button>
@@ -1519,7 +1550,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={downloadPhraseTable}
                   disabled={clearing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-500 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   <Download className="w-5 h-5" />
