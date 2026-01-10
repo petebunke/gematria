@@ -1540,7 +1540,7 @@ const GematriaCalculator = () => {
             const w2 = highWords[j];
             const sum2S = w1.sim + w2.sim;
 
-            for (const targetS of [1111, 999, 888, 777, 666, 555, 444, 333]) {
+            for (const targetS of [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999, 999, 888, 777, 666, 555, 444, 333]) {
               const needSim = targetS - sum2S;
               if (needSim < 1 || needSim > 300) continue;
               const candidates = bySimple.get(needSim);
@@ -1575,9 +1575,9 @@ const GematriaCalculator = () => {
               const w3 = highWords[k];
               const sum3S = w1.sim + w2.sim + w3.sim;
 
-              for (const targetS of [1111, 999, 888]) {
+              for (const targetS of [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]) {
                 const needSim = targetS - sum3S;
-                if (needSim < 20 || needSim > 200) continue;
+                if (needSim < 1 || needSim > 500) continue;
                 const candidates = bySimple.get(needSim);
                 if (!candidates) continue;
 
