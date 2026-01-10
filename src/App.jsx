@@ -1333,7 +1333,7 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // PREFERRED combos - more obscure/interesting ones to prioritize
+      // PREFERRED combos - known good/interesting patterns from user examples
       const preferredCombos = new Set([
         '11/66/11/33',
         '111/666/111/333',
@@ -1345,21 +1345,11 @@ const GematriaCalculator = () => {
         '888/666/111/99',
         '888/666/111/111',
         '999/666/111/99',
-        '1111/666/111/99',
         '5555/6666/1111/111',
         '5555/6666/1111/1111',
         '6666/6666/1111/1111',
         '7777/6666/1111/1111',
         '8888/6666/1111/1111',
-        // Also add some non-666 patterns for variety
-        '333/888/111/77',
-        '444/555/99/66',
-        '222/444/88/55',
-        '111/333/77/44',
-        '555/999/111/88',
-        '666/888/111/99',
-        '777/999/111/111',
-        '888/999/111/111',
       ]);
 
       // OVERUSED combos - only use as last resort
@@ -1398,8 +1388,24 @@ const GematriaCalculator = () => {
       console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
 
       // Scan through shuffled words - collect as many combos as possible
+      // Search for 60+ seconds for non-overused combos before giving up
+      const maxSearchTime = 60000; // 60 seconds for thorough search
+      const minGoodCombos = 3; // Need at least this many non-overused combos before stopping early
+
       for (const w1 of shuffledWords) {
-        if (Date.now() - startTime > 25000) break; // 25s for collection
+        const elapsed = Date.now() - startTime;
+        const goodCombosFound = preferredMatches.size + normalMatches.size;
+
+        // Only stop early if we have found enough good combos
+        if (elapsed > 15000 && goodCombosFound >= minGoodCombos) {
+          console.log(`  Found ${goodCombosFound} good combos after ${Math.round(elapsed/1000)}s, stopping early`);
+          break;
+        }
+        // Hard limit at 60s
+        if (elapsed > maxSearchTime) {
+          console.log(`  Reached ${maxSearchTime/1000}s time limit`);
+          break;
+        }
         scannedWords++;
 
         for (const targetS of shuffledRepdigits) {
