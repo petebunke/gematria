@@ -1283,7 +1283,7 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     if (aiqBekarEnabled) {
-      console.log('🎲 Exhaustive search for 4-way repdigit phrase...');
+      console.log('🎲 Collecting diverse 4-way repdigit phrases...');
 
       const startTime = Date.now();
 
@@ -1301,44 +1301,29 @@ const GematriaCalculator = () => {
         '1111/666/111/111'
       ]);
 
-      // Shuffle repdigit targets for variety in which combinations we find
-      const shuffledRepdigits = [...repdigitList];
-      for (let i = shuffledRepdigits.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
-      }
-
       // Get word data from cache
       const { wordData, bySimple } = wordCache;
 
-      // Shuffle words for variety
-      const shuffledWords = [...wordData];
-      for (let i = shuffledWords.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
-      }
+      // Collect matches - we want diversity in COMBOS, not just phrases
+      const matchesByCombo = new Map(); // combo string -> array of {phrase, h, e, s, a}
+      const targetMatchCount = 50; // Collect up to 50 different combos
+      let totalMatches = 0;
 
-      // Helper to check if a combo is a fallback
-      const isFallbackCombo = (h, e, s, a) => fallbackCombos.has(`${h}/${e}/${s}/${a}`);
+      console.log(`  Scanning for unique 4-way combos...`);
 
-      console.log(`  Searching for NEW 4-way combos (excluding ${fallbackCombos.size} known fallbacks)...`);
+      // Scan through words to find all valid combos
+      for (const w1 of wordData) {
+        if (Date.now() - startTime > 30000) break; // 30s for collection phase
+        if (matchesByCombo.size >= targetMatchCount) break;
 
-      // PHASE 1: Search for NEW combos (excluding fallbacks) - up to 60 seconds
-      for (const w1 of shuffledWords) {
-        if (Date.now() - startTime > 60000) {
-          console.log('  60s elapsed, switching to fallback combos...');
-          break;
-        }
-
-        for (const targetS of shuffledRepdigits) {
+        for (const targetS of repdigitList) {
           const needSim = targetS - w1.sim;
           if (needSim < 1 || needSim > 500) continue;
 
           const candidates = bySimple.get(needSim);
           if (!candidates) continue;
-          const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
 
-          for (const w2 of shuffledCandidates) {
+          for (const w2 of candidates) {
             if (w2.word === w1.word) continue;
 
             const sumH = w1.heb + w2.heb;
@@ -1346,83 +1331,60 @@ const GematriaCalculator = () => {
             const sumA = w1.aiq + w2.aiq;
 
             if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
-              // Skip if this is a fallback combo
-              if (isFallbackCombo(sumH, sumE, targetS, sumA)) continue;
+              const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
-              phrase = `${w1.word} ${w2.word}`;
-              finalHebrew = sumH;
-              finalEnglish = sumE;
-              finalSimple = targetS;
-              console.log(`✅ Found NEW 2-word 4-way match: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
-              break;
-            }
-          }
-          if (phrase) break;
-        }
-        if (phrase) break;
-      }
+              // Skip fallback combos during collection
+              if (fallbackCombos.has(comboKey)) continue;
 
-      // PHASE 2: If no new combo found, try 3-word (excluding fallbacks)
-      if (!phrase && Date.now() - startTime < 60000) {
-        console.log('  Trying 3-word combinations (excluding fallbacks)...');
-        const limitedWords = shuffledWords.slice(0, 2000);
+              if (!matchesByCombo.has(comboKey)) {
+                matchesByCombo.set(comboKey, []);
+              }
 
-        outer: for (const w1 of limitedWords) {
-          for (const w2 of limitedWords) {
-            if (w2.word === w1.word) continue;
-            if (Date.now() - startTime > 60000) break outer;
-
-            for (const targetS of shuffledRepdigits) {
-              const needSim = targetS - w1.sim - w2.sim;
-              if (needSim < 1 || needSim > 200) continue;
-
-              const candidates = bySimple.get(needSim);
-              if (!candidates) continue;
-              const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
-
-              for (const w3 of shuffledCandidates) {
-                if (w3.word === w1.word || w3.word === w2.word) continue;
-
-                const sumH = w1.heb + w2.heb + w3.heb;
-                const sumE = w1.eng + w2.eng + w3.eng;
-                const sumA = w1.aiq + w2.aiq + w3.aiq;
-
-                if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
-                  if (isFallbackCombo(sumH, sumE, targetS, sumA)) continue;
-
-                  phrase = `${w1.word} ${w2.word} ${w3.word}`;
-                  finalHebrew = sumH;
-                  finalEnglish = sumE;
-                  finalSimple = targetS;
-                  console.log(`✅ Found NEW 3-word 4-way match: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
-                  break outer;
-                }
+              // Store up to 10 phrases per combo
+              if (matchesByCombo.get(comboKey).length < 10) {
+                matchesByCombo.get(comboKey).push({
+                  phrase: `${w1.word} ${w2.word}`,
+                  h: sumH, e: sumE, s: targetS, a: sumA
+                });
+                totalMatches++;
               }
             }
           }
         }
       }
 
-      // PHASE 3: FALLBACK - If still no match, allow the known fallback combos
+      console.log(`  Found ${matchesByCombo.size} unique combos with ${totalMatches} total phrases`);
+
+      // If we found matches, randomly select one
+      if (matchesByCombo.size > 0) {
+        // Get all combo keys and pick one randomly
+        const comboKeys = Array.from(matchesByCombo.keys());
+        const randomComboKey = comboKeys[Math.floor(Math.random() * comboKeys.length)];
+        const phrasesForCombo = matchesByCombo.get(randomComboKey);
+        const selected = phrasesForCombo[Math.floor(Math.random() * phrasesForCombo.length)];
+
+        phrase = selected.phrase;
+        finalHebrew = selected.h;
+        finalEnglish = selected.e;
+        finalSimple = selected.s;
+        console.log(`✅ Selected from ${comboKeys.length} combos: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
+      }
+
+      // FALLBACK: If no new combos found, allow the fallback combos
       if (!phrase) {
-        console.log('  Using fallback combos...');
+        console.log('  No new combos found, using fallback combos...');
 
-        // Re-shuffle for fresh search
-        for (let i = shuffledWords.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
-        }
+        for (const w1 of wordData) {
+          if (phrase) break;
 
-        for (const w1 of shuffledWords) {
-          for (const targetS of shuffledRepdigits) {
+          for (const targetS of repdigitList) {
             const needSim = targetS - w1.sim;
             if (needSim < 1 || needSim > 500) continue;
 
             const candidates = bySimple.get(needSim);
             if (!candidates) continue;
-            const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
 
-            for (const w2 of shuffledCandidates) {
+            for (const w2 of candidates) {
               if (w2.word === w1.word) continue;
 
               const sumH = w1.heb + w2.heb;
@@ -1434,13 +1396,12 @@ const GematriaCalculator = () => {
                 finalHebrew = sumH;
                 finalEnglish = sumE;
                 finalSimple = targetS;
-                console.log(`✅ Found fallback 2-word 4-way match: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
+                console.log(`✅ Found fallback: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
                 break;
               }
             }
             if (phrase) break;
           }
-          if (phrase) break;
         }
       }
 
