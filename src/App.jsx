@@ -1470,21 +1470,15 @@ const GematriaCalculator = () => {
       const repSet = new Set(repdigitList);
       const fourDigitSet = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
 
-      // Overused combos to skip
+      // Only skip the most common overused combo
       const overusedCombos = new Set([
-        '555/666/111/111', '555/666/111/99', '1111/666/111/111', '1111/666/111/99',
-        '222/666/111/99', '333/666/111/99', '444/666/111/99', '777/666/111/99',
-        '777/666/111/111', '888/666/111/99', '888/666/111/111', '999/666/111/99',
+        '555/666/111/111',
       ]);
 
       // Get word data
       const { wordData, bySimple } = wordCache;
 
-      // FAST 2-WORD SEARCH: Collect ALL 4-way repdigit matches, pick the best
-      console.log(`  Fast 2-word search across ${wordData.length} words...`);
-
       const allMatches = [];
-      let checked = 0;
 
       // Shuffle words for variety
       const shuffled = [...wordData];
@@ -1493,80 +1487,133 @@ const GematriaCalculator = () => {
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      // Check all 2-word combinations (with early stopping once we have enough good matches)
-      for (const w1 of shuffled) {
+      // Helper to check and add match
+      const checkMatch = (words, sumH, sumE, sumS, sumA) => {
+        if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) return;
+        if (sumA === 33) return;
+
+        const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
+        if (overusedCombos.has(comboKey)) return;
+
+        const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
+                          (fourDigitSet.has(sumS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
+
+        allMatches.push({
+          phrase: words.map(w => w.word).join(' '),
+          h: sumH, e: sumE, s: sumS, a: sumA,
+          combo: comboKey,
+          xxxxCount
+        });
+      };
+
+      // 2-WORD SEARCH (fast, finds smaller combos)
+      console.log(`  2-word search...`);
+      let checked = 0;
+      for (const w1 of shuffled.slice(0, 3000)) {
         checked++;
-
-        // Yield to UI every 100 words to prevent blocking
-        if (checked % 100 === 0) {
-          await new Promise(resolve => setTimeout(resolve, 0));
-        }
-
-        // Stop if we have enough 4-XXXX matches
-        if (allMatches.filter(m => m.xxxxCount === 4).length >= 10) {
-          console.log(`  Early stop: found 10+ full XXXX matches`);
-          break;
-        }
-
-        // Stop after checking enough words
-        if (checked > 5000) break;
+        if (checked % 200 === 0) await new Promise(r => setTimeout(r, 0));
 
         for (const targetS of repdigitList) {
           const needSim = targetS - w1.sim;
           if (needSim < 1 || needSim > 500) continue;
-
           const candidates = bySimple.get(needSim);
           if (!candidates) continue;
 
           for (const w2 of candidates) {
             if (w2.word === w1.word) continue;
-
-            const sumH = w1.heb + w2.heb;
-            const sumE = w1.eng + w2.eng;
-            const sumA = w1.aiq + w2.aiq;
-
-            if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
-            if (sumA === 33) continue;
-
-            const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
-            if (overusedCombos.has(comboKey)) continue;
-
-            // Count how many values are XXXX (4-digit)
-            const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
-                              (fourDigitSet.has(targetS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
-
-            allMatches.push({
-              phrase: `${w1.word} ${w2.word}`,
-              h: sumH, e: sumE, s: targetS, a: sumA,
-              combo: comboKey,
-              xxxxCount
-            });
+            checkMatch([w1, w2], w1.heb + w2.heb, w1.eng + w2.eng, targetS, w1.aiq + w2.aiq);
           }
         }
       }
+      console.log(`  After 2-word: ${allMatches.length} matches`);
 
-      console.log(`  Found ${allMatches.length} matches (checked ${checked} words)`);
+      // 3-WORD SEARCH (for higher values)
+      if (allMatches.filter(m => m.xxxxCount >= 3).length < 5) {
+        console.log(`  3-word search for higher values...`);
+        const highWords = shuffled.filter(w => w.sim >= 30).slice(0, 500);
+
+        for (let i = 0; i < highWords.length && i < 200; i++) {
+          if (i % 20 === 0) await new Promise(r => setTimeout(r, 0));
+          const w1 = highWords[i];
+
+          for (let j = i + 1; j < highWords.length && j < i + 100; j++) {
+            const w2 = highWords[j];
+            const sum2S = w1.sim + w2.sim;
+
+            for (const targetS of [1111, 999, 888, 777, 666, 555, 444, 333]) {
+              const needSim = targetS - sum2S;
+              if (needSim < 1 || needSim > 300) continue;
+              const candidates = bySimple.get(needSim);
+              if (!candidates) continue;
+
+              for (const w3 of candidates.slice(0, 50)) {
+                if (w3.word === w1.word || w3.word === w2.word) continue;
+                const sumH = w1.heb + w2.heb + w3.heb;
+                const sumE = w1.eng + w2.eng + w3.eng;
+                const sumA = w1.aiq + w2.aiq + w3.aiq;
+                checkMatch([w1, w2, w3], sumH, sumE, targetS, sumA);
+              }
+            }
+          }
+        }
+        console.log(`  After 3-word: ${allMatches.length} matches`);
+      }
+
+      // 4-WORD SEARCH (for XXXX Simple values)
+      if (allMatches.filter(m => m.xxxxCount >= 3).length < 3) {
+        console.log(`  4-word search for XXXX values...`);
+        const highWords = shuffled.filter(w => w.sim >= 50).slice(0, 300);
+
+        for (let i = 0; i < Math.min(100, highWords.length); i++) {
+          if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
+          const w1 = highWords[i];
+
+          for (let j = i + 1; j < Math.min(i + 50, highWords.length); j++) {
+            const w2 = highWords[j];
+
+            for (let k = j + 1; k < Math.min(j + 30, highWords.length); k++) {
+              const w3 = highWords[k];
+              const sum3S = w1.sim + w2.sim + w3.sim;
+
+              for (const targetS of [1111, 999, 888]) {
+                const needSim = targetS - sum3S;
+                if (needSim < 20 || needSim > 200) continue;
+                const candidates = bySimple.get(needSim);
+                if (!candidates) continue;
+
+                for (const w4 of candidates.slice(0, 20)) {
+                  if (w4.word === w1.word || w4.word === w2.word || w4.word === w3.word) continue;
+                  const sumH = w1.heb + w2.heb + w3.heb + w4.heb;
+                  const sumE = w1.eng + w2.eng + w3.eng + w4.eng;
+                  const sumA = w1.aiq + w2.aiq + w3.aiq + w4.aiq;
+                  checkMatch([w1, w2, w3, w4], sumH, sumE, targetS, sumA);
+                }
+              }
+            }
+          }
+        }
+        console.log(`  After 4-word: ${allMatches.length} matches`);
+      }
+
+      console.log(`  Total: ${allMatches.length} matches`);
 
       if (allMatches.length > 0) {
-        // Sort by XXXX count (highest first), then randomize within same count
+        // Sort by XXXX count (highest first), then randomize
         allMatches.sort((a, b) => {
           if (b.xxxxCount !== a.xxxxCount) return b.xxxxCount - a.xxxxCount;
           return Math.random() - 0.5;
         });
 
-        // Get best matches (highest XXXX count)
         const bestCount = allMatches[0].xxxxCount;
         const bestMatches = allMatches.filter(m => m.xxxxCount === bestCount);
-
-        // Pick random from best
         const selected = bestMatches[Math.floor(Math.random() * bestMatches.length)];
+
         phrase = selected.phrase;
         finalHebrew = selected.h;
         finalEnglish = selected.e;
         finalSimple = selected.s;
 
         console.log(`✅ Selected (${selected.xxxxCount} XXXX): "${phrase}" (${selected.combo})`);
-        console.log(`   Stats: ${allMatches.filter(m => m.xxxxCount === 4).length} full-XXXX, ${allMatches.filter(m => m.xxxxCount === 3).length} 3-XXXX, ${allMatches.filter(m => m.xxxxCount === 2).length} 2-XXXX`);
       } else {
         console.log('❌ No 4-way repdigit match found');
       }
