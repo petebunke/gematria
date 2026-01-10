@@ -1516,28 +1516,49 @@ const GematriaCalculator = () => {
       console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (20s)...`);
       const phase1End = 20000;
 
-      // Generate diverse XXXX combos dynamically
-      // All 4-digit repdigits for each position
-      const xxxx = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
-      const knownXXXXCombos = [];
+      // Priority XXXX combos - these are known to be achievable
+      const priorityXXXXCombos = [
+        [4444, 6666, 1111, 1111],
+        [5555, 6666, 1111, 1111],
+        [6666, 6666, 1111, 1111],
+        [7777, 6666, 1111, 1111],
+        [8888, 6666, 1111, 1111],
+        [9999, 6666, 1111, 1111],
+        [3333, 4444, 1111, 1111],
+        [4444, 5555, 1111, 1111],
+        [5555, 5555, 1111, 1111],
+        [6666, 5555, 1111, 1111],
+        [7777, 5555, 1111, 1111],
+        [8888, 5555, 1111, 1111],
+        [3333, 3333, 1111, 1111],
+        [4444, 4444, 1111, 1111],
+        [2222, 3333, 1111, 1111],
+        [1111, 2222, 1111, 1111],
+      ];
 
-      // Generate combos with variety in all positions
+      // Also generate additional combos with variety
+      const xxxx = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
+      const additionalCombos = [];
       for (const h of xxxx) {
         for (const e of xxxx) {
-          for (const s of xxxx) {
-            for (const a of xxxx) {
-              // Only include feasible combos (not too extreme)
-              if (h <= 9999 && e <= 9999 && s <= 2222 && a <= 2222) {
-                knownXXXXCombos.push([h, e, s, a]);
+          // Simple and Aik Bekar limited to 1111-2222 (higher is very hard)
+          for (const s of [1111, 2222]) {
+            for (const a of [1111, 2222]) {
+              const combo = [h, e, s, a];
+              // Don't duplicate priority combos
+              if (!priorityXXXXCombos.some(p => p[0] === h && p[1] === e && p[2] === s && p[3] === a)) {
+                additionalCombos.push(combo);
               }
             }
           }
         }
       }
-      console.log(`  Generated ${knownXXXXCombos.length} XXXX combo targets`);
 
-      // Shuffle for variety
-      const shuffledXXXX = [...knownXXXXCombos].sort(() => Math.random() - 0.5);
+      // Priority combos first (shuffled), then additional (shuffled)
+      const shuffledPriority = [...priorityXXXXCombos].sort(() => Math.random() - 0.5);
+      const shuffledAdditional = [...additionalCombos].sort(() => Math.random() - 0.5);
+      const shuffledXXXX = [...shuffledPriority, ...shuffledAdditional];
+      console.log(`  ${priorityXXXXCombos.length} priority + ${additionalCombos.length} additional XXXX combos`);
       let attempts = 0;
 
       for (const [targetH, targetE, targetS, targetA] of shuffledXXXX) {
