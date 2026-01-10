@@ -1441,20 +1441,21 @@ const GematriaCalculator = () => {
       console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
 
       // Scan through shuffled words - collect as many combos as possible
-      // Search for 60+ seconds for non-overused combos before giving up
-      const maxSearchTime = 60000; // 60 seconds for thorough search
-      const minGoodCombos = 3; // Need at least this many non-overused combos before stopping early
+      // Search for 90 seconds to find diverse non-overused combos
+      const maxSearchTime = 90000; // 90 seconds for thorough search
+      const minGoodCombos = 15; // Need many diverse combos before stopping early
+      const minSearchTime = 30000; // Always search at least 30 seconds
 
       for (const w1 of shuffledWords) {
         const elapsed = Date.now() - startTime;
         const goodCombosFound = preferredMatches.size + normalMatches.size;
 
-        // Only stop early if we have found enough good combos
-        if (elapsed > 15000 && goodCombosFound >= minGoodCombos) {
+        // Only stop early if we have found MANY good combos AND searched for at least 30s
+        if (elapsed > minSearchTime && goodCombosFound >= minGoodCombos) {
           console.log(`  Found ${goodCombosFound} good combos after ${Math.round(elapsed/1000)}s, stopping early`);
           break;
         }
-        // Hard limit at 60s
+        // Hard limit at 90s
         if (elapsed > maxSearchTime) {
           console.log(`  Reached ${maxSearchTime/1000}s time limit`);
           break;
@@ -1519,35 +1520,43 @@ const GematriaCalculator = () => {
       };
 
       // Combine all matches, tagged with their priority tier
-      const allCombos = [];
+      const goodCombos = []; // preferred + normal only
+      const fallbackCombosArr = []; // overused, last resort
+
       for (const [key, phrases] of preferredMatches) {
-        allCombos.push({ key, phrases, tier: 1, digits: getAiqDigits(key) }); // tier 1 = preferred
+        goodCombos.push({ key, phrases, tier: 1, digits: getAiqDigits(key) }); // tier 1 = preferred
       }
       for (const [key, phrases] of normalMatches) {
-        allCombos.push({ key, phrases, tier: 2, digits: getAiqDigits(key) }); // tier 2 = normal
+        goodCombos.push({ key, phrases, tier: 2, digits: getAiqDigits(key) }); // tier 2 = normal
       }
       for (const [key, phrases] of fallbackMatches) {
-        allCombos.push({ key, phrases, tier: 3, digits: getAiqDigits(key) }); // tier 3 = fallback
+        fallbackCombosArr.push({ key, phrases, tier: 3, digits: getAiqDigits(key) }); // tier 3 = fallback
       }
 
-      // Sort by: digits DESC (4 > 3 > 2), then tier ASC (preferred > normal > fallback)
-      allCombos.sort((a, b) => {
+      // Sort good combos by: digits DESC (4 > 3 > 2), then tier ASC (preferred > normal)
+      goodCombos.sort((a, b) => {
         if (b.digits !== a.digits) return b.digits - a.digits; // More digits first
         return a.tier - b.tier; // Lower tier (preferred) first
       });
 
-      console.log(`  Total combos by digits: 4-digit=${allCombos.filter(c => c.digits === 4).length}, 3-digit=${allCombos.filter(c => c.digits === 3).length}, 2-digit=${allCombos.filter(c => c.digits === 2).length}`);
+      console.log(`  Good combos: ${goodCombos.length} (4-digit=${goodCombos.filter(c => c.digits === 4).length}, 3-digit=${goodCombos.filter(c => c.digits === 3).length}, 2-digit=${goodCombos.filter(c => c.digits === 2).length})`);
+      console.log(`  Fallback combos: ${fallbackCombosArr.length}`);
 
-      if (allCombos.length > 0) {
-        // Get the best digit count available
-        const bestDigits = allCombos[0].digits;
+      // STRONGLY prefer good combos over fallbacks
+      // Only use fallbacks if NO good combos exist at all
+      let combosToUse = goodCombos.length > 0 ? goodCombos : fallbackCombosArr;
+
+      if (combosToUse.length > 0) {
+        // Get the best digit count available from chosen pool
+        const bestDigits = combosToUse[0].digits;
         // Filter to only combos with the best digit count
-        const bestCombos = allCombos.filter(c => c.digits === bestDigits);
-        // Among those, prefer lower tier (preferred > normal > fallback)
+        const bestCombos = combosToUse.filter(c => c.digits === bestDigits);
+        // Among those, prefer lower tier
         const bestTier = Math.min(...bestCombos.map(c => c.tier));
         const topCombos = bestCombos.filter(c => c.tier === bestTier);
 
-        console.log(`  Selecting from ${topCombos.length} ${bestDigits}-digit combos (tier ${bestTier === 1 ? 'preferred' : bestTier === 2 ? 'normal' : 'fallback'})`);
+        const tierName = bestTier === 1 ? 'preferred' : bestTier === 2 ? 'normal' : 'fallback';
+        console.log(`  Selecting from ${topCombos.length} ${bestDigits}-digit ${tierName} combos`);
 
         // Pick a random combo from the top tier
         const chosen = topCombos[Math.floor(Math.random() * topCombos.length)];
