@@ -1440,20 +1440,19 @@ const GematriaCalculator = () => {
       console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
 
       // Scan through shuffled words - keep search time reasonable
-      const maxSearchTime = 20000; // 20 seconds max to avoid page freeze
-      const minGoodCombos = 5; // Need several diverse combos before stopping
-      const minSearchTime = 8000; // Search at least 8 seconds
+      const maxSearchTime = 25000; // 25 seconds max to avoid page freeze
+      const minPreferredCombos = 2; // Need at least 2 preferred combos before stopping
+      const minSearchTime = 12000; // Search at least 12 seconds
 
       // Bad Aik Bekar endings to exclude (incoherent phrases)
       const badAiqEndings = new Set([33]);
 
       for (const w1 of shuffledWords) {
         const elapsed = Date.now() - startTime;
-        const goodCombosFound = preferredMatches.size + normalMatches.size;
 
-        // Stop early if we have found enough good combos
-        if (elapsed > minSearchTime && goodCombosFound >= minGoodCombos) {
-          console.log(`  Found ${goodCombosFound} good combos after ${Math.round(elapsed/1000)}s, stopping early`);
+        // Only stop early if we have found preferred combos (the rare ones like 333, 444, etc.)
+        if (elapsed > minSearchTime && preferredMatches.size >= minPreferredCombos) {
+          console.log(`  Found ${preferredMatches.size} preferred combos after ${Math.round(elapsed/1000)}s, stopping early`);
           break;
         }
         // Hard limit
