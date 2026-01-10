@@ -1283,71 +1283,102 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     if (aiqBekarEnabled) {
-      console.log('🎲 Searching for random 4-way repdigit match with Aik Bekar...');
+      console.log('🎲 Exhaustive search for 4-way repdigit phrase...');
 
       const startTime = Date.now();
-      const maxTime = 120000; // 120 second total timeout
-      const enabledFlags4 = { heb: true, eng: true, sim: true, aiq: true };
 
-      // DETERMINISTIC STRATEGY: Try each (H, E, S) combo with each compatible A repdigit
-      // The deterministic 4-way search in generatePhrase will find a match if one exists
+      // All repdigits we care about
+      const repdigitList = [11, 22, 33, 44, 55, 66, 77, 88, 99,
+                           111, 222, 333, 444, 555, 666, 777, 888, 999,
+                           1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
+      const repSet = new Set(repdigitList);
 
-      // Build list of (H, E, S, A) 4-tuples to try
-      const fourWayCombos = [];
-      for (const combo of workingCombos) {
-        // Pair each combo with compatible A values based on size
-        let compatibleA;
-        if (combo.sim <= 77) {
-          compatibleA = [11, 22, 33, 44, 55, 66, 77, 88, 99];
-        } else if (combo.sim <= 111) {
-          compatibleA = [33, 44, 55, 66, 77, 88, 99, 111, 222];
-        } else if (combo.sim <= 1111) {
-          compatibleA = [111, 222, 333, 444, 555, 666, 777, 888, 999, 1111];
-        } else {
-          compatibleA = [333, 444, 555, 666, 777, 888, 999, 1111];
-        }
-        for (const a of compatibleA) {
-          fourWayCombos.push({ ...combo, aiq: a });
-        }
-      }
+      // Get word data from cache
+      const { wordData, bySimple } = wordCache;
 
-      // Shuffle for variety
-      for (let i = fourWayCombos.length - 1; i > 0; i--) {
+      // Shuffle words for variety
+      const shuffledWords = [...wordData];
+      for (let i = shuffledWords.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [fourWayCombos[i], fourWayCombos[j]] = [fourWayCombos[j], fourWayCombos[i]];
+        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
       }
 
-      console.log(`  Trying ${fourWayCombos.length} 4-way combinations...`);
+      console.log(`  Searching ${shuffledWords.length} words for 2-word 4-way repdigit matches...`);
 
-      for (const combo of fourWayCombos) {
-        if (Date.now() - startTime > maxTime) {
-          console.log('⏱️ Timeout reached');
-          break;
+      // EXHAUSTIVE 2-WORD SEARCH: For each word, find a partner that makes all 4 values repdigits
+      for (const w1 of shuffledWords) {
+        // For each possible Simple repdigit target
+        for (const targetS of repdigitList) {
+          const needSim = targetS - w1.sim;
+          if (needSim < 1 || needSim > 500) continue; // Skip invalid
+
+          // Get all words with this simple value
+          const candidates = bySimple.get(needSim);
+          if (!candidates) continue;
+
+          for (const w2 of candidates) {
+            if (w2.word === w1.word) continue;
+
+            // Check if ALL sums are repdigits
+            const sumH = w1.heb + w2.heb;
+            const sumE = w1.eng + w2.eng;
+            const sumA = w1.aiq + w2.aiq;
+
+            if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
+              phrase = `${w1.word} ${w2.word}`;
+              finalHebrew = sumH;
+              finalEnglish = sumE;
+              finalSimple = targetS;
+              console.log(`✅ Found 2-word 4-way repdigit match: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
+              break;
+            }
+          }
+          if (phrase) break;
         }
+        if (phrase) break;
+      }
 
-        console.log(`  Trying H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}...`);
+      // If no 2-word match, try 3-word
+      if (!phrase) {
+        console.log('  No 2-word match, trying 3-word combinations...');
+        const limitedWords = shuffledWords.slice(0, 2000); // Limit for performance
 
-        const candidate = await generatePhrase(
-          combo.heb, combo.eng, combo.sim, combo.aiq,
-          enabledFlags4, 500000, 8000  // 8 seconds per combo - deterministic search is fast
-        );
+        outer: for (const w1 of limitedWords) {
+          for (const w2 of limitedWords) {
+            if (w2.word === w1.word) continue;
+            if (Date.now() - startTime > 60000) break outer; // 60s timeout
 
-        if (candidate) {
-          // Verify the match
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
-          if (aVal === combo.aiq) {
-            console.log(`✅ Found 4-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim} A:${combo.aiq}`);
-            phrase = candidate;
-            finalHebrew = combo.heb;
-            finalEnglish = combo.eng;
-            finalSimple = combo.sim;
-            break;
+            // For each possible Simple target
+            for (const targetS of repdigitList) {
+              const needSim = targetS - w1.sim - w2.sim;
+              if (needSim < 1 || needSim > 200) continue;
+
+              const candidates = bySimple.get(needSim);
+              if (!candidates) continue;
+
+              for (const w3 of candidates) {
+                if (w3.word === w1.word || w3.word === w2.word) continue;
+
+                const sumH = w1.heb + w2.heb + w3.heb;
+                const sumE = w1.eng + w2.eng + w3.eng;
+                const sumA = w1.aiq + w2.aiq + w3.aiq;
+
+                if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
+                  phrase = `${w1.word} ${w2.word} ${w3.word}`;
+                  finalHebrew = sumH;
+                  finalEnglish = sumE;
+                  finalSimple = targetS;
+                  console.log(`✅ Found 3-word 4-way repdigit match: "${phrase}" (H:${sumH} E:${sumE} S:${targetS} A:${sumA})`);
+                  break outer;
+                }
+              }
+            }
           }
         }
       }
 
       if (!phrase) {
-        console.log('❌ No 4-way match found');
+        console.log('❌ No 4-way repdigit match found');
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
@@ -1373,47 +1404,73 @@ const GematriaCalculator = () => {
 
     // Check for duplicate phrase (against ALL session phrases) or duplicate words - retry if needed
     const existingPhrases = new Set(generatedPhrases.map(p => p.phrase.toLowerCase()));
-    const repdigitSet = new Set(aiqRepdigits);
-    let retries = 0;
-    while (phrase && (existingPhrases.has(phrase.toLowerCase()) || hasDuplicateWords(phrase)) && retries < 10) {
-      const reason = existingPhrases.has(phrase.toLowerCase()) ? 'already generated' : 'has duplicate words';
-      console.log(`⚠️ Phrase ${reason}, retrying... (attempt ${retries + 1})`);
-      retries++;
+    const repdigitList = [11, 22, 33, 44, 55, 66, 77, 88, 99,
+                         111, 222, 333, 444, 555, 666, 777, 888, 999,
+                         1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
+    const repSet = new Set(repdigitList);
 
-      // Pick a random combo to retry with
-      const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
+    if (phrase && (existingPhrases.has(phrase.toLowerCase()) || hasDuplicateWords(phrase))) {
+      const reason = existingPhrases.has(phrase.toLowerCase()) ? 'already generated' : 'has duplicate words';
+      console.log(`⚠️ Phrase ${reason}, searching for alternative...`);
+
+      // Re-shuffle and search again, skipping existing phrases
+      const { wordData, bySimple } = wordCache;
+      const reshuffled = [...wordData];
+      for (let i = reshuffled.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [reshuffled[i], reshuffled[j]] = [reshuffled[j], reshuffled[i]];
+      }
+
+      phrase = null; // Reset to search again
 
       if (aiqBekarEnabled) {
-        // For Aik Bekar, pick a random compatible A value and use 4-way search
-        const compatibleA = retryCombo.sim <= 111
-          ? [33, 44, 55, 66, 77, 88, 99, 111]
-          : [111, 222, 333, 444, 555, 666, 777, 888, 999];
-        const randomA = compatibleA[Math.floor(Math.random() * compatibleA.length)];
+        // Exhaustive 2-word search for 4-way repdigits, excluding existing
+        for (const w1 of reshuffled) {
+          for (const targetS of repdigitList) {
+            const needSim = targetS - w1.sim;
+            if (needSim < 1 || needSim > 500) continue;
 
-        const candidate = await generatePhrase(
-          retryCombo.heb, retryCombo.eng, retryCombo.sim, randomA,
-          { heb: true, eng: true, sim: true, aiq: true }, 500000, 5000
-        );
-        if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
-          if (aVal === randomA) {
-            phrase = candidate;
-            finalHebrew = retryCombo.heb;
-            finalEnglish = retryCombo.eng;
-            finalSimple = retryCombo.sim;
+            const candidates = bySimple.get(needSim);
+            if (!candidates) continue;
+
+            for (const w2 of candidates) {
+              if (w2.word === w1.word) continue;
+
+              const candidatePhrase = `${w1.word} ${w2.word}`;
+              if (existingPhrases.has(candidatePhrase.toLowerCase())) continue;
+              if (hasDuplicateWords(candidatePhrase)) continue;
+
+              const sumH = w1.heb + w2.heb;
+              const sumE = w1.eng + w2.eng;
+              const sumA = w1.aiq + w2.aiq;
+
+              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
+                phrase = candidatePhrase;
+                finalHebrew = sumH;
+                finalEnglish = sumE;
+                finalSimple = targetS;
+                console.log(`✅ Found alternative: "${phrase}"`);
+                break;
+              }
+            }
+            if (phrase) break;
           }
+          if (phrase) break;
         }
       } else {
-        // For 3-way, use standard search
-        const candidate = await generatePhrase(
-          retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
-          enabledFlags3, 500000, 3000
-        );
-        if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
-          phrase = candidate;
-          finalHebrew = retryCombo.heb;
-          finalEnglish = retryCombo.eng;
-          finalSimple = retryCombo.sim;
+        // For 3-way, search through combos
+        for (const combo of shuffledCombos) {
+          const candidate = await generatePhrase(
+            combo.heb, combo.eng, combo.sim, 0,
+            enabledFlags3, 500000, 2000
+          );
+          if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
+          }
         }
       }
     }
