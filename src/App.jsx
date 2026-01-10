@@ -1490,8 +1490,8 @@ const GematriaCalculator = () => {
         '999/666/111/111',
       ]);
 
-      // Get word data
-      const { wordData, bySimple } = wordCache;
+      // Get word data (include byAiqBekar for targeting Aik values)
+      const { wordData, bySimple, byAiqBekar } = wordCache;
 
       // PHASE 0: Try known working XXXX/XXXX/XXXX/XXXX combos with generatePhrase
       console.log(`  Phase 0: Trying known XXXX/XXXX/XXXX/XXXX combos...`);
@@ -1672,37 +1672,39 @@ const GematriaCalculator = () => {
         console.log(`  After 4-word: ${allMatches.length} matches`);
       }
 
-      // 5-WORD SEARCH (for /111 and /1111 values)
+      // 5-WORD SEARCH - Target Aik repdigits directly using byAiqBekar
       if (allMatches.filter(m => m.aiqScore >= 2).length < 3) {
-        console.log(`  5-word search for /111+ values...`);
-        const medWords = shuffled.filter(w => w.sim >= 30 && w.sim <= 300).slice(0, 400);
+        console.log(`  5-word search targeting /111+ Aik values...`);
+        const medWords = shuffled.filter(w => w.aiq >= 10 && w.aiq <= 200).slice(0, 400);
+        const aiqTargets = [111, 222, 333, 444, 555, 666, 777, 888, 999, 1111];
 
-        for (let i = 0; i < Math.min(80, medWords.length); i++) {
+        for (let i = 0; i < Math.min(100, medWords.length); i++) {
           if (i % 10 === 0) await new Promise(r => setTimeout(r, 0));
           const w1 = medWords[i];
 
-          for (let j = i + 1; j < Math.min(i + 40, medWords.length); j++) {
+          for (let j = i + 1; j < Math.min(i + 50, medWords.length); j++) {
             const w2 = medWords[j];
 
-            for (let k = j + 1; k < Math.min(j + 20, medWords.length); k++) {
+            for (let k = j + 1; k < Math.min(j + 25, medWords.length); k++) {
               const w3 = medWords[k];
 
               for (let l = k + 1; l < Math.min(k + 15, medWords.length); l++) {
                 const w4 = medWords[l];
-                const sum4S = w1.sim + w2.sim + w3.sim + w4.sim;
+                const sum4A = w1.aiq + w2.aiq + w3.aiq + w4.aiq;
 
-                for (const targetS of [1111, 2222, 3333, 4444, 5555, 6666]) {
-                  const needSim = targetS - sum4S;
-                  if (needSim < 1 || needSim > 400) continue;
-                  const candidates = bySimple.get(needSim);
+                // Target Aik repdigits and use byAiqBekar to find matching last word
+                for (const targetA of aiqTargets) {
+                  const needAiq = targetA - sum4A;
+                  if (needAiq < 1 || needAiq > 300) continue;
+                  const candidates = byAiqBekar.get(needAiq);
                   if (!candidates) continue;
 
-                  for (const w5 of candidates.slice(0, 15)) {
+                  for (const w5 of candidates.slice(0, 20)) {
                     if (w5.word === w1.word || w5.word === w2.word || w5.word === w3.word || w5.word === w4.word) continue;
                     const sumH = w1.heb + w2.heb + w3.heb + w4.heb + w5.heb;
                     const sumE = w1.eng + w2.eng + w3.eng + w4.eng + w5.eng;
-                    const sumA = w1.aiq + w2.aiq + w3.aiq + w4.aiq + w5.aiq;
-                    checkMatch([w1, w2, w3, w4, w5], sumH, sumE, targetS, sumA);
+                    const sumS = w1.sim + w2.sim + w3.sim + w4.sim + w5.sim;
+                    checkMatch([w1, w2, w3, w4, w5], sumH, sumE, sumS, targetA);
                   }
                 }
               }
@@ -1712,41 +1714,42 @@ const GematriaCalculator = () => {
         console.log(`  After 5-word: ${allMatches.length} matches`);
       }
 
-      // 6-WORD SEARCH (for /1111 values)
+      // 6-WORD SEARCH - Target /1111 Aik values directly
       if (allMatches.filter(m => m.aiqScore >= 3).length < 2) {
-        console.log(`  6-word search for /1111 values...`);
-        const medWords = shuffled.filter(w => w.sim >= 40 && w.sim <= 250).slice(0, 300);
+        console.log(`  6-word search targeting /1111 Aik values...`);
+        const medWords = shuffled.filter(w => w.aiq >= 20 && w.aiq <= 250).slice(0, 300);
+        const aiqTargets1111 = [1111, 2222, 3333];
 
-        for (let i = 0; i < Math.min(50, medWords.length); i++) {
+        for (let i = 0; i < Math.min(60, medWords.length); i++) {
           if (i % 5 === 0) await new Promise(r => setTimeout(r, 0));
           const w1 = medWords[i];
 
-          for (let j = i + 1; j < Math.min(i + 30, medWords.length); j++) {
+          for (let j = i + 1; j < Math.min(i + 35, medWords.length); j++) {
             const w2 = medWords[j];
 
-            for (let k = j + 1; k < Math.min(j + 15, medWords.length); k++) {
+            for (let k = j + 1; k < Math.min(j + 18, medWords.length); k++) {
               const w3 = medWords[k];
 
-              for (let l = k + 1; l < Math.min(k + 10, medWords.length); l++) {
+              for (let l = k + 1; l < Math.min(k + 12, medWords.length); l++) {
                 const w4 = medWords[l];
 
-                for (let m = l + 1; m < Math.min(l + 8, medWords.length); m++) {
+                for (let m = l + 1; m < Math.min(l + 10, medWords.length); m++) {
                   const w5 = medWords[m];
-                  const sum5S = w1.sim + w2.sim + w3.sim + w4.sim + w5.sim;
+                  const sum5A = w1.aiq + w2.aiq + w3.aiq + w4.aiq + w5.aiq;
 
-                  for (const targetS of [1111, 2222, 3333, 4444, 5555, 6666]) {
-                    const needSim = targetS - sum5S;
-                    if (needSim < 1 || needSim > 300) continue;
-                    const candidates = bySimple.get(needSim);
+                  for (const targetA of aiqTargets1111) {
+                    const needAiq = targetA - sum5A;
+                    if (needAiq < 1 || needAiq > 400) continue;
+                    const candidates = byAiqBekar.get(needAiq);
                     if (!candidates) continue;
 
-                    for (const w6 of candidates.slice(0, 10)) {
+                    for (const w6 of candidates.slice(0, 15)) {
                       if (w6.word === w1.word || w6.word === w2.word || w6.word === w3.word ||
                           w6.word === w4.word || w6.word === w5.word) continue;
                       const sumH = w1.heb + w2.heb + w3.heb + w4.heb + w5.heb + w6.heb;
                       const sumE = w1.eng + w2.eng + w3.eng + w4.eng + w5.eng + w6.eng;
-                      const sumA = w1.aiq + w2.aiq + w3.aiq + w4.aiq + w5.aiq + w6.aiq;
-                      checkMatch([w1, w2, w3, w4, w5, w6], sumH, sumE, targetS, sumA);
+                      const sumS = w1.sim + w2.sim + w3.sim + w4.sim + w5.sim + w6.sim;
+                      checkMatch([w1, w2, w3, w4, w5, w6], sumH, sumE, sumS, targetA);
                     }
                   }
                 }
