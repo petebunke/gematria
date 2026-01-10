@@ -1293,30 +1293,42 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // Known common fallback combos - try to find OTHER combos first
-      const fallbackCombos = new Set([
-        '222/666/111/99',
-        '555/666/111/111',
-        '11/66/11/33',
-        '1111/666/111/111'
+      // Common combos that appear too frequently - skip these to find variety
+      const overusedCombos = new Set([
+        '222/666/111/99', '555/666/111/111', '11/66/11/33', '1111/666/111/111',
+        // Add more patterns with /666/ which seem overrepresented
+        '333/666/111/99', '444/666/111/99', '666/666/111/111', '777/666/111/111',
+        '888/666/111/111', '999/666/111/111', '111/666/111/99'
       ]);
 
       // Get word data from cache
       const { wordData, bySimple } = wordCache;
 
-      // Collect matches - we want diversity in COMBOS, not just phrases
-      const matchesByCombo = new Map(); // combo string -> array of {phrase, h, e, s, a}
-      const targetMatchCount = 50; // Collect up to 50 different combos
+      // Shuffle words for variety in what we find
+      const shuffledWords = [...wordData];
+      for (let i = shuffledWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledWords[i], shuffledWords[j]] = [shuffledWords[j], shuffledWords[i]];
+      }
+
+      // Shuffle repdigit targets too
+      const shuffledRepdigits = [...repdigitList];
+      for (let i = shuffledRepdigits.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
+      }
+
+      // Collect ALL matches we can find, grouped by combo
+      const matchesByCombo = new Map();
       let totalMatches = 0;
 
-      console.log(`  Scanning for unique 4-way combos...`);
+      console.log(`  Scanning for unique 4-way combos (shuffled)...`);
 
-      // Scan through words to find all valid combos
-      for (const w1 of wordData) {
-        if (Date.now() - startTime > 30000) break; // 30s for collection phase
-        if (matchesByCombo.size >= targetMatchCount) break;
+      // Scan through shuffled words - don't stop early, collect everything
+      for (const w1 of shuffledWords) {
+        if (Date.now() - startTime > 15000) break; // 15s for collection
 
-        for (const targetS of repdigitList) {
+        for (const targetS of shuffledRepdigits) {
           const needSim = targetS - w1.sim;
           if (needSim < 1 || needSim > 500) continue;
 
@@ -1333,15 +1345,15 @@ const GematriaCalculator = () => {
             if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
               const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
-              // Skip fallback combos during collection
-              if (fallbackCombos.has(comboKey)) continue;
+              // Skip overused combos during collection
+              if (overusedCombos.has(comboKey)) continue;
 
               if (!matchesByCombo.has(comboKey)) {
                 matchesByCombo.set(comboKey, []);
               }
 
-              // Store up to 10 phrases per combo
-              if (matchesByCombo.get(comboKey).length < 10) {
+              // Store up to 5 phrases per combo
+              if (matchesByCombo.get(comboKey).length < 5) {
                 matchesByCombo.get(comboKey).push({
                   phrase: `${w1.word} ${w2.word}`,
                   h: sumH, e: sumE, s: targetS, a: sumA
@@ -1357,7 +1369,6 @@ const GematriaCalculator = () => {
 
       // If we found matches, randomly select one
       if (matchesByCombo.size > 0) {
-        // Get all combo keys and pick one randomly
         const comboKeys = Array.from(matchesByCombo.keys());
         const randomComboKey = comboKeys[Math.floor(Math.random() * comboKeys.length)];
         const phrasesForCombo = matchesByCombo.get(randomComboKey);
@@ -1370,11 +1381,11 @@ const GematriaCalculator = () => {
         console.log(`✅ Selected from ${comboKeys.length} combos: "${phrase}" (H:${selected.h} E:${selected.e} S:${selected.s} A:${selected.a})`);
       }
 
-      // FALLBACK: If no new combos found, allow the fallback combos
+      // FALLBACK: If no diverse combos found, allow any combo including overused ones
       if (!phrase) {
-        console.log('  No new combos found, using fallback combos...');
+        console.log('  No diverse combos found, allowing all combos...');
 
-        for (const w1 of wordData) {
+        for (const w1 of shuffledWords) {
           if (phrase) break;
 
           for (const targetS of repdigitList) {
