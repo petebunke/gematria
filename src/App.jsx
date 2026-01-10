@@ -1472,7 +1472,36 @@ const GematriaCalculator = () => {
 
       if (selectedMap && selectedMap.size > 0) {
         const comboKeys = Array.from(selectedMap.keys());
-        const randomComboKey = comboKeys[Math.floor(Math.random() * comboKeys.length)];
+
+        // Bias heavily toward longer Aik Bekar endings: XXXX > XXX > XX
+        // Extract combos by Aik Bekar digit length
+        const fourDigit = comboKeys.filter(k => {
+          const aiqValue = parseInt(k.split('/')[3]);
+          return aiqValue >= 1111;
+        });
+        const threeDigit = comboKeys.filter(k => {
+          const aiqValue = parseInt(k.split('/')[3]);
+          return aiqValue >= 111 && aiqValue < 1111;
+        });
+        const twoDigit = comboKeys.filter(k => {
+          const aiqValue = parseInt(k.split('/')[3]);
+          return aiqValue < 111;
+        });
+
+        // Select from longest available first
+        let selectedKeys;
+        if (fourDigit.length > 0) {
+          selectedKeys = fourDigit;
+          console.log(`  Selecting from ${fourDigit.length} 4-digit Aik Bekar combos`);
+        } else if (threeDigit.length > 0) {
+          selectedKeys = threeDigit;
+          console.log(`  Selecting from ${threeDigit.length} 3-digit Aik Bekar combos`);
+        } else {
+          selectedKeys = twoDigit;
+          console.log(`  Selecting from ${twoDigit.length} 2-digit Aik Bekar combos`);
+        }
+
+        const randomComboKey = selectedKeys[Math.floor(Math.random() * selectedKeys.length)];
         const phrasesForCombo = selectedMap.get(randomComboKey);
         const selected = phrasesForCombo[Math.floor(Math.random() * phrasesForCombo.length)];
 
