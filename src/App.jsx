@@ -1478,33 +1478,88 @@ const GematriaCalculator = () => {
       // Get word data
       const { wordData, bySimple } = wordCache;
 
-      const allMatches = [];
+      // PHASE 0: Try known working XXXX/XXXX/XXXX/XXXX combos with generatePhrase
+      console.log(`  Phase 0: Trying known XXXX/XXXX/XXXX/XXXX combos...`);
 
-      // Shuffle words for variety
-      const shuffled = [...wordData];
-      for (let i = shuffled.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+      const knownXXXXCombos = [
+        [3333, 6666, 1111, 1111],
+        [4444, 6666, 1111, 1111],
+        [5555, 6666, 1111, 1111],
+        [6666, 6666, 1111, 1111],
+        [7777, 6666, 1111, 1111],
+        [8888, 6666, 1111, 1111],
+        [9999, 6666, 1111, 1111],
+        [2222, 4444, 1111, 1111],
+        [3333, 5555, 1111, 1111],
+        [4444, 5555, 1111, 1111],
+        [5555, 5555, 1111, 1111],
+        [4444, 4444, 1111, 1111],
+        [3333, 3333, 1111, 1111],
+        [2222, 3333, 1111, 1111],
+        [1111, 2222, 1111, 1111],
+      ];
+
+      // Shuffle and try a few
+      const shuffledXXXX = [...knownXXXXCombos].sort(() => Math.random() - 0.5);
+
+      for (let i = 0; i < Math.min(5, shuffledXXXX.length); i++) {
+        const [targetH, targetE, targetS, targetA] = shuffledXXXX[i];
+
+        // Yield to UI
+        await new Promise(r => setTimeout(r, 0));
+
+        console.log(`    Trying ${targetH}/${targetE}/${targetS}/${targetA}...`);
+
+        const result = await generatePhrase(
+          targetH, targetE, targetS, targetA,
+          { heb: true, eng: true, sim: true, aiq: true },
+          500000,  // iterations
+          15000    // 15 seconds per target
+        );
+
+        if (result) {
+          phrase = result;
+          finalHebrew = targetH;
+          finalEnglish = targetE;
+          finalSimple = targetS;
+          console.log(`  ✅ Found XXXX/XXXX/XXXX/XXXX: ${targetH}/${targetE}/${targetS}/${targetA}`);
+          break;
+        }
       }
 
-      // Helper to check and add match
-      const checkMatch = (words, sumH, sumE, sumS, sumA) => {
-        if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) return;
-        if (sumA === 33) return;
+      // If XXXX/XXXX/XXXX/XXXX found, we're done
+      if (phrase) {
+        console.log(`  Phase 0 succeeded!`);
+      } else {
+        console.log(`  Phase 0: No XXXX/XXXX/XXXX/XXXX found, falling back to word search...`);
 
-        const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
-        if (overusedCombos.has(comboKey)) return;
+        const allMatches = [];
 
-        const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
-                          (fourDigitSet.has(sumS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
+        // Shuffle words for variety
+        const shuffled = [...wordData];
+        for (let i = shuffled.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+        }
 
-        allMatches.push({
-          phrase: words.map(w => w.word).join(' '),
-          h: sumH, e: sumE, s: sumS, a: sumA,
-          combo: comboKey,
-          xxxxCount
-        });
-      };
+        // Helper to check and add match
+        const checkMatch = (words, sumH, sumE, sumS, sumA) => {
+          if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) return;
+          if (sumA === 33) return;
+
+          const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
+          if (overusedCombos.has(comboKey)) return;
+
+          const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
+                            (fourDigitSet.has(sumS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
+
+          allMatches.push({
+            phrase: words.map(w => w.word).join(' '),
+            h: sumH, e: sumE, s: sumS, a: sumA,
+            combo: comboKey,
+            xxxxCount
+          });
+        };
 
       // 2-WORD SEARCH (fast, finds smaller combos)
       console.log(`  2-word search...`);
@@ -1617,6 +1672,7 @@ const GematriaCalculator = () => {
       } else {
         console.log('❌ No 4-way repdigit match found');
       }
+      } // End of Phase 0 else block
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
 
