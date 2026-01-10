@@ -770,14 +770,16 @@ const GematriaCalculator = () => {
       // Try 5-word phrases for very large targets
       if (targetSim >= 1111 || targetHeb >= 5000) {
         console.log('  Trying 5-word 4-way combinations...');
-        for (const w1 of allWords.slice(0, 100)) {
+        // Use larger search space for 5-word phrases
+        const searchLimit = 150;
+        for (const w1 of allWords.slice(0, searchLimit)) {
           if (Date.now() - startTime > timeoutMs) break;
 
-          for (const w2 of allWords.slice(0, 100)) {
+          for (const w2 of allWords.slice(0, searchLimit)) {
             if (w2.word === w1.word) continue;
             if (Date.now() - startTime > timeoutMs) break;
 
-            for (const w3 of allWords.slice(0, 100)) {
+            for (const w3 of allWords.slice(0, searchLimit)) {
               if (w3.word === w1.word || w3.word === w2.word) continue;
               if (Date.now() - startTime > timeoutMs) break;
 
@@ -799,6 +801,53 @@ const GematriaCalculator = () => {
                     const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word} ${w5.word}`;
                     console.log(`✅ Found 5-word 4-way match: "${phrase}"`);
                     return phrase;
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Try 6-word phrases for extremely large targets
+      if (targetSim >= 1111 || targetHeb >= 7000) {
+        console.log('  Trying 6-word 4-way combinations...');
+        const searchLimit6 = 80;
+        for (const w1 of allWords.slice(0, searchLimit6)) {
+          if (Date.now() - startTime > timeoutMs) break;
+
+          for (const w2 of allWords.slice(0, searchLimit6)) {
+            if (w2.word === w1.word) continue;
+            if (Date.now() - startTime > timeoutMs) break;
+
+            for (const w3 of allWords.slice(0, searchLimit6)) {
+              if (w3.word === w1.word || w3.word === w2.word) continue;
+              if (Date.now() - startTime > timeoutMs) break;
+
+              for (const w4 of allWords.slice(0, searchLimit6)) {
+                if (w4.word === w1.word || w4.word === w2.word || w4.word === w3.word) continue;
+                if (Date.now() - startTime > timeoutMs) break;
+
+                for (const w5 of allWords) {
+                  if (w5.word === w1.word || w5.word === w2.word || w5.word === w3.word || w5.word === w4.word) continue;
+                  if (Date.now() - startTime > timeoutMs) break;
+
+                  const needHeb = targetHeb - w1.heb - w2.heb - w3.heb - w4.heb - w5.heb;
+                  const needEng = targetEng - w1.eng - w2.eng - w3.eng - w4.eng - w5.eng;
+                  const needSim = targetSim - w1.sim - w2.sim - w3.sim - w4.sim - w5.sim;
+                  const needAiq = targetAiq - w1.aiq - w2.aiq - w3.aiq - w4.aiq - w5.aiq;
+
+                  if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+                  const candidates = bySimple.get(needSim) || [];
+                  for (const w6 of candidates) {
+                    if (w6.heb === needHeb && w6.eng === needEng && w6.aiq === needAiq &&
+                        w6.word !== w1.word && w6.word !== w2.word && w6.word !== w3.word &&
+                        w6.word !== w4.word && w6.word !== w5.word) {
+                      const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word} ${w5.word} ${w6.word}`;
+                      console.log(`✅ Found 6-word 4-way match: "${phrase}"`);
+                      return phrase;
+                    }
                   }
                 }
               }
@@ -1147,6 +1196,10 @@ const GematriaCalculator = () => {
       const startTime = Date.now();
 
       // First try exact 4-way match
+      // Use longer timeout for large targets (5+ word phrases needed)
+      const isLargeTarget = parseInt(targetSimple) >= 1111 || parseInt(targetHebrew) >= 5000;
+      const timeout4way = isLargeTarget ? 45000 : 20000; // 45s for large, 20s for normal
+
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
@@ -1154,7 +1207,7 @@ const GematriaCalculator = () => {
         targetAiq,
         enabledFlags4,
         2000000,
-        20000  // 20 second timeout
+        timeout4way
       );
 
       if (phrase) {
@@ -1457,53 +1510,48 @@ const GematriaCalculator = () => {
       console.log(`    Normal combos: ${normalMatches.size}`);
       console.log(`    Fallback combos: ${fallbackMatches.size}`);
 
-      // Select from matches in priority order
-      let selectedMap = null;
-      if (preferredMatches.size > 0) {
-        selectedMap = preferredMatches;
-        console.log(`  Using PREFERRED combo`);
-      } else if (normalMatches.size > 0) {
-        selectedMap = normalMatches;
-        console.log(`  Using normal combo`);
-      } else if (fallbackMatches.size > 0) {
-        selectedMap = fallbackMatches;
-        console.log(`  Using fallback combo`);
+      // Helper to get Aik Bekar digit count from combo key
+      const getAiqDigits = (k) => {
+        const aiqValue = parseInt(k.split('/')[3]);
+        if (aiqValue >= 1111) return 4;
+        if (aiqValue >= 111) return 3;
+        return 2;
+      };
+
+      // Combine all matches, tagged with their priority tier
+      const allCombos = [];
+      for (const [key, phrases] of preferredMatches) {
+        allCombos.push({ key, phrases, tier: 1, digits: getAiqDigits(key) }); // tier 1 = preferred
+      }
+      for (const [key, phrases] of normalMatches) {
+        allCombos.push({ key, phrases, tier: 2, digits: getAiqDigits(key) }); // tier 2 = normal
+      }
+      for (const [key, phrases] of fallbackMatches) {
+        allCombos.push({ key, phrases, tier: 3, digits: getAiqDigits(key) }); // tier 3 = fallback
       }
 
-      if (selectedMap && selectedMap.size > 0) {
-        const comboKeys = Array.from(selectedMap.keys());
+      // Sort by: digits DESC (4 > 3 > 2), then tier ASC (preferred > normal > fallback)
+      allCombos.sort((a, b) => {
+        if (b.digits !== a.digits) return b.digits - a.digits; // More digits first
+        return a.tier - b.tier; // Lower tier (preferred) first
+      });
 
-        // Bias heavily toward longer Aik Bekar endings: XXXX > XXX > XX
-        // Extract combos by Aik Bekar digit length
-        const fourDigit = comboKeys.filter(k => {
-          const aiqValue = parseInt(k.split('/')[3]);
-          return aiqValue >= 1111;
-        });
-        const threeDigit = comboKeys.filter(k => {
-          const aiqValue = parseInt(k.split('/')[3]);
-          return aiqValue >= 111 && aiqValue < 1111;
-        });
-        const twoDigit = comboKeys.filter(k => {
-          const aiqValue = parseInt(k.split('/')[3]);
-          return aiqValue < 111;
-        });
+      console.log(`  Total combos by digits: 4-digit=${allCombos.filter(c => c.digits === 4).length}, 3-digit=${allCombos.filter(c => c.digits === 3).length}, 2-digit=${allCombos.filter(c => c.digits === 2).length}`);
 
-        // Select from longest available first
-        let selectedKeys;
-        if (fourDigit.length > 0) {
-          selectedKeys = fourDigit;
-          console.log(`  Selecting from ${fourDigit.length} 4-digit Aik Bekar combos`);
-        } else if (threeDigit.length > 0) {
-          selectedKeys = threeDigit;
-          console.log(`  Selecting from ${threeDigit.length} 3-digit Aik Bekar combos`);
-        } else {
-          selectedKeys = twoDigit;
-          console.log(`  Selecting from ${twoDigit.length} 2-digit Aik Bekar combos`);
-        }
+      if (allCombos.length > 0) {
+        // Get the best digit count available
+        const bestDigits = allCombos[0].digits;
+        // Filter to only combos with the best digit count
+        const bestCombos = allCombos.filter(c => c.digits === bestDigits);
+        // Among those, prefer lower tier (preferred > normal > fallback)
+        const bestTier = Math.min(...bestCombos.map(c => c.tier));
+        const topCombos = bestCombos.filter(c => c.tier === bestTier);
 
-        const randomComboKey = selectedKeys[Math.floor(Math.random() * selectedKeys.length)];
-        const phrasesForCombo = selectedMap.get(randomComboKey);
-        const selected = phrasesForCombo[Math.floor(Math.random() * phrasesForCombo.length)];
+        console.log(`  Selecting from ${topCombos.length} ${bestDigits}-digit combos (tier ${bestTier === 1 ? 'preferred' : bestTier === 2 ? 'normal' : 'fallback'})`);
+
+        // Pick a random combo from the top tier
+        const chosen = topCombos[Math.floor(Math.random() * topCombos.length)];
+        const selected = chosen.phrases[Math.floor(Math.random() * chosen.phrases.length)];
 
         phrase = selected.phrase;
         finalHebrew = selected.h;
