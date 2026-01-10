@@ -663,7 +663,13 @@ const GematriaCalculator = () => {
       // Get all words that could be part of the phrase (based on smallest target)
       const minVal = Math.min(targetSim, targetAiq);
       const allWords = [];
-      for (let s = 1; s < minVal; s++) {
+
+      // For XXXX targets (>= 1111), prioritize HIGH-VALUE words
+      // Otherwise we waste time on tiny words that can never sum to 1111
+      const isXXXXTarget = targetSim >= 1111 || targetHeb >= 5000;
+      const minWordValue = isXXXXTarget ? 50 : 1; // Only use words with simple >= 50 for XXXX
+
+      for (let s = minWordValue; s < minVal; s++) {
         const words = bySimple.get(s);
         if (words) allWords.push(...words);
       }
@@ -671,10 +677,28 @@ const GematriaCalculator = () => {
       const exactSim = bySimple.get(targetSim) || [];
       allWords.push(...exactSim);
 
-      // Shuffle for variety
-      for (let i = allWords.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+      // For XXXX targets, sort by simple value DESCENDING so we try high-value words first
+      if (isXXXXTarget) {
+        allWords.sort((a, b) => b.sim - a.sim);
+        console.log(`  XXXX target: using ${allWords.length} high-value words (simple >= ${minWordValue})`);
+      }
+
+      // Shuffle for variety (but keep high-value bias for XXXX)
+      // For XXXX, only shuffle within value bands to maintain high-value priority
+      if (!isXXXXTarget) {
+        for (let i = allWords.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+        }
+      } else {
+        // Shuffle in chunks of 100 to add variety while keeping high values first
+        for (let chunk = 0; chunk < allWords.length; chunk += 100) {
+          const end = Math.min(chunk + 100, allWords.length);
+          for (let i = end - 1; i > chunk; i--) {
+            const j = chunk + Math.floor(Math.random() * (i - chunk + 1));
+            [allWords[i], allWords[j]] = [allWords[j], allWords[i]];
+          }
+        }
       }
 
       // Try 2-word phrases
@@ -1438,15 +1462,12 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // PREFERRED combos - only XXXX/XXXX/XXXX/XXXX patterns
-      const preferredCombos = new Set([
-        '5555/6666/1111/1111',
-        '6666/6666/1111/1111',
-        '7777/6666/1111/1111',
-        '8888/6666/1111/1111',
-        '4444/5555/1111/1111',
-        '3333/4444/1111/1111',
-      ]);
+      // PREFERRED combos - any XXXX/XXXX/XXXX/XXXX pattern (all 4-digit repdigits)
+      const fourDigitRepdigits = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
+      const isPreferredCombo = (h, e, s, a) => {
+        return fourDigitRepdigits.has(h) && fourDigitRepdigits.has(e) &&
+               fourDigitRepdigits.has(s) && fourDigitRepdigits.has(a);
+      };
 
       // OVERUSED combos - use as last resort (includes all /99 and /111 patterns)
       const overusedCombos = new Set([
@@ -1491,25 +1512,29 @@ const GematriaCalculator = () => {
       const fourDigitReps = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const fourDigitSet = new Set(fourDigitReps);
 
-      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (45 seconds, with UI yields)
-      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (45s)...`);
-      const phase1End = 45000;
+      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (20 seconds, with UI yields)
+      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (20s)...`);
+      const phase1End = 20000;
 
-      // Known working XXXX combos to try - expanded list
-      const knownXXXXCombos = [
-        [5555, 6666, 1111, 1111],
-        [6666, 6666, 1111, 1111],
-        [7777, 6666, 1111, 1111],
-        [8888, 6666, 1111, 1111],
-        [4444, 5555, 1111, 1111],
-        [3333, 4444, 1111, 1111],
-        [2222, 3333, 1111, 1111],
-        [1111, 2222, 1111, 1111],
-        [9999, 7777, 1111, 1111],
-        [4444, 4444, 1111, 1111],
-        [5555, 5555, 1111, 1111],
-        [3333, 3333, 1111, 1111],
-      ];
+      // Generate diverse XXXX combos dynamically
+      // All 4-digit repdigits for each position
+      const xxxx = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
+      const knownXXXXCombos = [];
+
+      // Generate combos with variety in all positions
+      for (const h of xxxx) {
+        for (const e of xxxx) {
+          for (const s of xxxx) {
+            for (const a of xxxx) {
+              // Only include feasible combos (not too extreme)
+              if (h <= 9999 && e <= 9999 && s <= 2222 && a <= 2222) {
+                knownXXXXCombos.push([h, e, s, a]);
+              }
+            }
+          }
+        }
+      }
+      console.log(`  Generated ${knownXXXXCombos.length} XXXX combo targets`);
 
       // Shuffle for variety
       const shuffledXXXX = [...knownXXXXCombos].sort(() => Math.random() - 0.5);
@@ -1522,9 +1547,9 @@ const GematriaCalculator = () => {
         // Yield to UI every attempt
         await new Promise(resolve => setTimeout(resolve, 0));
 
-        // Much longer timeout per attempt (10 seconds) and more iterations
+        // 5 second timeout per attempt - smarter search with high-value words should find faster
         const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
-          { heb: true, eng: true, sim: true, aiq: true }, 200000, 10000);
+          { heb: true, eng: true, sim: true, aiq: true }, 100000, 5000);
 
         attempts++;
         if (phrase) {
