@@ -1109,14 +1109,15 @@ const GematriaCalculator = () => {
         console.log('🔄 Fallback: generating 3-way matches, checking for repdigit A...');
         const aiqRepSet = new Set(aiqRepdigits);
 
+        // Try each combo multiple times - more attempts for better odds
         for (const combo of shuffledCombos) {
           if (Date.now() - startTime > maxTime) break;
 
-          // Generate multiple 3-way candidates quickly
-          for (let attempt = 0; attempt < 20; attempt++) {
+          // Generate many 3-way candidates and check for repdigit A
+          for (let attempt = 0; attempt < 50; attempt++) {
             const candidate = await generatePhrase(
               combo.heb, combo.eng, combo.sim, 0,
-              enabledFlags3, 200000, 500
+              enabledFlags3, 300000, 1000
             );
 
             if (candidate && !hasDuplicateWords(candidate)) {
@@ -1129,6 +1130,10 @@ const GematriaCalculator = () => {
                 finalSimple = combo.sim;
                 break;
               }
+            }
+            // Yield to prevent UI blocking
+            if (attempt % 10 === 0) {
+              await new Promise(resolve => setTimeout(resolve, 0));
             }
           }
           if (phrase) break;
@@ -1461,7 +1466,7 @@ const GematriaCalculator = () => {
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
-                    className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
+                    className="w-full bg-zinc-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-700 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
                   >
                     {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>) : 'Generate Random Phrase'}
                   </button>
@@ -1506,7 +1511,7 @@ const GematriaCalculator = () => {
                     </button>
                     <button
                       onClick={handleGenerateAnagram}
-                      className="w-full bg-zinc-500 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg text-base md:text-lg"
+                      className="w-full bg-zinc-800 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-700 transition duration-300 shadow-lg text-base md:text-lg"
                     >
                       Generate Anagram
                     </button>
@@ -1519,7 +1524,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={downloadPhraseTable}
                   disabled={clearing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-500 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-800 text-white rounded-lg hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   <Download className="w-5 h-5" />
