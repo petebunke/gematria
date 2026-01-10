@@ -1065,29 +1065,39 @@ const GematriaCalculator = () => {
       console.log('🎲 Searching for random repdigit match with Aik Bekar...');
 
       const startTime = Date.now();
-      const maxTime = 60000; // 60 second total timeout
+      const maxTime = 90000; // 90 second total timeout
       const aiqRepSet = new Set(aiqRepdigits);
 
-      // PRIMARY STRATEGY: Generate 3-way matches and find one where A is also a repdigit
-      // This is more reliable than trying exact 4-way matches
+      // STRATEGY: Generate 3-way matches quickly and check if A is a repdigit
+      // The key is to generate MANY successful 3-way matches fast
       console.log('  Generating 3-way matches, checking for repdigit A values...');
 
+      let successfulGenerations = 0;
+      let totalAttempts = 0;
+
+      // Try each combo with generous per-attempt timeout
       for (const combo of shuffledCombos) {
         if (Date.now() - startTime > maxTime) break;
 
-        // Generate many candidates per combo - repdigit A has ~5% probability
-        for (let attempt = 0; attempt < 50; attempt++) {
+        console.log(`  Trying combo H:${combo.heb} E:${combo.eng} S:${combo.sim}...`);
+
+        // Generate candidates - need enough to find repdigit A (~5% probability)
+        // With 30 attempts at 3s each, we should get many successful matches
+        for (let attempt = 0; attempt < 30; attempt++) {
           if (Date.now() - startTime > maxTime) break;
+          totalAttempts++;
 
           const candidate = await generatePhrase(
             combo.heb, combo.eng, combo.sim, 0,
-            enabledFlags3, 300000, 1000
+            enabledFlags3, 500000, 3000  // Longer timeout for reliable 3-way match
           );
 
           if (candidate) {
+            successfulGenerations++;
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            console.log(`    Generated: "${candidate.substring(0, 30)}..." A=${aVal}`);
             if (aiqRepSet.has(aVal)) {
-              console.log(`✅ Found match with repdigit A=${aVal}! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
+              console.log(`✅ Found match with repdigit A=${aVal}! (${successfulGenerations} generations, ${totalAttempts} attempts)`);
               phrase = candidate;
               finalHebrew = combo.heb;
               finalEnglish = combo.eng;
@@ -1097,6 +1107,10 @@ const GematriaCalculator = () => {
           }
         }
         if (phrase) break;
+      }
+
+      if (!phrase) {
+        console.log(`❌ No repdigit A found after ${successfulGenerations} successful generations`);
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
@@ -1131,9 +1145,9 @@ const GematriaCalculator = () => {
       const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
       const candidate = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
-        enabledFlags3, 300000, 1500
+        enabledFlags3, 500000, 3000  // Generous timeout for retries
       );
-      if (candidate && !existingPhrases.has(candidate.toLowerCase())) {
+      if (candidate && !existingPhrases.has(candidate.toLowerCase()) && !hasDuplicateWords(candidate)) {
         const aVal = calculateGematria(candidate, aiqBekarValues).total;
         if (!aiqBekarEnabled || repdigitSet.has(aVal)) {
           phrase = candidate;
@@ -1391,7 +1405,7 @@ const GematriaCalculator = () => {
                             ⓘ
                           </span>
                           <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-600 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                            Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
+                            Phrases including this system can take longer to generate.
                           </div>
                         </span>
                       </label>
