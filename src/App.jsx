@@ -1198,7 +1198,7 @@ const GematriaCalculator = () => {
       // First try exact 4-way match
       // Use longer timeout for large targets (5+ word phrases needed)
       const isLargeTarget = parseInt(targetSimple) >= 1111 || parseInt(targetHebrew) >= 5000;
-      const timeout4way = isLargeTarget ? 45000 : 20000; // 45s for large, 20s for normal
+      const timeout4way = isLargeTarget ? 25000 : 15000; // 25s for large, 15s for normal
 
       phrase = await generatePhrase(
         parseInt(targetHebrew),
@@ -1223,9 +1223,9 @@ const GematriaCalculator = () => {
       // FALLBACK: Generate 3-way matches and find one where A matches target
       if (!phrase) {
         console.log('🔄 Trying generate-and-check for Aik Bekar...');
-        const maxTimeMs = 40000; // 40 more seconds
+        const maxTimeMs = 20000; // 20 more seconds
 
-        for (let attempt = 0; attempt < 100; attempt++) {
+        for (let attempt = 0; attempt < 50; attempt++) {
           if (Date.now() - startTime > maxTimeMs) {
             console.log(`⏱️ Timeout after ${attempt} attempts`);
             break;
@@ -1388,7 +1388,6 @@ const GematriaCalculator = () => {
 
       // PREFERRED combos - known good/interesting patterns from user examples
       const preferredCombos = new Set([
-        '11/66/11/33',
         '111/666/111/333',
         '222/666/111/99',
         '333/666/111/99',
@@ -1440,22 +1439,24 @@ const GematriaCalculator = () => {
 
       console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
 
-      // Scan through shuffled words - collect as many combos as possible
-      // Search for 90 seconds to find diverse non-overused combos
-      const maxSearchTime = 90000; // 90 seconds for thorough search
-      const minGoodCombos = 15; // Need many diverse combos before stopping early
-      const minSearchTime = 30000; // Always search at least 30 seconds
+      // Scan through shuffled words - keep search time reasonable
+      const maxSearchTime = 20000; // 20 seconds max to avoid page freeze
+      const minGoodCombos = 5; // Need several diverse combos before stopping
+      const minSearchTime = 8000; // Search at least 8 seconds
+
+      // Bad Aik Bekar endings to exclude (incoherent phrases)
+      const badAiqEndings = new Set([33]);
 
       for (const w1 of shuffledWords) {
         const elapsed = Date.now() - startTime;
         const goodCombosFound = preferredMatches.size + normalMatches.size;
 
-        // Only stop early if we have found MANY good combos AND searched for at least 30s
+        // Stop early if we have found enough good combos
         if (elapsed > minSearchTime && goodCombosFound >= minGoodCombos) {
           console.log(`  Found ${goodCombosFound} good combos after ${Math.round(elapsed/1000)}s, stopping early`);
           break;
         }
-        // Hard limit at 90s
+        // Hard limit
         if (elapsed > maxSearchTime) {
           console.log(`  Reached ${maxSearchTime/1000}s time limit`);
           break;
@@ -1477,6 +1478,9 @@ const GematriaCalculator = () => {
             const sumA = w1.aiq + w2.aiq;
 
             if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
+              // Skip bad Aik Bekar endings (produce incoherent phrases)
+              if (badAiqEndings.has(sumA)) continue;
+
               const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
               // Determine which priority bucket
@@ -1590,7 +1594,7 @@ const GematriaCalculator = () => {
               const sumE = w1.eng + w2.eng;
               const sumA = w1.aiq + w2.aiq;
 
-              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
+              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA) && sumA !== 33) {
                 phrase = `${w1.word} ${w2.word}`;
                 finalHebrew = sumH;
                 finalEnglish = sumE;
