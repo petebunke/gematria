@@ -1452,7 +1452,7 @@ const GematriaCalculator = () => {
     let finalHebrew, finalEnglish, finalSimple;
 
     if (aiqBekarEnabled) {
-      console.log('🎲 DISCOVERY MODE: Finding phrases where ALL 4 values are repdigits...');
+      console.log('🎲 4-WAY SEARCH: Finding best repdigit combo...');
 
       // Check word cache
       if (!wordCache) {
@@ -1462,7 +1462,6 @@ const GematriaCalculator = () => {
       }
 
       const startTime = Date.now();
-      const maxSearchTime = 60000; // 60 seconds max
 
       // All repdigits
       const repdigitList = [11, 22, 33, 44, 55, 66, 77, 88, 99,
@@ -1481,132 +1480,95 @@ const GematriaCalculator = () => {
       // Get word data
       const { wordData, bySimple } = wordCache;
 
-      // Index words by their gematria values for fast lookup
-      const byHeb = new Map();
-      const byEng = new Map();
-      const byAiq = new Map();
-      for (const w of wordData) {
-        if (!byHeb.has(w.heb)) byHeb.set(w.heb, []);
-        byHeb.get(w.heb).push(w);
-        if (!byEng.has(w.eng)) byEng.set(w.eng, []);
-        byEng.get(w.eng).push(w);
-        if (!byAiq.has(w.aiq)) byAiq.set(w.aiq, []);
-        byAiq.get(w.aiq).push(w);
-      }
+      // FAST 2-WORD SEARCH: Collect ALL 4-way repdigit matches, pick the best
+      console.log(`  Fast 2-word search across ${wordData.length} words...`);
 
-      console.log(`  Word cache ready: ${wordData.length} words`);
+      const allMatches = [];
+      let checked = 0;
 
-      // Collect discovered phrases
-      const xxxxMatches = [];
-      const xxxMatches = [];
-      let attempts = 0;
-
-      // STRATEGY: Build phrases targeting XXXX values
-      // For each XXXX target combo, try to find word combinations that sum to it
-      const xxxxTargets = [];
-      for (const h of [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888]) {
-        for (const e of [4444, 5555, 6666, 7777, 8888]) {
-          for (const s of [1111]) {
-            for (const a of [1111]) {
-              xxxxTargets.push({ h, e, s, a });
-            }
-          }
-        }
-      }
-      // Shuffle targets
-      for (let i = xxxxTargets.length - 1; i > 0; i--) {
+      // Shuffle words for variety
+      const shuffled = [...wordData];
+      for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
-        [xxxxTargets[i], xxxxTargets[j]] = [xxxxTargets[j], xxxxTargets[i]];
+        [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
 
-      console.log(`  Trying ${xxxxTargets.length} XXXX target combinations...`);
+      // Check all 2-word combinations (with early stopping once we have enough good matches)
+      for (const w1 of shuffled) {
+        checked++;
 
-      // Try each target
-      for (const target of xxxxTargets) {
-        if (Date.now() - startTime > maxSearchTime) break;
-        if (xxxxMatches.length >= 3) break;
-
-        attempts++;
-        if (attempts % 5 === 0) {
+        // Yield to UI every 100 words to prevent blocking
+        if (checked % 100 === 0) {
           await new Promise(resolve => setTimeout(resolve, 0));
         }
 
-        // Try to build a phrase for this target using generatePhrase
-        const result = await generatePhrase(
-          target.h, target.e, target.s, target.a,
-          { heb: true, eng: true, sim: true, aiq: true },
-          500000, // More iterations
-          8000    // 8 seconds per target
-        );
+        // Stop if we have enough 4-XXXX matches
+        if (allMatches.filter(m => m.xxxxCount === 4).length >= 10) {
+          console.log(`  Early stop: found 10+ full XXXX matches`);
+          break;
+        }
 
-        if (result) {
-          const comboKey = `${target.h}/${target.e}/${target.s}/${target.a}`;
-          if (!overusedCombos.has(comboKey)) {
-            xxxxMatches.push({ phrase: result, h: target.h, e: target.e, s: target.s, a: target.a, combo: comboKey });
-            console.log(`  ✅ XXXX FOUND: ${comboKey}`);
+        // Stop after checking enough words
+        if (checked > 5000) break;
+
+        for (const targetS of repdigitList) {
+          const needSim = targetS - w1.sim;
+          if (needSim < 1 || needSim > 500) continue;
+
+          const candidates = bySimple.get(needSim);
+          if (!candidates) continue;
+
+          for (const w2 of candidates) {
+            if (w2.word === w1.word) continue;
+
+            const sumH = w1.heb + w2.heb;
+            const sumE = w1.eng + w2.eng;
+            const sumA = w1.aiq + w2.aiq;
+
+            if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
+            if (sumA === 33) continue;
+
+            const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
+            if (overusedCombos.has(comboKey)) continue;
+
+            // Count how many values are XXXX (4-digit)
+            const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
+                              (fourDigitSet.has(targetS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
+
+            allMatches.push({
+              phrase: `${w1.word} ${w2.word}`,
+              h: sumH, e: sumE, s: targetS, a: sumA,
+              combo: comboKey,
+              xxxxCount
+            });
           }
         }
       }
 
-      console.log(`  Search complete: ${attempts} targets tried, ${xxxxMatches.length} XXXX found`);
+      console.log(`  Found ${allMatches.length} matches (checked ${checked} words)`);
 
-      // Select result
-      if (xxxxMatches.length > 0) {
-        const selected = xxxxMatches[Math.floor(Math.random() * xxxxMatches.length)];
+      if (allMatches.length > 0) {
+        // Sort by XXXX count (highest first), then randomize within same count
+        allMatches.sort((a, b) => {
+          if (b.xxxxCount !== a.xxxxCount) return b.xxxxCount - a.xxxxCount;
+          return Math.random() - 0.5;
+        });
+
+        // Get best matches (highest XXXX count)
+        const bestCount = allMatches[0].xxxxCount;
+        const bestMatches = allMatches.filter(m => m.xxxxCount === bestCount);
+
+        // Pick random from best
+        const selected = bestMatches[Math.floor(Math.random() * bestMatches.length)];
         phrase = selected.phrase;
         finalHebrew = selected.h;
         finalEnglish = selected.e;
         finalSimple = selected.s;
-        console.log(`✅ Selected XXXX: "${phrase}" (${selected.combo})`);
+
+        console.log(`✅ Selected (${selected.xxxxCount} XXXX): "${phrase}" (${selected.combo})`);
+        console.log(`   Stats: ${allMatches.filter(m => m.xxxxCount === 4).length} full-XXXX, ${allMatches.filter(m => m.xxxxCount === 3).length} 3-XXXX, ${allMatches.filter(m => m.xxxxCount === 2).length} 2-XXXX`);
       } else {
-        // Fallback: try ANY 4-way repdigit match with longer search
-        console.log(`  No XXXX found, trying any 4-way repdigit...`);
-
-        const shuffledWords = [...wordData].sort(() => Math.random() - 0.5);
-
-        for (const w1 of shuffledWords.slice(0, 2000)) {
-          if (phrase) break;
-          if (Date.now() - startTime > maxSearchTime + 10000) break;
-
-          for (const targetS of [1111, 999, 888, 777, 666, 555, 444, 333, 222, 111]) {
-            if (phrase) break;
-            const needSim = targetS - w1.sim;
-            if (needSim < 1 || needSim > 500) continue;
-
-            const candidates = bySimple.get(needSim);
-            if (!candidates) continue;
-
-            for (const w2 of candidates) {
-              if (w2.word === w1.word) continue;
-
-              const sumH = w1.heb + w2.heb;
-              const sumE = w1.eng + w2.eng;
-              const sumA = w1.aiq + w2.aiq;
-
-              if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
-              if (sumA === 33) continue;
-
-              const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
-              if (overusedCombos.has(comboKey)) continue;
-
-              // Prefer higher digit counts
-              const digitCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
-                                (fourDigitSet.has(targetS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
-              if (digitCount >= 2) {
-                phrase = `${w1.word} ${w2.word}`;
-                finalHebrew = sumH;
-                finalEnglish = sumE;
-                finalSimple = targetS;
-                console.log(`✅ Found ${digitCount}-XXXX match: "${phrase}" (${comboKey})`);
-                break;
-              }
-            }
-          }
-        }
-
-        if (!phrase) {
-          console.log('❌ No 4-way repdigit match found');
-        }
+        console.log('❌ No 4-way repdigit match found');
       }
     } else {
       console.log('🎲 Searching for 3-way random repdigit match...');
