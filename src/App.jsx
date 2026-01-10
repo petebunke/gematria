@@ -527,6 +527,13 @@ const GematriaCalculator = () => {
     return { wordData, byHebrew, byEnglish, bySimple, byAiqBekar };
   }, [wordList]);
 
+  // Helper to check if a phrase has duplicate words
+  const hasDuplicateWords = (phrase) => {
+    if (!phrase) return false;
+    const words = phrase.toLowerCase().split(' ');
+    return words.length !== new Set(words).size;
+  };
+
   const generatePhrase = async (targetHeb, targetEng, targetSim, targetAiq, enabledFlags = { heb: true, eng: true, sim: true, aiq: true }, maxAttempts = 1000000, timeoutMs = 10000) => {
     const startTime = Date.now();
 
@@ -594,7 +601,6 @@ const GematriaCalculator = () => {
       const numWords = minWords + Math.floor(Math.random() * (range + 1));
 
       const selectedWords = [];
-      const usedWords = new Set(); // Track words to prevent duplicates
       let totalHeb = 0, totalEng = 0, totalSim = 0, totalAiq = 0;
 
       // Build phrase word by word
@@ -627,8 +633,7 @@ const GematriaCalculator = () => {
             if (candidates.length <= 500) {
               // Small bucket - search ALL candidates to guarantee finding match if exists
               for (const w of candidates) {
-                if (!usedWords.has(w.word) &&
-                    (!enabledFlags.heb || w.heb === needHeb) &&
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
                     (!enabledFlags.eng || w.eng === needEng) &&
                     (!enabledFlags.sim || w.sim === needSim) &&
                     (!enabledFlags.aiq || w.aiq === needAiq)) {
@@ -641,8 +646,7 @@ const GematriaCalculator = () => {
               const startIdx = Math.floor(Math.random() * candidates.length);
               for (let c = 0; c < 500; c++) {
                 const w = candidates[(startIdx + c) % candidates.length];
-                if (!usedWords.has(w.word) &&
-                    (!enabledFlags.heb || w.heb === needHeb) &&
+                if ((!enabledFlags.heb || w.heb === needHeb) &&
                     (!enabledFlags.eng || w.eng === needEng) &&
                     (!enabledFlags.sim || w.sim === needSim) &&
                     (!enabledFlags.aiq || w.aiq === needAiq)) {
@@ -667,9 +671,6 @@ const GematriaCalculator = () => {
             // Search all word1 candidates (they're already from smallest bucket)
             for (let w1 = 0; w1 < word1Pool.length; w1++) {
               const word1 = word1Pool[w1];
-
-              // Skip if word1 is already used in the phrase
-              if (usedWords.has(word1.word)) continue;
 
               // Calculate what word2 needs to hit
               const need2Heb = needHeb - word1.heb;
@@ -696,9 +697,6 @@ const GematriaCalculator = () => {
 
               // Search all word2 candidates
               for (const word2 of word2Pool) {
-                // Skip if word2 is already used or same as word1
-                if (usedWords.has(word2.word) || word2.word === word1.word) continue;
-
                 if ((!enabledFlags.heb || word2.heb === need2Heb) &&
                     (!enabledFlags.eng || word2.eng === need2Eng) &&
                     (!enabledFlags.sim || word2.sim === need2Sim) &&
@@ -729,21 +727,8 @@ const GematriaCalculator = () => {
             }
           }
 
-          // Find a random word that's not already used in the phrase
-          let randomWord = null;
-          for (let t = 0; t < 50; t++) {
-            const candidate = pool[Math.floor(Math.random() * pool.length)];
-            if (!usedWords.has(candidate.word)) {
-              randomWord = candidate;
-              break;
-            }
-          }
-          // Fallback: use any random word if all tried are duplicates (unlikely)
-          if (!randomWord) {
-            randomWord = pool[Math.floor(Math.random() * pool.length)];
-          }
+          const randomWord = pool[Math.floor(Math.random() * pool.length)];
           selectedWords.push(randomWord.word);
-          usedWords.add(randomWord.word);
           if (attempt < 5 && i === 0) {
             console.log(`  Selected first word (last): '${randomWord.word}'`);
           }
@@ -776,12 +761,6 @@ const GematriaCalculator = () => {
           while (attempts < 100) {
             const candidate = pool[Math.floor(Math.random() * pool.length)];
 
-            // Skip if this word is already used in the phrase
-            if (usedWords.has(candidate.word)) {
-              attempts++;
-              continue;
-            }
-
             const newHeb = totalHeb + candidate.heb;
             const newEng = totalEng + candidate.eng;
             const newSim = totalSim + candidate.sim;
@@ -804,8 +783,7 @@ const GematriaCalculator = () => {
           if (!picked) {
             for (let t = 0; t < 50; t++) {
               const candidate = pool[Math.floor(Math.random() * pool.length)];
-              if (!usedWords.has(candidate.word) &&
-                  totalHeb + candidate.heb <= targetHeb &&
+              if (totalHeb + candidate.heb <= targetHeb &&
                   totalEng + candidate.eng <= targetEng &&
                   totalSim + candidate.sim <= targetSim &&
                   totalAiq + candidate.aiq <= targetAiq) {
@@ -815,23 +793,12 @@ const GematriaCalculator = () => {
             }
           }
 
-          // Last resort: find any unused word
+          // Last resort: just pick randomly
           if (!picked) {
-            for (let t = 0; t < 50; t++) {
-              const candidate = pool[Math.floor(Math.random() * pool.length)];
-              if (!usedWords.has(candidate.word)) {
-                picked = candidate;
-                break;
-              }
-            }
-            // Ultimate fallback if all tried are duplicates (very unlikely)
-            if (!picked) {
-              picked = pool[Math.floor(Math.random() * pool.length)];
-            }
+            picked = pool[Math.floor(Math.random() * pool.length)];
           }
 
           selectedWords.push(picked.word);
-          usedWords.add(picked.word);
           if (attempt < 5 && i === 0) {
             console.log(`  Selected first word: '${picked.word}'`);
           }
@@ -947,7 +914,7 @@ const GematriaCalculator = () => {
             800
           );
 
-          if (candidate) {
+          if (candidate && !hasDuplicateWords(candidate)) {
             const aVal = calculateGematria(candidate, aiqBekarValues).total;
             console.log(`   [${attempt + 1}] A=${aVal} (want ${targetAiq})`);
 
@@ -973,11 +940,12 @@ const GematriaCalculator = () => {
 
     console.log('Generation complete. Result:', phrase);
 
-    // Check for duplicate - if same as last phrase, try again (up to 3 retries)
+    // Check for duplicate phrase or duplicate words within phrase - retry if needed
     const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
     let retries = 0;
-    while (phrase && phrase === lastPhrase && retries < 3) {
-      console.log(`⚠️ Duplicate phrase, retrying... (attempt ${retries + 1})`);
+    while (phrase && (phrase === lastPhrase || hasDuplicateWords(phrase)) && retries < 5) {
+      const reason = phrase === lastPhrase ? 'same as last' : 'has duplicate words';
+      console.log(`⚠️ Phrase ${reason}, retrying... (attempt ${retries + 1})`);
       retries++;
       phrase = await generatePhrase(
         parseInt(targetHebrew),
@@ -1123,7 +1091,7 @@ const GematriaCalculator = () => {
           enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
         );
 
-        if (candidate) {
+        if (candidate && !hasDuplicateWords(candidate)) {
           const aVal = calculateGematria(candidate, aiqBekarValues).total;
           if (aVal === pair.aiq) {
             console.log(`✅ Found 4-way match! H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}`);
@@ -1151,7 +1119,7 @@ const GematriaCalculator = () => {
               enabledFlags3, 200000, 500
             );
 
-            if (candidate) {
+            if (candidate && !hasDuplicateWords(candidate)) {
               const aVal = calculateGematria(candidate, aiqBekarValues).total;
               if (aiqRepSet.has(aVal)) {
                 console.log(`✅ Found 3-way with repdigit A=${aVal}! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
@@ -1175,7 +1143,7 @@ const GematriaCalculator = () => {
           enabledFlags3, 1000000, 4000
         );
 
-        if (candidate) {
+        if (candidate && !hasDuplicateWords(candidate)) {
           console.log(`✅ Found 3-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
           phrase = candidate;
           finalHebrew = combo.heb;
@@ -1188,19 +1156,20 @@ const GematriaCalculator = () => {
 
     console.log('Generation complete. Result:', phrase);
 
-    // Check for duplicate - if same as last phrase, try again
+    // Check for duplicate phrase or duplicate words within phrase - retry if needed
     const lastPhrase = generatedPhrases.length > 0 ? generatedPhrases[generatedPhrases.length - 1].phrase : null;
     const repdigitSet = new Set(aiqRepdigits);
     let retries = 0;
-    while (phrase && phrase === lastPhrase && retries < 3) {
-      console.log(`⚠️ Duplicate phrase, retrying...`);
+    while (phrase && (phrase === lastPhrase || hasDuplicateWords(phrase)) && retries < 5) {
+      const reason = phrase === lastPhrase ? 'same as last' : 'has duplicate words';
+      console.log(`⚠️ Phrase ${reason}, retrying...`);
       retries++;
       const retryCombo = workingCombos[Math.floor(Math.random() * workingCombos.length)];
       const candidate = await generatePhrase(
         retryCombo.heb, retryCombo.eng, retryCombo.sim, 0,
         enabledFlags3, 300000, 1500
       );
-      if (candidate) {
+      if (candidate && !hasDuplicateWords(candidate)) {
         const aVal = calculateGematria(candidate, aiqBekarValues).total;
         if (!aiqBekarEnabled || repdigitSet.has(aVal)) {
           phrase = candidate;
