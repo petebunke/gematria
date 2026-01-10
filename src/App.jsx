@@ -15,7 +15,6 @@ const GematriaCalculator = () => {
   const [loadingWords, setLoadingWords] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
-  const [showAiqTooltip, setShowAiqTooltip] = useState(false);
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
@@ -1963,20 +1962,8 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
+                      <label className="text-xs font-semibold text-gray-700">
                         English (Aik Bekar⁹)
-                        <span className="relative inline-block">
-                          <span
-                            className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
-                            onMouseEnter={() => setShowAiqTooltip(true)}
-                            onMouseLeave={() => setShowAiqTooltip(false)}
-                          >
-                            ⓘ
-                          </span>
-                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-600 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-                            Phrases including this system may take longer to generate.
-                          </div>
-                        </span>
                       </label>
                       <input
                         type="checkbox"
