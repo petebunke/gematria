@@ -1436,62 +1436,64 @@ const GematriaCalculator = () => {
       const fourDigitReps = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const fourDigitSet = new Set(fourDigitReps);
 
-      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (multi-word, 45 seconds)
-      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (45s, multi-word)...`);
-      const phase1End = 45000;
+      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (15 seconds, with UI yields)
+      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (15s)...`);
+      const phase1End = 15000;
 
-      // Shuffle 4-digit targets for variety
-      const shuffled4Digit = [...fourDigitReps].sort(() => Math.random() - 0.5);
+      // Known working XXXX combos to try first
+      const knownXXXXCombos = [
+        [5555, 6666, 1111, 1111],
+        [6666, 6666, 1111, 1111],
+        [7777, 6666, 1111, 1111],
+        [8888, 6666, 1111, 1111],
+        [4444, 5555, 1111, 1111],
+        [3333, 4444, 1111, 1111],
+      ];
 
-      // Try multi-word combinations to hit 4-digit targets
-      for (const targetH of shuffled4Digit) {
+      // Shuffle for variety
+      const shuffledXXXX = [...knownXXXXCombos].sort(() => Math.random() - 0.5);
+      let attempts = 0;
+
+      for (const [targetH, targetE, targetS, targetA] of shuffledXXXX) {
         if (Date.now() - startTime > phase1End) break;
-        for (const targetE of shuffled4Digit) {
-          if (Date.now() - startTime > phase1End) break;
-          for (const targetS of shuffled4Digit) {
-            if (Date.now() - startTime > phase1End) break;
-            for (const targetA of shuffled4Digit) {
-              if (Date.now() - startTime > phase1End) break;
-              if (targetA === 33) continue;
+        if (goodMatches.size >= 3) break;
 
-              // Try to build a phrase that hits these targets
-              // Use generatePhrase logic but simplified
-              const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
-                { heb: true, eng: true, sim: true, aiq: true }, 100000, 2000);
+        // Yield to UI every attempt
+        await new Promise(resolve => setTimeout(resolve, 0));
 
-              if (phrase) {
-                const comboKey = `${targetH}/${targetE}/${targetS}/${targetA}`;
-                if (!goodMatches.has(comboKey)) {
-                  goodMatches.set(comboKey, []);
-                }
-                if (goodMatches.get(comboKey).length < 3) {
-                  goodMatches.get(comboKey).push({
-                    phrase, h: targetH, e: targetE, s: targetS, a: targetA
-                  });
-                  totalMatches++;
-                  console.log(`  Found XXXX combo: ${comboKey}`);
-                }
-              }
+        const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
+          { heb: true, eng: true, sim: true, aiq: true }, 50000, 3000);
 
-              // Stop if we have enough 4-digit combos
-              if (goodMatches.size >= 5) break;
-            }
-            if (goodMatches.size >= 5) break;
+        attempts++;
+        if (phrase) {
+          const comboKey = `${targetH}/${targetE}/${targetS}/${targetA}`;
+          if (!goodMatches.has(comboKey)) {
+            goodMatches.set(comboKey, []);
           }
-          if (goodMatches.size >= 5) break;
+          goodMatches.get(comboKey).push({
+            phrase, h: targetH, e: targetE, s: targetS, a: targetA
+          });
+          totalMatches++;
+          console.log(`  Found XXXX combo: ${comboKey}`);
         }
-        if (goodMatches.size >= 5) break;
       }
 
-      console.log(`  After phase 1: ${goodMatches.size} XXXX combos found`);
+      console.log(`  After phase 1: ${goodMatches.size} XXXX combos (${attempts} attempts)`);
 
-      // PHASE 2: If no XXXX combos, search for 2-word combos (15 seconds)
+      // PHASE 2: If no XXXX combos, search for 2-word combos (10 seconds)
       if (goodMatches.size === 0) {
-        console.log(`  Phase 2: Searching for 2-word combos (15s)...`);
-        const phase2End = 60000;
+        console.log(`  Phase 2: Searching for 2-word combos (10s)...`);
+        const phase2End = 25000;
+        let wordCount = 0;
 
         for (const w1 of shuffledWords) {
           if (Date.now() - startTime > phase2End) break;
+
+          // Yield to UI periodically
+          wordCount++;
+          if (wordCount % 500 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
 
           for (const targetS of shuffledRepdigits) {
             const needSim = targetS - w1.sim;
