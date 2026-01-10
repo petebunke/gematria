@@ -1385,8 +1385,23 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // PREFERRED combos - known good patterns with diverse Hebrew values
+      // PREFERRED combos - only XXXX/XXXX/XXXX/XXXX patterns
       const preferredCombos = new Set([
+        '5555/6666/1111/1111',
+        '6666/6666/1111/1111',
+        '7777/6666/1111/1111',
+        '8888/6666/1111/1111',
+        '4444/5555/1111/1111',
+        '3333/4444/1111/1111',
+      ]);
+
+      // OVERUSED combos - use as last resort (includes all /99 and /111 patterns)
+      const overusedCombos = new Set([
+        '555/666/111/111',
+        '555/666/111/99',
+        '1111/666/111/111',
+        '1111/666/111/99',
+        '11/33/11/99',
         '222/666/111/99',
         '333/666/111/99',
         '444/666/111/99',
@@ -1395,19 +1410,6 @@ const GematriaCalculator = () => {
         '888/666/111/99',
         '888/666/111/111',
         '999/666/111/99',
-        '5555/6666/1111/1111',
-        '6666/6666/1111/1111',
-        '7777/6666/1111/1111',
-        '8888/6666/1111/1111',
-      ]);
-
-      // OVERUSED combos - only use as last resort
-      const overusedCombos = new Set([
-        '555/666/111/111',
-        '555/666/111/99',
-        '1111/666/111/111',
-        '1111/666/111/99',
-        '11/33/11/99',
       ]);
 
       // Get word data from cache
