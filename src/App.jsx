@@ -1435,27 +1435,22 @@ const GematriaCalculator = () => {
       let totalMatches = 0;
       let scannedWords = 0;
 
-      console.log(`  Scanning for unique 4-way combos (prioritizing obscure ones)...`);
-
-      // Scan through shuffled words - keep search time reasonable
-      const maxSearchTime = 25000; // 25 seconds max to avoid page freeze
-      const minPreferredCombos = 2; // Need at least 2 preferred combos before stopping
-      const minSearchTime = 12000; // Search at least 12 seconds
-
       // Bad Aik Bekar endings to exclude (incoherent phrases)
       const badAiqEndings = new Set([33]);
 
+      // 4-digit Aik Bekar values (1111-9999)
+      const fourDigitAiq = new Set([1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999]);
+      // 3-digit Aik Bekar values (111-999)
+      const threeDigitAiq = new Set([111, 222, 333, 444, 555, 666, 777, 888, 999]);
+
+      // PHASE 1: Search for 4-digit Aik Bekar combos for 30 seconds
+      console.log(`  Phase 1: Searching for /XXXX combos (30s)...`);
+      const phase1End = 30000;
+
       for (const w1 of shuffledWords) {
         const elapsed = Date.now() - startTime;
-
-        // Only stop early if we have found preferred combos (the rare ones like 333, 444, etc.)
-        if (elapsed > minSearchTime && preferredMatches.size >= minPreferredCombos) {
-          console.log(`  Found ${preferredMatches.size} preferred combos after ${Math.round(elapsed/1000)}s, stopping early`);
-          break;
-        }
-        // Hard limit
-        if (elapsed > maxSearchTime) {
-          console.log(`  Reached ${maxSearchTime/1000}s time limit`);
+        if (elapsed > phase1End) {
+          console.log(`  Phase 1 complete: ${elapsed/1000}s`);
           break;
         }
         scannedWords++;
@@ -1474,13 +1469,70 @@ const GematriaCalculator = () => {
             const sumE = w1.eng + w2.eng;
             const sumA = w1.aiq + w2.aiq;
 
-            if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA)) {
-              // Skip bad Aik Bekar endings (produce incoherent phrases)
+            // Phase 1: Only collect 4-digit Aik Bekar
+            if (!fourDigitAiq.has(sumA)) continue;
+            if (!repSet.has(sumH) || !repSet.has(sumE)) continue;
+            if (badAiqEndings.has(sumA)) continue;
+
+            const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
+
+            let targetMap;
+            if (preferredCombos.has(comboKey)) {
+              targetMap = preferredMatches;
+            } else if (overusedCombos.has(comboKey)) {
+              targetMap = fallbackMatches;
+            } else {
+              targetMap = normalMatches;
+            }
+
+            if (!targetMap.has(comboKey)) {
+              targetMap.set(comboKey, []);
+            }
+            if (targetMap.get(comboKey).length < 5) {
+              targetMap.get(comboKey).push({
+                phrase: `${w1.word} ${w2.word}`,
+                h: sumH, e: sumE, s: targetS, a: sumA
+              });
+              totalMatches++;
+            }
+          }
+        }
+      }
+
+      console.log(`  After phase 1: Preferred=${preferredMatches.size}, Normal=${normalMatches.size}, Fallback=${fallbackMatches.size}`);
+
+      // PHASE 2: If no 4-digit found, search for 3-digit (10 more seconds)
+      if (preferredMatches.size === 0 && normalMatches.size === 0 && fallbackMatches.size === 0) {
+        console.log(`  Phase 2: Searching for /XXX combos (10s)...`);
+        const phase2End = 40000;
+        scannedWords = 0;
+
+        for (const w1 of shuffledWords) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > phase2End) break;
+          scannedWords++;
+
+          for (const targetS of shuffledRepdigits) {
+            const needSim = targetS - w1.sim;
+            if (needSim < 1 || needSim > targetS) continue;
+
+            const candidates = bySimple.get(needSim);
+            if (!candidates) continue;
+
+            for (const w2 of candidates) {
+              if (w2.word === w1.word) continue;
+
+              const sumH = w1.heb + w2.heb;
+              const sumE = w1.eng + w2.eng;
+              const sumA = w1.aiq + w2.aiq;
+
+              // Phase 2: Only collect 3-digit Aik Bekar
+              if (!threeDigitAiq.has(sumA)) continue;
+              if (!repSet.has(sumH) || !repSet.has(sumE)) continue;
               if (badAiqEndings.has(sumA)) continue;
 
               const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
-              // Determine which priority bucket
               let targetMap;
               if (preferredCombos.has(comboKey)) {
                 targetMap = preferredMatches;
@@ -1493,8 +1545,6 @@ const GematriaCalculator = () => {
               if (!targetMap.has(comboKey)) {
                 targetMap.set(comboKey, []);
               }
-
-              // Store up to 5 phrases per combo
               if (targetMap.get(comboKey).length < 5) {
                 targetMap.get(comboKey).push({
                   phrase: `${w1.word} ${w2.word}`,
@@ -1505,12 +1555,67 @@ const GematriaCalculator = () => {
             }
           }
         }
+        console.log(`  After phase 2: Preferred=${preferredMatches.size}, Normal=${normalMatches.size}, Fallback=${fallbackMatches.size}`);
       }
 
-      console.log(`  Scanned ${scannedWords} words:`);
-      console.log(`    Preferred combos: ${preferredMatches.size}`);
-      console.log(`    Normal combos: ${normalMatches.size}`);
-      console.log(`    Fallback combos: ${fallbackMatches.size}`);
+      // PHASE 3: If still nothing, search for 2-digit (5 more seconds)
+      if (preferredMatches.size === 0 && normalMatches.size === 0 && fallbackMatches.size === 0) {
+        console.log(`  Phase 3: Searching for /XX combos (5s)...`);
+        const phase3End = 45000;
+        scannedWords = 0;
+
+        for (const w1 of shuffledWords) {
+          const elapsed = Date.now() - startTime;
+          if (elapsed > phase3End) break;
+          scannedWords++;
+
+          for (const targetS of shuffledRepdigits) {
+            const needSim = targetS - w1.sim;
+            if (needSim < 1 || needSim > targetS) continue;
+
+            const candidates = bySimple.get(needSim);
+            if (!candidates) continue;
+
+            for (const w2 of candidates) {
+              if (w2.word === w1.word) continue;
+
+              const sumH = w1.heb + w2.heb;
+              const sumE = w1.eng + w2.eng;
+              const sumA = w1.aiq + w2.aiq;
+
+              // Phase 3: Only collect 2-digit Aik Bekar (11-99, not 33)
+              if (sumA >= 111) continue;
+              if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
+              if (badAiqEndings.has(sumA)) continue;
+
+              const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
+
+              let targetMap;
+              if (preferredCombos.has(comboKey)) {
+                targetMap = preferredMatches;
+              } else if (overusedCombos.has(comboKey)) {
+                targetMap = fallbackMatches;
+              } else {
+                targetMap = normalMatches;
+              }
+
+              if (!targetMap.has(comboKey)) {
+                targetMap.set(comboKey, []);
+              }
+              if (targetMap.get(comboKey).length < 5) {
+                targetMap.get(comboKey).push({
+                  phrase: `${w1.word} ${w2.word}`,
+                  h: sumH, e: sumE, s: targetS, a: sumA
+                });
+                totalMatches++;
+              }
+            }
+          }
+        }
+        console.log(`  After phase 3: Preferred=${preferredMatches.size}, Normal=${normalMatches.size}, Fallback=${fallbackMatches.size}`);
+      }
+
+      console.log(`  Total scanned: ${scannedWords} words`);
 
       // Helper to get Aik Bekar digit count from combo key
       const getAiqDigits = (k) => {
