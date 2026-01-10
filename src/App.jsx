@@ -1386,22 +1386,14 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
-      // PREFERRED combos - known good/interesting patterns from user examples
+      // PREFERRED combos - known good/interesting patterns (excluding /111, /1111, /33)
       const preferredCombos = new Set([
-        '111/666/111/333',
         '222/666/111/99',
         '333/666/111/99',
         '444/666/111/99',
         '777/666/111/99',
-        '777/666/111/111',
         '888/666/111/99',
-        '888/666/111/111',
         '999/666/111/99',
-        '5555/6666/1111/111',
-        '5555/6666/1111/1111',
-        '6666/6666/1111/1111',
-        '7777/6666/1111/1111',
-        '8888/6666/1111/1111',
       ]);
 
       // OVERUSED combos - only use as last resort
@@ -1445,7 +1437,7 @@ const GematriaCalculator = () => {
       const minSearchTime = 12000; // Search at least 12 seconds
 
       // Bad Aik Bekar endings to exclude (incoherent phrases)
-      const badAiqEndings = new Set([33]);
+      const badAiqEndings = new Set([33, 111, 1111]);
 
       for (const w1 of shuffledWords) {
         const elapsed = Date.now() - startTime;
@@ -1522,46 +1514,50 @@ const GematriaCalculator = () => {
         return 2;
       };
 
-      // Combine all matches, tagged with their priority tier
-      const goodCombos = []; // preferred + normal only
-      const fallbackCombosArr = []; // overused, last resort
+      // Collect combos by tier
+      const preferredArr = [];
+      const normalArr = [];
+      const fallbackArr = [];
 
       for (const [key, phrases] of preferredMatches) {
-        goodCombos.push({ key, phrases, tier: 1, digits: getAiqDigits(key) }); // tier 1 = preferred
+        preferredArr.push({ key, phrases, digits: getAiqDigits(key) });
       }
       for (const [key, phrases] of normalMatches) {
-        goodCombos.push({ key, phrases, tier: 2, digits: getAiqDigits(key) }); // tier 2 = normal
+        normalArr.push({ key, phrases, digits: getAiqDigits(key) });
       }
       for (const [key, phrases] of fallbackMatches) {
-        fallbackCombosArr.push({ key, phrases, tier: 3, digits: getAiqDigits(key) }); // tier 3 = fallback
+        fallbackArr.push({ key, phrases, digits: getAiqDigits(key) });
       }
 
-      // Sort good combos by: digits DESC (4 > 3 > 2), then tier ASC (preferred > normal)
-      goodCombos.sort((a, b) => {
-        if (b.digits !== a.digits) return b.digits - a.digits; // More digits first
-        return a.tier - b.tier; // Lower tier (preferred) first
-      });
+      // Sort each tier by digits DESC (4 > 3 > 2)
+      preferredArr.sort((a, b) => b.digits - a.digits);
+      normalArr.sort((a, b) => b.digits - a.digits);
+      fallbackArr.sort((a, b) => b.digits - a.digits);
 
-      console.log(`  Good combos: ${goodCombos.length} (4-digit=${goodCombos.filter(c => c.digits === 4).length}, 3-digit=${goodCombos.filter(c => c.digits === 3).length}, 2-digit=${goodCombos.filter(c => c.digits === 2).length})`);
-      console.log(`  Fallback combos: ${fallbackCombosArr.length}`);
+      console.log(`  Preferred: ${preferredArr.length}, Normal: ${normalArr.length}, Fallback: ${fallbackArr.length}`);
 
-      // STRONGLY prefer good combos over fallbacks
-      // Only use fallbacks if NO good combos exist at all
-      let combosToUse = goodCombos.length > 0 ? goodCombos : fallbackCombosArr;
+      // Priority: PREFERRED first (any digit), then NORMAL (any digit), then FALLBACK
+      let combosToUse;
+      let tierName;
+      if (preferredArr.length > 0) {
+        combosToUse = preferredArr;
+        tierName = 'preferred';
+      } else if (normalArr.length > 0) {
+        combosToUse = normalArr;
+        tierName = 'normal';
+      } else {
+        combosToUse = fallbackArr;
+        tierName = 'fallback';
+      }
 
       if (combosToUse.length > 0) {
-        // Get the best digit count available from chosen pool
+        // Within the chosen tier, prefer higher digit counts
         const bestDigits = combosToUse[0].digits;
-        // Filter to only combos with the best digit count
-        const bestCombos = combosToUse.filter(c => c.digits === bestDigits);
-        // Among those, prefer lower tier
-        const bestTier = Math.min(...bestCombos.map(c => c.tier));
-        const topCombos = bestCombos.filter(c => c.tier === bestTier);
+        const topCombos = combosToUse.filter(c => c.digits === bestDigits);
 
-        const tierName = bestTier === 1 ? 'preferred' : bestTier === 2 ? 'normal' : 'fallback';
         console.log(`  Selecting from ${topCombos.length} ${bestDigits}-digit ${tierName} combos`);
 
-        // Pick a random combo from the top tier
+        // Pick a random combo
         const chosen = topCombos[Math.floor(Math.random() * topCombos.length)];
         const selected = chosen.phrases[Math.floor(Math.random() * chosen.phrases.length)];
 
@@ -1593,7 +1589,7 @@ const GematriaCalculator = () => {
               const sumE = w1.eng + w2.eng;
               const sumA = w1.aiq + w2.aiq;
 
-              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA) && sumA !== 33) {
+              if (repSet.has(sumH) && repSet.has(sumE) && repSet.has(sumA) && sumA !== 33 && sumA !== 111 && sumA !== 1111) {
                 phrase = `${w1.word} ${w2.word}`;
                 finalHebrew = sumH;
                 finalEnglish = sumE;
