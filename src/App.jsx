@@ -1554,20 +1554,24 @@ const GematriaCalculator = () => {
         const checkMatch = (words, sumH, sumE, sumS, sumA) => {
           if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) return;
           if (sumA === 33) return;
-          // Skip 2-digit Aik endings (/99, /55, etc.) - only allow /111 or higher
-          if (sumA < 111) return;
 
           const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
           if (overusedCombos.has(comboKey)) return;
 
+          // Count XXXX values and also track Aik digit count
           const xxxxCount = (fourDigitSet.has(sumH) ? 1 : 0) + (fourDigitSet.has(sumE) ? 1 : 0) +
                             (fourDigitSet.has(sumS) ? 1 : 0) + (fourDigitSet.has(sumA) ? 1 : 0);
+
+          // Score: prioritize XXXX count, then Aik value (1111 > 111 > 99)
+          const aiqScore = sumA >= 1111 ? 3 : (sumA >= 111 ? 2 : 1);
 
           allMatches.push({
             phrase: words.map(w => w.word).join(' '),
             h: sumH, e: sumE, s: sumS, a: sumA,
             combo: comboKey,
-            xxxxCount
+            xxxxCount,
+            aiqScore,
+            score: xxxxCount * 10 + aiqScore  // Combined score
           });
         };
 
@@ -1663,14 +1667,14 @@ const GematriaCalculator = () => {
       console.log(`  Total: ${allMatches.length} matches`);
 
       if (allMatches.length > 0) {
-        // Sort by XXXX count (highest first), then randomize
+        // Sort by score (highest first), then randomize within same score
         allMatches.sort((a, b) => {
-          if (b.xxxxCount !== a.xxxxCount) return b.xxxxCount - a.xxxxCount;
+          if (b.score !== a.score) return b.score - a.score;
           return Math.random() - 0.5;
         });
 
-        const bestCount = allMatches[0].xxxxCount;
-        const bestMatches = allMatches.filter(m => m.xxxxCount === bestCount);
+        const bestScore = allMatches[0].score;
+        const bestMatches = allMatches.filter(m => m.score === bestScore);
         const selected = bestMatches[Math.floor(Math.random() * bestMatches.length)];
 
         phrase = selected.phrase;
@@ -1678,7 +1682,7 @@ const GematriaCalculator = () => {
         finalEnglish = selected.e;
         finalSimple = selected.s;
 
-        console.log(`✅ Selected (${selected.xxxxCount} XXXX): "${phrase}" (${selected.combo})`);
+        console.log(`✅ Selected (score=${selected.score}, ${selected.xxxxCount} XXXX, aiq=${selected.a}): "${phrase}" (${selected.combo})`);
       } else {
         console.log('❌ No 4-way repdigit match found');
       }
