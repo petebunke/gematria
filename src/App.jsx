@@ -1293,6 +1293,13 @@ const GematriaCalculator = () => {
                            1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const repSet = new Set(repdigitList);
 
+      // Shuffle repdigit targets for variety in which combinations we find
+      const shuffledRepdigits = [...repdigitList];
+      for (let i = shuffledRepdigits.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [shuffledRepdigits[i], shuffledRepdigits[j]] = [shuffledRepdigits[j], shuffledRepdigits[i]];
+      }
+
       // Get word data from cache
       const { wordData, bySimple } = wordCache;
 
@@ -1307,16 +1314,17 @@ const GematriaCalculator = () => {
 
       // EXHAUSTIVE 2-WORD SEARCH: For each word, find a partner that makes all 4 values repdigits
       for (const w1 of shuffledWords) {
-        // For each possible Simple repdigit target
-        for (const targetS of repdigitList) {
+        // For each possible Simple repdigit target (shuffled for variety)
+        for (const targetS of shuffledRepdigits) {
           const needSim = targetS - w1.sim;
           if (needSim < 1 || needSim > 500) continue; // Skip invalid
 
-          // Get all words with this simple value
+          // Get all words with this simple value and shuffle for variety
           const candidates = bySimple.get(needSim);
           if (!candidates) continue;
+          const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
 
-          for (const w2 of candidates) {
+          for (const w2 of shuffledCandidates) {
             if (w2.word === w1.word) continue;
 
             // Check if ALL sums are repdigits
@@ -1348,15 +1356,16 @@ const GematriaCalculator = () => {
             if (w2.word === w1.word) continue;
             if (Date.now() - startTime > 60000) break outer; // 60s timeout
 
-            // For each possible Simple target
-            for (const targetS of repdigitList) {
+            // For each possible Simple target (shuffled for variety)
+            for (const targetS of shuffledRepdigits) {
               const needSim = targetS - w1.sim - w2.sim;
               if (needSim < 1 || needSim > 200) continue;
 
               const candidates = bySimple.get(needSim);
               if (!candidates) continue;
+              const shuffledCandidates = [...candidates].sort(() => Math.random() - 0.5);
 
-              for (const w3 of candidates) {
+              for (const w3 of shuffledCandidates) {
                 if (w3.word === w1.word || w3.word === w2.word) continue;
 
                 const sumH = w1.heb + w2.heb + w3.heb;
