@@ -1434,10 +1434,7 @@ const GematriaCalculator = () => {
       let totalMatches = 0;
       let scannedWords = 0;
 
-      // Bad Aik Bekar endings to exclude
-      const badAiqEndings = new Set([33]);
-
-      console.log(`  Searching for diverse 4-way combos (20s, skipping overused)...`);
+      console.log(`  Searching for diverse 4-way combos (20s, skipping overused and /33)...`);
       const maxSearchTime = 20000;
 
       for (const w1 of shuffledWords) {
@@ -1463,7 +1460,8 @@ const GematriaCalculator = () => {
             const sumA = w1.aiq + w2.aiq;
 
             if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumA)) continue;
-            if (badAiqEndings.has(sumA)) continue;
+            // Strictly exclude /33 - it produces incoherent phrases
+            if (sumA === 33) continue;
 
             const comboKey = `${sumH}/${sumE}/${targetS}/${sumA}`;
 
@@ -1516,14 +1514,22 @@ const GematriaCalculator = () => {
         fallbackArr.push({ key, phrases, digits: getAiqDigits(key) });
       }
 
-      // Sort by digits DESC (4 > 3 > 2)
-      goodCombos.sort((a, b) => b.digits - a.digits);
-      fallbackArr.sort((a, b) => b.digits - a.digits);
+      // Filter out any /33 combos that might have slipped through
+      const filterNo33 = (arr) => arr.filter(c => {
+        const aiqVal = parseInt(c.key.split('/')[3]);
+        return aiqVal !== 33;
+      });
+      const filteredGood = filterNo33(goodCombos);
+      const filteredFallback = filterNo33(fallbackArr);
 
-      console.log(`  Sorted good: ${goodCombos.length} (4d=${goodCombos.filter(c=>c.digits===4).length}, 3d=${goodCombos.filter(c=>c.digits===3).length}, 2d=${goodCombos.filter(c=>c.digits===2).length})`);
+      // Sort by digits DESC (4 > 3 > 2)
+      filteredGood.sort((a, b) => b.digits - a.digits);
+      filteredFallback.sort((a, b) => b.digits - a.digits);
+
+      console.log(`  Sorted good: ${filteredGood.length} (4d=${filteredGood.filter(c=>c.digits===4).length}, 3d=${filteredGood.filter(c=>c.digits===3).length}, 2d=${filteredGood.filter(c=>c.digits===2).length})`);
 
       // Use good combos if any exist, otherwise fallback
-      let combosToUse = goodCombos.length > 0 ? goodCombos : fallbackArr;
+      let combosToUse = filteredGood.length > 0 ? filteredGood : filteredFallback;
 
       if (combosToUse.length > 0) {
         // Select from highest digit count available
