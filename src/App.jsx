@@ -928,13 +928,15 @@ const GematriaCalculator = () => {
         }
       }
     } else {
-      // Aik Bekar disabled - just do 3-way search
+      // Aik Bekar disabled - just do 3-way search with generous timeout
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
         parseInt(targetSimple),
         0,
-        enabledFlags3
+        enabledFlags3,
+        2000000,  // 2M attempts
+        20000     // 20 second timeout
       );
     }
 
@@ -1086,22 +1088,26 @@ const GematriaCalculator = () => {
 
         console.log(`  Trying H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}...`);
 
-        const candidate = await generatePhrase(
-          pair.heb, pair.eng, pair.sim, pair.aiq,
-          enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
-        );
+        // Try multiple times per pair to handle duplicate word phrases
+        for (let attempt = 0; attempt < 3; attempt++) {
+          const candidate = await generatePhrase(
+            pair.heb, pair.eng, pair.sim, pair.aiq,
+            enabledFlags4, 500000, 3000  // TRUE 4-way, 3s per pair
+          );
 
-        if (candidate && !hasDuplicateWords(candidate)) {
-          const aVal = calculateGematria(candidate, aiqBekarValues).total;
-          if (aVal === pair.aiq) {
-            console.log(`✅ Found 4-way match! H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}`);
-            phrase = candidate;
-            finalHebrew = pair.heb;
-            finalEnglish = pair.eng;
-            finalSimple = pair.sim;
-            break;
+          if (candidate && !hasDuplicateWords(candidate)) {
+            const aVal = calculateGematria(candidate, aiqBekarValues).total;
+            if (aVal === pair.aiq) {
+              console.log(`✅ Found 4-way match! H:${pair.heb} E:${pair.eng} S:${pair.sim} A:${pair.aiq}`);
+              phrase = candidate;
+              finalHebrew = pair.heb;
+              finalEnglish = pair.eng;
+              finalSimple = pair.sim;
+              break;
+            }
           }
         }
+        if (phrase) break;
       }
 
       // FALLBACK: Generate 3-way matches and check if A happens to be a repdigit
@@ -1143,19 +1149,23 @@ const GematriaCalculator = () => {
       console.log('🎲 Searching for 3-way random repdigit match...');
 
       for (const combo of shuffledCombos) {
-        const candidate = await generatePhrase(
-          combo.heb, combo.eng, combo.sim, 0,
-          enabledFlags3, 1000000, 4000
-        );
+        // Try multiple times per combo to handle duplicate word phrases
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const candidate = await generatePhrase(
+            combo.heb, combo.eng, combo.sim, 0,
+            enabledFlags3, 1000000, 4000
+          );
 
-        if (candidate && !hasDuplicateWords(candidate)) {
-          console.log(`✅ Found 3-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
-          phrase = candidate;
-          finalHebrew = combo.heb;
-          finalEnglish = combo.eng;
-          finalSimple = combo.sim;
-          break;
+          if (candidate && !hasDuplicateWords(candidate)) {
+            console.log(`✅ Found 3-way match! H:${combo.heb} E:${combo.eng} S:${combo.sim}`);
+            phrase = candidate;
+            finalHebrew = combo.heb;
+            finalEnglish = combo.eng;
+            finalSimple = combo.sim;
+            break;
+          }
         }
+        if (phrase) break;
       }
     }
 
