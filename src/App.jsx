@@ -770,7 +770,7 @@ const GematriaCalculator = () => {
       if (targetSim >= 1111 || targetHeb >= 5000) {
         console.log('  Trying 5-word 4-way combinations...');
         // Use larger search space for 5-word phrases
-        const searchLimit = 150;
+        const searchLimit = 300;
         for (const w1 of allWords.slice(0, searchLimit)) {
           if (Date.now() - startTime > timeoutMs) break;
 
@@ -809,9 +809,9 @@ const GematriaCalculator = () => {
       }
 
       // Try 6-word phrases for extremely large targets
-      if (targetSim >= 1111 || targetHeb >= 7000) {
+      if (targetSim >= 1111 || targetHeb >= 5000) {
         console.log('  Trying 6-word 4-way combinations...');
-        const searchLimit6 = 80;
+        const searchLimit6 = 150;
         for (const w1 of allWords.slice(0, searchLimit6)) {
           if (Date.now() - startTime > timeoutMs) break;
 
@@ -846,6 +846,59 @@ const GematriaCalculator = () => {
                       const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word} ${w5.word} ${w6.word}`;
                       console.log(`✅ Found 6-word 4-way match: "${phrase}"`);
                       return phrase;
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+
+      // Try 7-word phrases for XXXX targets
+      if (targetSim >= 1111 || targetHeb >= 5000) {
+        console.log('  Trying 7-word 4-way combinations...');
+        const searchLimit7 = 80;
+        for (const w1 of allWords.slice(0, searchLimit7)) {
+          if (Date.now() - startTime > timeoutMs) break;
+
+          for (const w2 of allWords.slice(0, searchLimit7)) {
+            if (w2.word === w1.word) continue;
+            if (Date.now() - startTime > timeoutMs) break;
+
+            for (const w3 of allWords.slice(0, searchLimit7)) {
+              if (w3.word === w1.word || w3.word === w2.word) continue;
+              if (Date.now() - startTime > timeoutMs) break;
+
+              for (const w4 of allWords.slice(0, searchLimit7)) {
+                if (w4.word === w1.word || w4.word === w2.word || w4.word === w3.word) continue;
+                if (Date.now() - startTime > timeoutMs) break;
+
+                for (const w5 of allWords.slice(0, searchLimit7)) {
+                  if (w5.word === w1.word || w5.word === w2.word || w5.word === w3.word || w5.word === w4.word) continue;
+                  if (Date.now() - startTime > timeoutMs) break;
+
+                  for (const w6 of allWords) {
+                    if (w6.word === w1.word || w6.word === w2.word || w6.word === w3.word ||
+                        w6.word === w4.word || w6.word === w5.word) continue;
+                    if (Date.now() - startTime > timeoutMs) break;
+
+                    const needHeb = targetHeb - w1.heb - w2.heb - w3.heb - w4.heb - w5.heb - w6.heb;
+                    const needEng = targetEng - w1.eng - w2.eng - w3.eng - w4.eng - w5.eng - w6.eng;
+                    const needSim = targetSim - w1.sim - w2.sim - w3.sim - w4.sim - w5.sim - w6.sim;
+                    const needAiq = targetAiq - w1.aiq - w2.aiq - w3.aiq - w4.aiq - w5.aiq - w6.aiq;
+
+                    if (needHeb < 1 || needEng < 1 || needSim < 1 || needAiq < 1) continue;
+
+                    const candidates = bySimple.get(needSim) || [];
+                    for (const w7 of candidates) {
+                      if (w7.heb === needHeb && w7.eng === needEng && w7.aiq === needAiq &&
+                          w7.word !== w1.word && w7.word !== w2.word && w7.word !== w3.word &&
+                          w7.word !== w4.word && w7.word !== w5.word && w7.word !== w6.word) {
+                        const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word} ${w5.word} ${w6.word} ${w7.word}`;
+                        console.log(`✅ Found 7-word 4-way match: "${phrase}"`);
+                        return phrase;
+                      }
                     }
                   }
                 }
@@ -1438,11 +1491,11 @@ const GematriaCalculator = () => {
       const fourDigitReps = [1111, 2222, 3333, 4444, 5555, 6666, 7777, 8888, 9999];
       const fourDigitSet = new Set(fourDigitReps);
 
-      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (15 seconds, with UI yields)
-      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (15s)...`);
-      const phase1End = 15000;
+      // PHASE 1: Search for XXXX/XXXX/XXXX/XXXX combos (45 seconds, with UI yields)
+      console.log(`  Phase 1: Searching for XXXX/XXXX/XXXX/XXXX combos (45s)...`);
+      const phase1End = 45000;
 
-      // Known working XXXX combos to try first
+      // Known working XXXX combos to try - expanded list
       const knownXXXXCombos = [
         [5555, 6666, 1111, 1111],
         [6666, 6666, 1111, 1111],
@@ -1450,6 +1503,12 @@ const GematriaCalculator = () => {
         [8888, 6666, 1111, 1111],
         [4444, 5555, 1111, 1111],
         [3333, 4444, 1111, 1111],
+        [2222, 3333, 1111, 1111],
+        [1111, 2222, 1111, 1111],
+        [9999, 7777, 1111, 1111],
+        [4444, 4444, 1111, 1111],
+        [5555, 5555, 1111, 1111],
+        [3333, 3333, 1111, 1111],
       ];
 
       // Shuffle for variety
@@ -1458,13 +1517,14 @@ const GematriaCalculator = () => {
 
       for (const [targetH, targetE, targetS, targetA] of shuffledXXXX) {
         if (Date.now() - startTime > phase1End) break;
-        if (goodMatches.size >= 3) break;
+        if (goodMatches.size >= 2) break;
 
         // Yield to UI every attempt
         await new Promise(resolve => setTimeout(resolve, 0));
 
+        // Much longer timeout per attempt (10 seconds) and more iterations
         const phrase = await generatePhrase(targetH, targetE, targetS, targetA,
-          { heb: true, eng: true, sim: true, aiq: true }, 50000, 3000);
+          { heb: true, eng: true, sim: true, aiq: true }, 200000, 10000);
 
         attempts++;
         if (phrase) {
