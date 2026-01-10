@@ -1546,6 +1546,8 @@ const GematriaCalculator = () => {
         const checkMatch = (words, sumH, sumE, sumS, sumA) => {
           if (!repSet.has(sumH) || !repSet.has(sumE) || !repSet.has(sumS) || !repSet.has(sumA)) return;
           if (sumA === 33) return;
+          // Skip 2-digit Aik endings (/99, /55, etc.) - only allow /111 or higher
+          if (sumA < 111) return;
 
           const comboKey = `${sumH}/${sumE}/${sumS}/${sumA}`;
           if (overusedCombos.has(comboKey)) return;
