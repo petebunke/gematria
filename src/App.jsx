@@ -549,6 +549,114 @@ const GematriaCalculator = () => {
     console.log(`🎯 Smart random search for H:${targetHeb} E:${targetEng} S:${targetSim} A:${targetAiq} (${enabledStr})`);
     console.log(`⏱️ Timeout set to ${timeoutMs / 1000} seconds (using cached word data)`);
 
+    // DETERMINISTIC SEARCH for constrained 3-way targets (no Aik Bekar)
+    // This guarantees finding a match if one exists
+    if (!enabledFlags.aiq && enabledFlags.heb && enabledFlags.eng && enabledFlags.sim) {
+      console.log('🔍 Using deterministic search for 3-way match...');
+
+      // Try 2-word phrases first (most reliable)
+      console.log('  Trying 2-word combinations...');
+      const simWords = [];
+      // Get all words with simple values that could be part of a 2-word phrase
+      for (let s = 1; s < targetSim; s++) {
+        const words = bySimple.get(s);
+        if (words) simWords.push(...words);
+      }
+      // Shuffle for variety
+      for (let i = simWords.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [simWords[i], simWords[j]] = [simWords[j], simWords[i]];
+      }
+
+      for (const w1 of simWords) {
+        if (Date.now() - startTime > timeoutMs) break;
+
+        const needHeb = targetHeb - w1.heb;
+        const needEng = targetEng - w1.eng;
+        const needSim = targetSim - w1.sim;
+
+        if (needHeb < 1 || needEng < 1 || needSim < 1) continue;
+
+        // Look for exact match using smallest bucket
+        const candidates = bySimple.get(needSim) || [];
+        for (const w2 of candidates) {
+          if (w2.heb === needHeb && w2.eng === needEng && w2.word !== w1.word) {
+            const phrase = `${w1.word} ${w2.word}`;
+            console.log(`✅ Found 2-word match: "${phrase}"`);
+            return phrase;
+          }
+        }
+      }
+
+      // Try 3-word phrases
+      console.log('  Trying 3-word combinations...');
+      let attempts3 = 0;
+      for (const w1 of simWords) {
+        if (Date.now() - startTime > timeoutMs) break;
+        if (attempts3++ > 5000) break; // Limit first word iterations
+
+        for (const w2 of simWords) {
+          if (Date.now() - startTime > timeoutMs) break;
+          if (w2.word === w1.word) continue;
+
+          const needHeb = targetHeb - w1.heb - w2.heb;
+          const needEng = targetEng - w1.eng - w2.eng;
+          const needSim = targetSim - w1.sim - w2.sim;
+
+          if (needHeb < 1 || needEng < 1 || needSim < 1) continue;
+
+          const candidates = bySimple.get(needSim) || [];
+          for (const w3 of candidates) {
+            if (w3.heb === needHeb && w3.eng === needEng &&
+                w3.word !== w1.word && w3.word !== w2.word) {
+              const phrase = `${w1.word} ${w2.word} ${w3.word}`;
+              console.log(`✅ Found 3-word match: "${phrase}"`);
+              return phrase;
+            }
+          }
+        }
+      }
+
+      // Try 4-word phrases for larger targets
+      if (targetSim > 80) {
+        console.log('  Trying 4-word combinations...');
+        let attempts4 = 0;
+        for (const w1 of simWords.slice(0, 200)) {
+          if (Date.now() - startTime > timeoutMs) break;
+
+          for (const w2 of simWords.slice(0, 200)) {
+            if (Date.now() - startTime > timeoutMs) break;
+            if (w2.word === w1.word) continue;
+            attempts4++;
+            if (attempts4 > 10000) break;
+
+            for (const w3 of simWords) {
+              if (Date.now() - startTime > timeoutMs) break;
+              if (w3.word === w1.word || w3.word === w2.word) continue;
+
+              const needHeb = targetHeb - w1.heb - w2.heb - w3.heb;
+              const needEng = targetEng - w1.eng - w2.eng - w3.eng;
+              const needSim = targetSim - w1.sim - w2.sim - w3.sim;
+
+              if (needHeb < 1 || needEng < 1 || needSim < 1) continue;
+
+              const candidates = bySimple.get(needSim) || [];
+              for (const w4 of candidates) {
+                if (w4.heb === needHeb && w4.eng === needEng &&
+                    w4.word !== w1.word && w4.word !== w2.word && w4.word !== w3.word) {
+                  const phrase = `${w1.word} ${w2.word} ${w3.word} ${w4.word}`;
+                  console.log(`✅ Found 4-word match: "${phrase}"`);
+                  return phrase;
+                }
+              }
+            }
+          }
+        }
+      }
+
+      console.log('  Deterministic search exhausted, falling back to random...');
+    }
+
     // Dynamically adjust phrase length based on enabled target values
     // Use MINIMUM target to constrain maxWords (prevents wasted attempts)
     const enabledTargets = [];
