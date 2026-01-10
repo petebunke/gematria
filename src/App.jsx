@@ -594,6 +594,7 @@ const GematriaCalculator = () => {
       const numWords = minWords + Math.floor(Math.random() * (range + 1));
 
       const selectedWords = [];
+      const usedWords = new Set(); // Track words to prevent duplicates
       let totalHeb = 0, totalEng = 0, totalSim = 0, totalAiq = 0;
 
       // Build phrase word by word
@@ -626,7 +627,8 @@ const GematriaCalculator = () => {
             if (candidates.length <= 500) {
               // Small bucket - search ALL candidates to guarantee finding match if exists
               for (const w of candidates) {
-                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                if (!usedWords.has(w.word) &&
+                    (!enabledFlags.heb || w.heb === needHeb) &&
                     (!enabledFlags.eng || w.eng === needEng) &&
                     (!enabledFlags.sim || w.sim === needSim) &&
                     (!enabledFlags.aiq || w.aiq === needAiq)) {
@@ -639,7 +641,8 @@ const GematriaCalculator = () => {
               const startIdx = Math.floor(Math.random() * candidates.length);
               for (let c = 0; c < 500; c++) {
                 const w = candidates[(startIdx + c) % candidates.length];
-                if ((!enabledFlags.heb || w.heb === needHeb) &&
+                if (!usedWords.has(w.word) &&
+                    (!enabledFlags.heb || w.heb === needHeb) &&
                     (!enabledFlags.eng || w.eng === needEng) &&
                     (!enabledFlags.sim || w.sim === needSim) &&
                     (!enabledFlags.aiq || w.aiq === needAiq)) {
@@ -664,6 +667,9 @@ const GematriaCalculator = () => {
             // Search all word1 candidates (they're already from smallest bucket)
             for (let w1 = 0; w1 < word1Pool.length; w1++) {
               const word1 = word1Pool[w1];
+
+              // Skip if word1 is already used in the phrase
+              if (usedWords.has(word1.word)) continue;
 
               // Calculate what word2 needs to hit
               const need2Heb = needHeb - word1.heb;
@@ -690,6 +696,9 @@ const GematriaCalculator = () => {
 
               // Search all word2 candidates
               for (const word2 of word2Pool) {
+                // Skip if word2 is already used or same as word1
+                if (usedWords.has(word2.word) || word2.word === word1.word) continue;
+
                 if ((!enabledFlags.heb || word2.heb === need2Heb) &&
                     (!enabledFlags.eng || word2.eng === need2Eng) &&
                     (!enabledFlags.sim || word2.sim === need2Sim) &&
@@ -720,8 +729,21 @@ const GematriaCalculator = () => {
             }
           }
 
-          const randomWord = pool[Math.floor(Math.random() * pool.length)];
+          // Find a random word that's not already used in the phrase
+          let randomWord = null;
+          for (let t = 0; t < 50; t++) {
+            const candidate = pool[Math.floor(Math.random() * pool.length)];
+            if (!usedWords.has(candidate.word)) {
+              randomWord = candidate;
+              break;
+            }
+          }
+          // Fallback: use any random word if all tried are duplicates (unlikely)
+          if (!randomWord) {
+            randomWord = pool[Math.floor(Math.random() * pool.length)];
+          }
           selectedWords.push(randomWord.word);
+          usedWords.add(randomWord.word);
           if (attempt < 5 && i === 0) {
             console.log(`  Selected first word (last): '${randomWord.word}'`);
           }
@@ -754,6 +776,12 @@ const GematriaCalculator = () => {
           while (attempts < 100) {
             const candidate = pool[Math.floor(Math.random() * pool.length)];
 
+            // Skip if this word is already used in the phrase
+            if (usedWords.has(candidate.word)) {
+              attempts++;
+              continue;
+            }
+
             const newHeb = totalHeb + candidate.heb;
             const newEng = totalEng + candidate.eng;
             const newSim = totalSim + candidate.sim;
@@ -776,7 +804,8 @@ const GematriaCalculator = () => {
           if (!picked) {
             for (let t = 0; t < 50; t++) {
               const candidate = pool[Math.floor(Math.random() * pool.length)];
-              if (totalHeb + candidate.heb <= targetHeb &&
+              if (!usedWords.has(candidate.word) &&
+                  totalHeb + candidate.heb <= targetHeb &&
                   totalEng + candidate.eng <= targetEng &&
                   totalSim + candidate.sim <= targetSim &&
                   totalAiq + candidate.aiq <= targetAiq) {
@@ -786,12 +815,23 @@ const GematriaCalculator = () => {
             }
           }
 
-          // Last resort: just pick randomly
+          // Last resort: find any unused word
           if (!picked) {
-            picked = pool[Math.floor(Math.random() * pool.length)];
+            for (let t = 0; t < 50; t++) {
+              const candidate = pool[Math.floor(Math.random() * pool.length)];
+              if (!usedWords.has(candidate.word)) {
+                picked = candidate;
+                break;
+              }
+            }
+            // Ultimate fallback if all tried are duplicates (very unlikely)
+            if (!picked) {
+              picked = pool[Math.floor(Math.random() * pool.length)];
+            }
           }
 
           selectedWords.push(picked.word);
+          usedWords.add(picked.word);
           if (attempt < 5 && i === 0) {
             console.log(`  Selected first word: '${picked.word}'`);
           }
