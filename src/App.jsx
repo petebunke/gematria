@@ -154,6 +154,9 @@ const GematriaCalculator = () => {
 
   // Initialize voices once they're available
   useEffect(() => {
+    // Guard against environments without speechSynthesis (e.g., Vercel preview)
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
     const initVoices = () => {
       const allVoices = window.speechSynthesis.getVoices();
       if (allVoices.length === 0) return;
@@ -226,7 +229,9 @@ const GematriaCalculator = () => {
     window.speechSynthesis.onvoiceschanged = initVoices;
 
     return () => {
-      window.speechSynthesis.onvoiceschanged = null;
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
     };
   }, []);
 
