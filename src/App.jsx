@@ -164,26 +164,29 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Filter to high-quality voices that pronounce acronyms as letters but words normally
-    // Prefer premium/enhanced/neural voices which handle this correctly
-    const qualityIndicators = ['premium', 'enhanced', 'neural', 'natural', 'siri'];
+    // Filter to voices that read text literally (no abbreviation expansion)
+    // Avoid "enhanced" and "siri" voices which expand "feb" to "February" etc.
     const goodVoiceNames = ['samantha', 'alex', 'allison', 'ava', 'susan', 'tom', 'victoria', 'aaron', 'nicky', 'evan', 'joelle', 'zoe', 'google'];
+    const avoidIndicators = ['enhanced', 'siri', 'premium'];
 
-    // First try: high-quality voices only
+    // First try: known good voices that read literally
     let voices = allVoices.filter(v => {
       if (v.lang !== 'en-US') return false;
       const nameLower = v.name.toLowerCase();
-      return qualityIndicators.some(q => nameLower.includes(q)) ||
-             goodVoiceNames.some(g => nameLower.includes(g));
+      // Avoid voices that expand abbreviations
+      if (avoidIndicators.some(a => nameLower.includes(a))) return false;
+      return goodVoiceNames.some(g => nameLower.includes(g));
     });
 
-    // Fallback: any en-US voice that's not novelty
+    // Fallback: any en-US voice that's not novelty or abbreviation-expanding
     if (voices.length === 0) {
       const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
-      voices = allVoices.filter(v =>
-        v.lang === 'en-US' &&
-        !noveltyNames.some(n => v.name.toLowerCase().includes(n))
-      );
+      voices = allVoices.filter(v => {
+        if (v.lang !== 'en-US') return false;
+        const nameLower = v.name.toLowerCase();
+        if (avoidIndicators.some(a => nameLower.includes(a))) return false;
+        return !noveltyNames.some(n => nameLower.includes(n));
+      });
     }
 
     if (voices.length === 0) return; // No suitable voices available
