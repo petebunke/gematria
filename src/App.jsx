@@ -1419,13 +1419,13 @@ const GematriaCalculator = () => {
                   </h3>
                   {results && (
                     <div className="text-sm font-mono text-red-600 font-bold">
-                      H:{results.hebrew.total} E:{results.english.total} S:{results.simple.total}{results.aiqBekar ? ` A:${results.aiqBekar.total}` : ''}
+                      {results.hebrew.total}/{results.english.total}/{results.simple.total}{results.aiqBekar ? `/${results.aiqBekar.total}` : ''}
                     </div>
                   )}
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-0.5 mb-1">
+                    <div className="flex items-center gap-1 mb-1">
                       <label className="text-xs font-semibold text-gray-700">
                         Enter a word or phrase:
                       </label>
