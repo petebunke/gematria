@@ -247,9 +247,8 @@ const GematriaCalculator = () => {
       }
     });
 
-    // Save and open PDF
-    const pdfOutput = doc.output('bloburl');
-    window.open(pdfOutput);
+    // Download PDF directly
+    doc.save(`gematria-phrases-${new Date().toISOString().split('T')[0]}.pdf`);
   };
 
   const formatBreakdown = (breakdown) => {
