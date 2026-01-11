@@ -271,8 +271,8 @@ const GematriaCalculator = () => {
       processedText = processedText.replace(regex, phonetic);
     });
 
-    // Abbreviations to spell out (excluding month names which sound fine naturally)
-    const abbreviations = ['km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'min', 'sec', 'etc', 'vs', 'dr', 'mr', 'mrs', 'ms', 'st', 'ave', 'blvd', 'inc', 'corp', 'ltd', 'co', 'vol', 'pg', 'ch', 'fig', 'approx', 'info', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
+    // Abbreviations to spell out (only technical/unit abbreviations, not real words)
+    const abbreviations = ['km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'approx', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
 
     // Replace known abbreviations with spaced letters
     abbreviations.forEach(abbr => {
