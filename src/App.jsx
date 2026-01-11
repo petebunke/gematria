@@ -22,6 +22,7 @@ const GematriaCalculator = () => {
   const [clearing, setClearing] = useState(false);
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -151,6 +152,84 @@ const GematriaCalculator = () => {
     }
   };
 
+  // Initialize voices once they're available
+  useEffect(() => {
+    const initVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      if (allVoices.length === 0) return;
+
+      // Voices to avoid - they expand abbreviations or sound weird
+      const avoidIndicators = ['enhanced', 'siri', 'premium'];
+      const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
+
+      // Filter to usable English voices
+      const usableVoices = allVoices.filter(v => {
+        if (!v.lang.startsWith('en')) return false;
+        const nameLower = v.name.toLowerCase();
+        if (avoidIndicators.some(a => nameLower.includes(a))) return false;
+        if (noveltyNames.some(n => nameLower.includes(n))) return false;
+        return true;
+      });
+
+      if (usableVoices.length === 0) return;
+
+      // Female voice patterns (prioritized - first match wins)
+      const femalePatterns = [
+        'samantha', 'allison', 'ava', 'susan', 'victoria', 'nicky', 'joelle',
+        'zoe', 'karen', 'moira', 'tessa', 'fiona', 'kate', 'serena', 'veena',
+        'zira', 'hazel', 'linda', 'amy', 'emma', 'jenny', 'aria', 'sara',
+        'female', 'woman'
+      ];
+
+      // Male voice patterns (prioritized - first match wins)
+      const malePatterns = [
+        'alex', 'tom', 'aaron', 'evan', 'daniel', 'david', 'james', 'oliver',
+        'thomas', 'rishi', 'mark', 'guy', 'lee', 'roger', 'gordon', 'george',
+        'male', 'man'
+      ];
+
+      // Find best female voice
+      let femaleVoice = null;
+      for (const pattern of femalePatterns) {
+        femaleVoice = usableVoices.find(v => v.name.toLowerCase().includes(pattern));
+        if (femaleVoice) break;
+      }
+
+      // Find best male voice
+      let maleVoice = null;
+      for (const pattern of malePatterns) {
+        maleVoice = usableVoices.find(v => v.name.toLowerCase().includes(pattern));
+        if (maleVoice) break;
+      }
+
+      // If we couldn't identify gendered voices, try to pick two different ones
+      if (!femaleVoice && !maleVoice && usableVoices.length >= 2) {
+        femaleVoice = usableVoices[0];
+        maleVoice = usableVoices[1];
+      } else if (!femaleVoice && !maleVoice && usableVoices.length === 1) {
+        femaleVoice = usableVoices[0];
+        maleVoice = usableVoices[0];
+      }
+
+      // Use first available if only one gender found
+      if (!femaleVoice) femaleVoice = maleVoice || usableVoices[0];
+      if (!maleVoice) maleVoice = femaleVoice || usableVoices[0];
+
+      console.log('Selected voices - Female:', femaleVoice?.name, 'Male:', maleVoice?.name);
+      setSelectedVoices({ male: maleVoice, female: femaleVoice });
+    };
+
+    // Try to init immediately
+    initVoices();
+
+    // Also listen for voices to load (needed in some browsers)
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
+
   const speakPhrase = (text) => {
     if (!text || !window.speechSynthesis) return;
 
@@ -175,7 +254,6 @@ const GematriaCalculator = () => {
     });
 
     // Abbreviations to spell out (excluding month names which sound fine naturally)
-    // Removed: feb, jan, mar, apr, jun, jul, aug, sep, sept, oct, nov, dec
     const abbreviations = ['km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'min', 'sec', 'etc', 'vs', 'dr', 'mr', 'mrs', 'ms', 'st', 'ave', 'blvd', 'inc', 'corp', 'ltd', 'co', 'vol', 'pg', 'ch', 'fig', 'approx', 'info', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
 
     // Replace known abbreviations with spaced letters
@@ -192,70 +270,28 @@ const GematriaCalculator = () => {
       return match.split('').join(' ');
     });
 
-    const allVoices = window.speechSynthesis.getVoices();
-    if (allVoices.length === 0) {
-      // Voices not loaded yet, try again after a short delay
-      window.speechSynthesis.onvoiceschanged = () => speakPhrase(text);
+    // If voices aren't loaded yet, wait for them
+    if (!selectedVoices.male && !selectedVoices.female) {
+      console.log('Voices not ready yet, waiting...');
       return;
     }
 
-    // Categorize voices by gender for alternation
-    // Common female voice name patterns
-    const femaleNames = ['samantha', 'allison', 'ava', 'susan', 'victoria', 'nicky', 'joelle', 'zoe', 'karen', 'moira', 'tessa', 'fiona', 'kate', 'serena', 'veena', 'female', 'woman'];
-    // Common male voice name patterns
-    const maleNames = ['alex', 'tom', 'aaron', 'evan', 'daniel', 'david', 'james', 'oliver', 'thomas', 'rishi', 'male', 'man', 'guy'];
+    // Strictly alternate: even index = male, odd index = female
+    const useMale = voiceIndex % 2 === 0;
+    const voice = useMale ? selectedVoices.male : selectedVoices.female;
 
-    const avoidIndicators = ['enhanced', 'siri', 'premium'];
-    const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
-
-    // Filter to usable en-US voices
-    const usableVoices = allVoices.filter(v => {
-      if (v.lang !== 'en-US') return false;
-      const nameLower = v.name.toLowerCase();
-      if (avoidIndicators.some(a => nameLower.includes(a))) return false;
-      if (noveltyNames.some(n => nameLower.includes(n))) return false;
-      return true;
-    });
-
-    if (usableVoices.length === 0) return; // No suitable voices available
-
-    // Separate into male and female voices
-    const femaleVoices = usableVoices.filter(v => {
-      const nameLower = v.name.toLowerCase();
-      return femaleNames.some(f => nameLower.includes(f));
-    });
-    const maleVoices = usableVoices.filter(v => {
-      const nameLower = v.name.toLowerCase();
-      return maleNames.some(m => nameLower.includes(m));
-    });
-
-    // Select voice based on alternating gender
-    let selectedVoice;
-    const useFemale = voiceIndex % 2 === 0; // Even = female, Odd = male
-
-    if (useFemale && femaleVoices.length > 0) {
-      // Pick from female voices
-      const femaleIdx = Math.floor(voiceIndex / 2) % femaleVoices.length;
-      selectedVoice = femaleVoices[femaleIdx];
-    } else if (!useFemale && maleVoices.length > 0) {
-      // Pick from male voices
-      const maleIdx = Math.floor(voiceIndex / 2) % maleVoices.length;
-      selectedVoice = maleVoices[maleIdx];
-    } else {
-      // Fallback: use any available voice
-      selectedVoice = usableVoices[voiceIndex % usableVoices.length];
-    }
+    console.log(`Speaking with ${useMale ? 'MALE' : 'FEMALE'} voice:`, voice?.name);
 
     const utterance = new SpeechSynthesisUtterance(processedText);
     utterance.lang = 'en-US';
-    utterance.voice = selectedVoice;
+    utterance.voice = voice;
     utterance.rate = 0.9;
     utterance.pitch = 1;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
-      // Advance to next voice index (alternates gender)
+      // Advance to next voice index (strictly alternates gender)
       setVoiceIndex(prev => prev + 1);
     };
     utterance.onerror = () => setIsSpeaking(false);
