@@ -180,10 +180,11 @@ const GematriaCalculator = () => {
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Hebrew</th>
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">English</th>
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Simple</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Aik Bekar</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Aik Bekar⁹</th>
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Combination</th>
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Source</th>
               <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Gen Time</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Timestamp</th>
             </tr>
           </thead>
           <tbody>
@@ -197,6 +198,7 @@ const GematriaCalculator = () => {
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; text-transform: capitalize; color: #4b5563;">${p.source}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-size: 9px; color: #4b5563;">${new Date(p.timestamp).toLocaleString()}</td>
               </tr>
             `).join('')}
           </tbody>
