@@ -1771,7 +1771,7 @@ const GematriaCalculator = () => {
             >
               ×
             </button>
-            <p className="text-base md:text-lg mb-4">
+            <p className="text-sm md:text-lg mb-4">
               {errorModal.message}
             </p>
             <button
