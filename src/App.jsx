@@ -1297,13 +1297,13 @@ const GematriaCalculator = () => {
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
-            <div className="flex items-center justify-center gap-3 -ml-2.5 md:ml-0">
+            <div className="flex items-center justify-start md:justify-center gap-3">
               <Calculator className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Gematria Generator
               </h1>
             </div>
-            <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
+            <p className="text-gray-400 text-left md:text-center mt-1 text-sm md:text-base">
               Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew and English Gematria.
             </p>
           </div>
