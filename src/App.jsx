@@ -164,18 +164,18 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Filter to only US/UK English voices, no novelty or spell-out voices
+    // Filter to only American English voices, no novelty or spell-out voices
     const voices = allVoices.filter(v =>
-      (v.lang === 'en-US' || v.lang === 'en-GB') &&
+      v.lang === 'en-US' &&
       !v.name.toLowerCase().includes('novelty') &&
       !v.name.toLowerCase().includes('spell')
     );
 
     if (voices.length === 0) {
-      // Fallback: any voice starting with en
-      const fallback = allVoices.filter(v => v.lang.startsWith('en'));
+      // Fallback: any en-US voice
+      const fallback = allVoices.filter(v => v.lang === 'en-US');
       if (fallback.length > 0) voices.push(...fallback);
-      else return; // No English voices available
+      else return; // No American English voices available
     }
 
     const utterance = new SpeechSynthesisUtterance(text);
