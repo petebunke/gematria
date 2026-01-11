@@ -1418,14 +1418,14 @@ const GematriaCalculator = () => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-0.5 mb-1">
                       <label className="text-xs font-semibold text-gray-700">
                         Enter a word or phrase:
                       </label>
                       <button
                         onClick={() => speakPhrase(input)}
                         disabled={!input.trim() || isSpeaking}
-                        className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                         title="Speak phrase (cycles through voices)"
                       >
                         <Volume2 className={`w-4 h-4 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
