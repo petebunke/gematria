@@ -1598,7 +1598,7 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 pt-2 md:pt-8 pb-3 px-4 md:px-0 text-center text-xs md:text-sm text-gray-500">
+          <div className="bg-black border-t border-zinc-800 pt-2 md:pt-4 pb-3 px-4 md:px-0 text-center text-xs md:text-sm text-gray-500">
             <p className="flex flex-col items-center leading-relaxed md:leading-normal md:inline">
               <span>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>.</span>
               <span className="md:before:content-['_']">Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>.</span>
