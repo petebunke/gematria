@@ -165,10 +165,10 @@ const GematriaCalculator = () => {
     }
 
     // Filter to only American English voices, no novelty or spell-out voices
+    const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
     const voices = allVoices.filter(v =>
       v.lang === 'en-US' &&
-      !v.name.toLowerCase().includes('novelty') &&
-      !v.name.toLowerCase().includes('spell')
+      !noveltyNames.some(n => v.name.toLowerCase().includes(n))
     );
 
     if (voices.length === 0) {
