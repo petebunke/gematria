@@ -126,15 +126,8 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    // Spell out each word letter by letter for phonetic pronunciation
-    const words = input.trim().split(/\s+/);
-    const phoneticText = words.map(word => {
-      // Split word into letters with spaces between for clear pronunciation
-      return word.split('').join(' ');
-    }).join(' ... '); // Pause between words
-
-    const utterance = new SpeechSynthesisUtterance(phoneticText);
-    utterance.rate = 0.8;
+    const utterance = new SpeechSynthesisUtterance(input);
+    utterance.rate = 0.9;
     utterance.pitch = 1.0;
 
     // Try to find a clear male voice (Microsoft Sam-like)
@@ -142,12 +135,9 @@ const GematriaCalculator = () => {
     const preferredVoice = voices.find(voice =>
       voice.name.includes('Microsoft David') ||
       voice.name.includes('Microsoft Mark') ||
-      voice.name.includes('Microsoft Zira') ||
       voice.name.includes('Alex') ||
       voice.name.includes('Daniel') ||
-      voice.name.includes('Google US English Male')
-    ) || voices.find(voice =>
-      voice.lang.startsWith('en') && voice.name.toLowerCase().includes('male')
+      voice.name.includes('Google US English')
     ) || voices.find(voice => voice.lang.startsWith('en'));
 
     if (preferredVoice) {
