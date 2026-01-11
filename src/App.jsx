@@ -157,16 +157,38 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    // Pre-process text to prevent abbreviation expansion
-    const abbreviations = ['feb', 'jan', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'min', 'sec', 'etc', 'vs', 'dr', 'mr', 'mrs', 'ms', 'st', 'ave', 'blvd', 'govt', 'dept', 'inc', 'corp', 'ltd', 'co', 'vol', 'pg', 'ch', 'fig', 'approx', 'misc', 'info', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
+    // Phonetic replacements for words that TTS engines mispronounce
+    // "seq" gets interpreted as "sequence" -> "following" by some engines
+    const phoneticMap = {
+      'seq': 'seek',
+      'misc': 'misk',
+      'govt': 'guvt',
+      'dept': 'dept'
+    };
+
     let processedText = text;
+
+    // Apply phonetic replacements first
+    Object.entries(phoneticMap).forEach(([word, phonetic]) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      processedText = processedText.replace(regex, phonetic);
+    });
+
+    // Abbreviations to spell out (excluding month names which sound fine naturally)
+    // Removed: feb, jan, mar, apr, jun, jul, aug, sep, sept, oct, nov, dec
+    const abbreviations = ['km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'min', 'sec', 'etc', 'vs', 'dr', 'mr', 'mrs', 'ms', 'st', 'ave', 'blvd', 'inc', 'corp', 'ltd', 'co', 'vol', 'pg', 'ch', 'fig', 'approx', 'info', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
+
     // Replace known abbreviations with spaced letters
     abbreviations.forEach(abbr => {
       const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
       processedText = processedText.replace(regex, (match) => match.split('').join(' '));
     });
-    // Also match 2-4 letter sequences that are all consonants
+
+    // Match 2-4 letter sequences that are all consonants (but not words in phoneticMap)
+    const phoneticWords = new Set(Object.keys(phoneticMap));
     processedText = processedText.replace(/\b([bcdfghjklmnpqrstvwxyz]{2,4})\b/gi, (match) => {
+      // Don't spell out words we've already handled with phonetic replacements
+      if (phoneticWords.has(match.toLowerCase())) return match;
       return match.split('').join(' ');
     });
 
@@ -177,47 +199,64 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Filter to voices that read text literally (no abbreviation expansion)
-    // Avoid "enhanced" and "siri" voices which expand "feb" to "February" etc.
-    const goodVoiceNames = ['samantha', 'alex', 'allison', 'ava', 'susan', 'tom', 'victoria', 'aaron', 'nicky', 'evan', 'joelle', 'zoe', 'google'];
-    const avoidIndicators = ['enhanced', 'siri', 'premium'];
+    // Categorize voices by gender for alternation
+    // Common female voice name patterns
+    const femaleNames = ['samantha', 'allison', 'ava', 'susan', 'victoria', 'nicky', 'joelle', 'zoe', 'karen', 'moira', 'tessa', 'fiona', 'kate', 'serena', 'veena', 'female', 'woman'];
+    // Common male voice name patterns
+    const maleNames = ['alex', 'tom', 'aaron', 'evan', 'daniel', 'david', 'james', 'oliver', 'thomas', 'rishi', 'male', 'man', 'guy'];
 
-    // First try: known good voices that read literally
-    let voices = allVoices.filter(v => {
+    const avoidIndicators = ['enhanced', 'siri', 'premium'];
+    const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
+
+    // Filter to usable en-US voices
+    const usableVoices = allVoices.filter(v => {
       if (v.lang !== 'en-US') return false;
       const nameLower = v.name.toLowerCase();
-      // Avoid voices that expand abbreviations
       if (avoidIndicators.some(a => nameLower.includes(a))) return false;
-      return goodVoiceNames.some(g => nameLower.includes(g));
+      if (noveltyNames.some(n => nameLower.includes(n))) return false;
+      return true;
     });
 
-    // Fallback: any en-US voice that's not novelty or abbreviation-expanding
-    if (voices.length === 0) {
-      const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
-      voices = allVoices.filter(v => {
-        if (v.lang !== 'en-US') return false;
-        const nameLower = v.name.toLowerCase();
-        if (avoidIndicators.some(a => nameLower.includes(a))) return false;
-        return !noveltyNames.some(n => nameLower.includes(n));
-      });
-    }
+    if (usableVoices.length === 0) return; // No suitable voices available
 
-    if (voices.length === 0) return; // No suitable voices available
+    // Separate into male and female voices
+    const femaleVoices = usableVoices.filter(v => {
+      const nameLower = v.name.toLowerCase();
+      return femaleNames.some(f => nameLower.includes(f));
+    });
+    const maleVoices = usableVoices.filter(v => {
+      const nameLower = v.name.toLowerCase();
+      return maleNames.some(m => nameLower.includes(m));
+    });
+
+    // Select voice based on alternating gender
+    let selectedVoice;
+    const useFemale = voiceIndex % 2 === 0; // Even = female, Odd = male
+
+    if (useFemale && femaleVoices.length > 0) {
+      // Pick from female voices
+      const femaleIdx = Math.floor(voiceIndex / 2) % femaleVoices.length;
+      selectedVoice = femaleVoices[femaleIdx];
+    } else if (!useFemale && maleVoices.length > 0) {
+      // Pick from male voices
+      const maleIdx = Math.floor(voiceIndex / 2) % maleVoices.length;
+      selectedVoice = maleVoices[maleIdx];
+    } else {
+      // Fallback: use any available voice
+      selectedVoice = usableVoices[voiceIndex % usableVoices.length];
+    }
 
     const utterance = new SpeechSynthesisUtterance(processedText);
     utterance.lang = 'en-US';
-
-    // Cycle through available English voices
-    const currentVoice = voices[voiceIndex % voices.length];
-    utterance.voice = currentVoice;
+    utterance.voice = selectedVoice;
     utterance.rate = 0.9;
     utterance.pitch = 1;
 
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
-      // Advance to next voice for next time
-      setVoiceIndex(prev => (prev + 1) % voices.length);
+      // Advance to next voice index (alternates gender)
+      setVoiceIndex(prev => prev + 1);
     };
     utterance.onerror = () => setIsSpeaking(false);
 
