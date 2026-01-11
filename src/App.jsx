@@ -189,16 +189,17 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple, Aik Bekar⁹)
-    const sorted = [...generatedPhrases].sort((a, b) => {
-      if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
-      if (a.english !== b.english) return a.english - b.english;
-      if (a.simple !== b.simple) return a.simple - b.simple;
-      return (a.aiqBekar || 0) - (b.aiqBekar || 0);
-    });
+    try {
+      // Sort by combination (Hebrew, English, Simple, Aik Bekar⁹)
+      const sorted = [...generatedPhrases].sort((a, b) => {
+        if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
+        if (a.english !== b.english) return a.english - b.english;
+        if (a.simple !== b.simple) return a.simple - b.simple;
+        return (a.aiqBekar || 0) - (b.aiqBekar || 0);
+      });
 
-    // Create PDF using jsPDF
-    const doc = new jsPDF('landscape');
+      // Create PDF using jsPDF
+      const doc = new jsPDF('landscape');
 
     // Title
     doc.setFontSize(20);
@@ -247,8 +248,13 @@ const GematriaCalculator = () => {
       }
     });
 
-    // Download PDF directly
-    doc.save(`gematria-phrases-${new Date().toISOString().split('T')[0]}.pdf`);
+      // Download PDF directly
+      doc.save(`gematria-phrases-${new Date().toISOString().split('T')[0]}.pdf`);
+      console.log('PDF saved successfully');
+    } catch (error) {
+      console.error('PDF generation error:', error);
+      alert('Error generating PDF: ' + error.message);
+    }
   };
 
   const formatBreakdown = (breakdown) => {
