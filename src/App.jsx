@@ -157,16 +157,24 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    const voices = window.speechSynthesis.getVoices();
-    if (voices.length === 0) {
+    const allVoices = window.speechSynthesis.getVoices();
+    if (allVoices.length === 0) {
       // Voices not loaded yet, try again after a short delay
       window.speechSynthesis.onvoiceschanged = () => speakPhrase(text);
       return;
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    // Filter to English voices only
+    const voices = allVoices.filter(v => v.lang.startsWith('en'));
+    if (voices.length === 0) {
+      // Fallback to all voices if no English found
+      voices.push(...allVoices);
+    }
 
-    // Cycle through available voices
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'en-US';
+
+    // Cycle through available English voices
     const currentVoice = voices[voiceIndex % voices.length];
     utterance.voice = currentVoice;
     utterance.rate = 0.9;
