@@ -20,6 +20,7 @@ const GematriaCalculator = () => {
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [voiceIndex, setVoiceIndex] = useState(0);
+  const [availableVoices, setAvailableVoices] = useState([]);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -131,12 +132,9 @@ const GematriaCalculator = () => {
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
 
-    // Get all English voices and rotate through them
-    const voices = window.speechSynthesis.getVoices();
-    const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
-
-    if (englishVoices.length > 0) {
-      const currentVoice = englishVoices[voiceIndex % englishVoices.length];
+    // Rotate through stored English voices
+    if (availableVoices.length > 0) {
+      const currentVoice = availableVoices[voiceIndex % availableVoices.length];
       utterance.voice = currentVoice;
       setVoiceIndex(prev => prev + 1);
     }
@@ -509,6 +507,24 @@ const GematriaCalculator = () => {
       console.error('Failed to save phrases to localStorage:', e);
     }
   }, [generatedPhrases]);
+
+  // Load speech synthesis voices once
+  useEffect(() => {
+    const loadVoices = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
+      if (englishVoices.length > 0) {
+        setAvailableVoices(englishVoices);
+      }
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, []);
 
   // Pre-calculate word data and indexes ONCE when wordList changes
   // This dramatically speeds up phrase generation by avoiding repeated calculations
