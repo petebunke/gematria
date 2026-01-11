@@ -1416,7 +1416,7 @@ const GematriaCalculator = () => {
                     Calculate Phrase Value and Generate Anagrams
                   </h3>
                   {results && (
-                    <div className="text-sm font-mono text-red-600 font-bold">
+                    <div className="text-sm font-mono text-red-600 font-bold -mt-1">
                       {results.hebrew.total}/{results.english.total}/{results.simple.total}{results.aiqBekar ? `/${results.aiqBekar.total}` : ''}
                     </div>
                   )}
