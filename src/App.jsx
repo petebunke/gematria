@@ -183,6 +183,7 @@ const GematriaCalculator = () => {
   };
 
   const downloadPhraseTable = () => {
+    console.log('downloadPhraseTable called, phrases:', generatedPhrases.length);
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
       return;
@@ -246,19 +247,9 @@ const GematriaCalculator = () => {
       }
     });
 
-    // Open PDF in new tab
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const pdfWindow = window.open(pdfUrl, '_blank', 'noopener,noreferrer');
-    if (!pdfWindow) {
-      // Fallback: download if popup blocked
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `gematria-phrases-${new Date().toISOString().split('T')[0]}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-    }
+    // Save and open PDF
+    const pdfOutput = doc.output('bloburl');
+    window.open(pdfOutput);
   };
 
   const formatBreakdown = (breakdown) => {
