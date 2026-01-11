@@ -578,8 +578,8 @@ const GematriaCalculator = () => {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Check timeout every 10,000 attempts and yield to browser to prevent UI blocking
-      if (attempt % 10000 === 0) {
+      // Check timeout every 1,000 attempts (more frequently for mobile responsiveness)
+      if (attempt % 1000 === 0) {
         const elapsed = Date.now() - startTime;
         if (elapsed > timeoutMs) {
           console.log(`⏱️ Timeout after ${(elapsed / 1000).toFixed(1)}s and ${attempt.toLocaleString()} attempts`);
@@ -937,8 +937,8 @@ const GematriaCalculator = () => {
         parseInt(targetSimple),
         0,
         enabledFlags3,
-        2000000,  // 2 million attempts
-        30000     // 30 second timeout for mobile reliability
+        5000000,  // 5 million attempts
+        60000     // 60 second timeout for mobile reliability
       );
     }
 
