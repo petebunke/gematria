@@ -19,6 +19,7 @@ const GematriaCalculator = () => {
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [voiceIndex, setVoiceIndex] = useState(0);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -130,18 +131,14 @@ const GematriaCalculator = () => {
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
 
-    // Try to find a clear male voice (Microsoft Sam-like)
+    // Get all English voices and rotate through them
     const voices = window.speechSynthesis.getVoices();
-    const preferredVoice = voices.find(voice =>
-      voice.name.includes('Microsoft David') ||
-      voice.name.includes('Microsoft Mark') ||
-      voice.name.includes('Alex') ||
-      voice.name.includes('Daniel') ||
-      voice.name.includes('Google US English')
-    ) || voices.find(voice => voice.lang.startsWith('en'));
+    const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
 
-    if (preferredVoice) {
-      utterance.voice = preferredVoice;
+    if (englishVoices.length > 0) {
+      const currentVoice = englishVoices[voiceIndex % englishVoices.length];
+      utterance.voice = currentVoice;
+      setVoiceIndex(prev => prev + 1);
     }
 
     window.speechSynthesis.speak(utterance);
