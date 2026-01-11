@@ -248,7 +248,7 @@ const GematriaCalculator = () => {
     // PDF options
     const opt = {
       margin: 10,
-      filename: `gematria-phrases-${new Date().toISOString().split('T')[0]}.pdf`,
+      filename: `gematria-generator-${new Date().toISOString().replace(/[:.]/g, '-')}.pdf`,
       image: { type: 'jpeg', quality: 0.98 },
       html2canvas: { scale: 2, useCORS: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
