@@ -214,6 +214,25 @@ const GematriaCalculator = () => {
       padding-bottom: 10px;
       margin-bottom: 20px;
     }
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+    .save-btn {
+      background-color: #dc2626;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      font-size: 16px;
+      font-weight: bold;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+    .save-btn:hover {
+      background-color: #b91c1c;
+    }
     .meta {
       color: #666;
       margin-bottom: 30px;
@@ -256,11 +275,15 @@ const GematriaCalculator = () => {
     @media print {
       body { padding: 10px; }
       tr { page-break-inside: avoid; }
+      .save-btn { display: none; }
     }
   </style>
 </head>
 <body>
-  <h1>Gematria Generated Phrases</h1>
+  <div class="header-row">
+    <h1 style="margin: 0; border: none; padding: 0;">Gematria Generated Phrases</h1>
+    <button class="save-btn" onclick="window.print()">Save as PDF</button>
+  </div>
   <div class="meta">
     <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
     <p><strong>Total Phrases:</strong> ${sorted.length}</p>
