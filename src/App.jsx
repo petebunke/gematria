@@ -254,11 +254,9 @@ const GematriaCalculator = () => {
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
-    // Generate PDF and open in new tab for review
-    html2pdf().set(opt).from(container).outputPdf('blob').then((pdfBlob) => {
+    // Generate and download PDF
+    html2pdf().set(opt).from(container).save().then(() => {
       document.body.removeChild(container);
-      const blobUrl = URL.createObjectURL(pdfBlob);
-      window.open(blobUrl, '_blank');
     });
   };
 
