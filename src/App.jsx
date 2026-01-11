@@ -126,24 +126,32 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    const utterance = new SpeechSynthesisUtterance(input);
-    utterance.rate = 0.9;
-    utterance.pitch = 1.1;
+    // Spell out each word letter by letter for phonetic pronunciation
+    const words = input.trim().split(/\s+/);
+    const phoneticText = words.map(word => {
+      // Split word into letters with spaces between for clear pronunciation
+      return word.split('').join(' ');
+    }).join(' ... '); // Pause between words
 
-    // Try to find a female voice (Google US English Female is common)
+    const utterance = new SpeechSynthesisUtterance(phoneticText);
+    utterance.rate = 0.8;
+    utterance.pitch = 1.0;
+
+    // Try to find a clear male voice (Microsoft Sam-like)
     const voices = window.speechSynthesis.getVoices();
-    const femaleVoice = voices.find(voice =>
-      voice.name.includes('Google US English') ||
-      voice.name.includes('Female') ||
-      voice.name.includes('Samantha') ||
-      voice.name.includes('Victoria') ||
-      voice.name.includes('Karen') ||
-      voice.name.includes('Moira') ||
-      voice.name.includes('Tessa')
+    const preferredVoice = voices.find(voice =>
+      voice.name.includes('Microsoft David') ||
+      voice.name.includes('Microsoft Mark') ||
+      voice.name.includes('Microsoft Zira') ||
+      voice.name.includes('Alex') ||
+      voice.name.includes('Daniel') ||
+      voice.name.includes('Google US English Male')
+    ) || voices.find(voice =>
+      voice.lang.startsWith('en') && voice.name.toLowerCase().includes('male')
     ) || voices.find(voice => voice.lang.startsWith('en'));
 
-    if (femaleVoice) {
-      utterance.voice = femaleVoice;
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
     }
 
     window.speechSynthesis.speak(utterance);
@@ -1471,14 +1479,13 @@ const GematriaCalculator = () => {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-1 mb-1">
                       <label className="text-xs font-semibold text-gray-700">
                         Enter a word or phrase:
                       </label>
                       <button
                         onClick={handleSpeak}
-                        disabled={!input.trim()}
-                        className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        className="p-0.5 text-gray-900 hover:text-gray-700 transition-colors"
                         title="Speak phrase"
                       >
                         <Volume2 className="w-4 h-4" />
