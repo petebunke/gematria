@@ -1363,7 +1363,7 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-800 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-800 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-600 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-600 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                       Try combinations like XXX/666/111/XX, XXX/666/111/XXX, XXXX/666/111/XXX, and XXXX/6666/1111/XXXX!
                     </div>
                   </span>
@@ -1423,7 +1423,7 @@ const GematriaCalculator = () => {
                           >
                             ⓘ
                           </span>
-                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-800 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-600 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                             Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
                           </div>
                         </span>
