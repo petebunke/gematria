@@ -1516,7 +1516,7 @@ const GematriaCalculator = () => {
             {/* Results Section */}
             {results && (
               <div className="mt-8 mb-8 space-y-6">
-                <div className="flex items-center justify-center gap-3 pb-4 border-b border-zinc-800">
+                <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-800">
                   <h2 className="text-xl md:text-2xl font-bold text-white text-center">
                     Results for "{results.input}"
                   </h2>
