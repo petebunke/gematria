@@ -158,11 +158,15 @@ const GematriaCalculator = () => {
     window.speechSynthesis.cancel();
 
     // Pre-process text to prevent abbreviation expansion
-    // Add spaces between letters in short uppercase/lowercase letter sequences that look like abbreviations
+    const abbreviations = ['feb', 'jan', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'sept', 'oct', 'nov', 'dec', 'km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'min', 'sec', 'etc', 'vs', 'dr', 'mr', 'mrs', 'ms', 'st', 'ave', 'blvd', 'govt', 'dept', 'inc', 'corp', 'ltd', 'co', 'vol', 'pg', 'ch', 'fig', 'approx', 'misc', 'info', 'cgi', 'cpu', 'gpu', 'ram', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4'];
     let processedText = text;
-    // Match 2-4 letter sequences that are all consonants or common abbreviation patterns
+    // Replace known abbreviations with spaced letters
+    abbreviations.forEach(abbr => {
+      const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
+      processedText = processedText.replace(regex, (match) => match.split('').join(' '));
+    });
+    // Also match 2-4 letter sequences that are all consonants
     processedText = processedText.replace(/\b([bcdfghjklmnpqrstvwxyz]{2,4})\b/gi, (match) => {
-      // Split into individual letters with spaces
       return match.split('').join(' ');
     });
 
