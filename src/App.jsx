@@ -241,13 +241,26 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
-    // Phonetic replacements for words that TTS engines mispronounce
-    // "seq" gets interpreted as "sequence" -> "following" by some engines
+    // Phonetic replacements for words that TTS engines mispronounce or expand
+    // Month abbreviations get expanded to full names, so use phonetic spellings
     const phoneticMap = {
       'seq': 'seek',
       'misc': 'misk',
       'govt': 'guvt',
-      'dept': 'dept'
+      'dept': 'deppt',
+      // Month abbreviations - use phonetic spellings to prevent expansion
+      'jan': 'jann',
+      'feb': 'febb',
+      'mar': 'marr',
+      'apr': 'ape-er',
+      'jun': 'junn',
+      'jul': 'jool',
+      'aug': 'awg',
+      'sep': 'sepp',
+      'sept': 'seppt',
+      'oct': 'ock-t',
+      'nov': 'novv',
+      'dec': 'deck'
     };
 
     let processedText = text;
