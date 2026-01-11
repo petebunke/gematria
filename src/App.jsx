@@ -20,6 +20,7 @@ const GematriaCalculator = () => {
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
   const [voiceIndex, setVoiceIndex] = useState(0);
+  const [lastVoiceName, setLastVoiceName] = useState('');
   const [availableVoices, setAvailableVoices] = useState([]);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
@@ -132,11 +133,20 @@ const GematriaCalculator = () => {
     utterance.rate = 0.9;
     utterance.pitch = 1.0;
 
-    // Rotate through stored English voices
+    // Rotate through stored English voices, skip if same as last
     if (availableVoices.length > 0) {
-      const currentVoice = availableVoices[voiceIndex % availableVoices.length];
+      let idx = voiceIndex % availableVoices.length;
+      let currentVoice = availableVoices[idx];
+
+      // If same as last voice and we have more than one, skip to next
+      if (currentVoice.name === lastVoiceName && availableVoices.length > 1) {
+        idx = (idx + 1) % availableVoices.length;
+        currentVoice = availableVoices[idx];
+      }
+
       utterance.voice = currentVoice;
-      setVoiceIndex(prev => prev + 1);
+      setLastVoiceName(currentVoice.name);
+      setVoiceIndex(idx + 1);
     }
 
     window.speechSynthesis.speak(utterance);
