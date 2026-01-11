@@ -164,19 +164,29 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Filter to only American English voices, no novelty or spell-out voices
-    const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
-    const voices = allVoices.filter(v =>
-      v.lang === 'en-US' &&
-      !noveltyNames.some(n => v.name.toLowerCase().includes(n))
-    );
+    // Filter to high-quality voices that pronounce acronyms as letters but words normally
+    // Prefer premium/enhanced/neural voices which handle this correctly
+    const qualityIndicators = ['premium', 'enhanced', 'neural', 'natural', 'siri'];
+    const goodVoiceNames = ['samantha', 'alex', 'allison', 'ava', 'susan', 'tom', 'victoria', 'aaron', 'nicky', 'evan', 'joelle', 'zoe', 'google'];
 
+    // First try: high-quality voices only
+    let voices = allVoices.filter(v => {
+      if (v.lang !== 'en-US') return false;
+      const nameLower = v.name.toLowerCase();
+      return qualityIndicators.some(q => nameLower.includes(q)) ||
+             goodVoiceNames.some(g => nameLower.includes(g));
+    });
+
+    // Fallback: any en-US voice that's not novelty
     if (voices.length === 0) {
-      // Fallback: any en-US voice
-      const fallback = allVoices.filter(v => v.lang === 'en-US');
-      if (fallback.length > 0) voices.push(...fallback);
-      else return; // No American English voices available
+      const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
+      voices = allVoices.filter(v =>
+        v.lang === 'en-US' &&
+        !noveltyNames.some(n => v.name.toLowerCase().includes(n))
+      );
     }
+
+    if (voices.length === 0) return; // No suitable voices available
 
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'en-US';
