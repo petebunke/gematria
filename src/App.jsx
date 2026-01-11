@@ -523,8 +523,19 @@ const GematriaCalculator = () => {
     const loadVoices = () => {
       const voices = window.speechSynthesis.getVoices();
       const englishVoices = voices.filter(voice => voice.lang.startsWith('en'));
-      if (englishVoices.length > 0) {
-        setAvailableVoices(englishVoices);
+
+      // Remove duplicate voice names
+      const uniqueVoices = [];
+      const seenNames = new Set();
+      for (const voice of englishVoices) {
+        if (!seenNames.has(voice.name)) {
+          seenNames.add(voice.name);
+          uniqueVoices.push(voice);
+        }
+      }
+
+      if (uniqueVoices.length > 0) {
+        setAvailableVoices(uniqueVoices);
       }
     };
 
