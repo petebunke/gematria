@@ -157,6 +157,15 @@ const GematriaCalculator = () => {
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
+    // Pre-process text to prevent abbreviation expansion
+    // Add spaces between letters in short uppercase/lowercase letter sequences that look like abbreviations
+    let processedText = text;
+    // Match 2-4 letter sequences that are all consonants or common abbreviation patterns
+    processedText = processedText.replace(/\b([bcdfghjklmnpqrstvwxyz]{2,4})\b/gi, (match) => {
+      // Split into individual letters with spaces
+      return match.split('').join(' ');
+    });
+
     const allVoices = window.speechSynthesis.getVoices();
     if (allVoices.length === 0) {
       // Voices not loaded yet, try again after a short delay
@@ -191,7 +200,7 @@ const GematriaCalculator = () => {
 
     if (voices.length === 0) return; // No suitable voices available
 
-    const utterance = new SpeechSynthesisUtterance(text);
+    const utterance = new SpeechSynthesisUtterance(processedText);
     utterance.lang = 'en-US';
 
     // Cycle through available English voices
