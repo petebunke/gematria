@@ -1494,9 +1494,19 @@ const GematriaCalculator = () => {
             {/* Results Section */}
             {results && (
               <div className="mt-8 mb-8 space-y-6">
-                <h2 className="text-xl md:text-2xl font-bold text-white text-center pb-4 border-b border-zinc-800">
-                  Results for "{results.input}"
-                </h2>
+                <div className="flex items-center justify-center gap-3 pb-4 border-b border-zinc-800">
+                  <h2 className="text-xl md:text-2xl font-bold text-white text-center">
+                    Results for "{results.input}"
+                  </h2>
+                  <button
+                    onClick={() => speakPhrase(results.input)}
+                    disabled={isSpeaking}
+                    className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors rounded-full hover:bg-zinc-700"
+                    title="Speak phrase (cycles through voices)"
+                  >
+                    <Volume2 className={`w-6 h-6 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                  </button>
+                </div>
 
                 {/* Hebrew */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
