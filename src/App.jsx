@@ -1297,7 +1297,7 @@ const GematriaCalculator = () => {
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-center gap-3 -ml-2.5 md:ml-0">
               <Calculator className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Gematria Generator
