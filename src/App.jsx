@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -194,138 +196,60 @@ const GematriaCalculator = () => {
       return (a.aiqBekar || 0) - (b.aiqBekar || 0);
     });
 
-    // Create HTML content for PDF
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Gematria Generated Phrases - ${new Date().toLocaleDateString()}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #dc2626;
-      border-bottom: 3px solid #dc2626;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
-    }
-    .header-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .save-btn {
-      background-color: #dc2626;
-      color: white;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
-      font-weight: bold;
-      border-radius: 8px;
-      cursor: pointer;
-    }
-    .save-btn:hover {
-      background-color: #b91c1c;
-    }
-    .meta {
-      color: #666;
-      margin-bottom: 30px;
-      font-size: 14px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th {
-      background-color: #dc2626;
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-    }
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #ddd;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    tr:hover {
-      background-color: #f5f5f5;
-    }
-    .phrase {
-      font-weight: 600;
-      color: #1f2937;
-    }
-    .numbers {
-      font-family: monospace;
-      color: #dc2626;
-    }
-    .source {
-      text-transform: capitalize;
-      color: #4b5563;
-    }
-    @media print {
-      body { padding: 10px; }
-      tr { page-break-inside: avoid; }
-      .save-btn { display: none; }
-    }
-  </style>
-</head>
-<body>
-  <div class="header-row">
-    <h1 style="margin: 0; border: none; padding: 0;">Gematria Generated Phrases</h1>
-    <button class="save-btn" onclick="window.print()">Save as PDF</button>
-  </div>
-  <div class="meta">
-    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-    <p><strong>Total Phrases:</strong> ${sorted.length}</p>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Phrase</th>
-        <th>Hebrew</th>
-        <th>English</th>
-        <th>Simple</th>
-        <th>Aik Bekar⁹</th>
-        <th>Combination</th>
-        <th>Source</th>
-        <th>Gen Time</th>
-        <th>Timestamp</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${sorted.map(p => `
-        <tr>
-          <td class="phrase">${p.phrase}</td>
-          <td class="numbers">${p.hebrew}</td>
-          <td class="numbers">${p.english}</td>
-          <td class="numbers">${p.simple}</td>
-          <td class="numbers">${p.aiqBekar || '-'}</td>
-          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
-          <td class="source">${p.source}</td>
-          <td class="numbers">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
-          <td>${new Date(p.timestamp).toLocaleString()}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-</body>
-</html>
-    `;
+    // Create PDF using jsPDF
+    const doc = new jsPDF('landscape');
 
-    // Open in new window for viewing
-    const viewWindow = window.open('', '_blank');
-    viewWindow.document.write(htmlContent);
-    viewWindow.document.close();
+    // Title
+    doc.setFontSize(20);
+    doc.setTextColor(220, 38, 38);
+    doc.text('Gematria Generated Phrases', 14, 20);
+
+    // Meta info
+    doc.setFontSize(10);
+    doc.setTextColor(100);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 28);
+    doc.text(`Total Phrases: ${sorted.length}`, 14, 34);
+
+    // Table data
+    const tableData = sorted.map(p => [
+      p.phrase,
+      p.hebrew.toString(),
+      p.english.toString(),
+      p.simple.toString(),
+      (p.aiqBekar || '-').toString(),
+      `${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}`,
+      p.source,
+      p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-',
+      new Date(p.timestamp).toLocaleString()
+    ]);
+
+    // Generate table
+    doc.autoTable({
+      startY: 40,
+      head: [['Phrase', 'Hebrew', 'English', 'Simple', 'Aik Bekar', 'Combination', 'Source', 'Gen Time', 'Timestamp']],
+      body: tableData,
+      headStyles: {
+        fillColor: [220, 38, 38],
+        textColor: 255,
+        fontStyle: 'bold'
+      },
+      alternateRowStyles: {
+        fillColor: [249, 249, 249]
+      },
+      styles: {
+        fontSize: 8,
+        cellPadding: 3
+      },
+      columnStyles: {
+        0: { cellWidth: 50 },
+        5: { fontStyle: 'bold', textColor: [220, 38, 38] }
+      }
+    });
+
+    // Open PDF in new tab
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
   };
 
   const formatBreakdown = (breakdown) => {
