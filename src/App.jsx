@@ -260,7 +260,7 @@ const GematriaCalculator = () => {
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; text-transform: capitalize; color: #4b5563;">${p.source}</td>
                 <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; vertical-align: middle; font-size: 9px; color: #4b5563;">${new Date(p.timestamp).toLocaleDateString()},<br>${new Date(p.timestamp).toLocaleTimeString()}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; vertical-align: middle; color: #4b5563;">${new Date(p.timestamp).toLocaleDateString()},<br>${new Date(p.timestamp).toLocaleTimeString()}</td>
               </tr>
             `).join('')}
           </tbody>
