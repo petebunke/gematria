@@ -299,16 +299,10 @@ const GematriaCalculator = () => {
 </html>
     `;
 
-    // Open in new window for printing/saving as PDF
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
-
-    // Trigger print dialog after content loads
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    // Open in new window for viewing
+    const viewWindow = window.open('', '_blank');
+    viewWindow.document.write(htmlContent);
+    viewWindow.document.close();
   };
 
   const formatBreakdown = (breakdown) => {
