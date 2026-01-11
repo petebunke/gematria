@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
+import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -118,6 +118,35 @@ const GematriaCalculator = () => {
     } catch (err) {
       console.error('Failed to copy:', err);
     }
+  };
+
+  const handleSpeak = () => {
+    if (!input.trim()) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(input);
+    utterance.rate = 0.9;
+    utterance.pitch = 1.1;
+
+    // Try to find a female voice (Google US English Female is common)
+    const voices = window.speechSynthesis.getVoices();
+    const femaleVoice = voices.find(voice =>
+      voice.name.includes('Google US English') ||
+      voice.name.includes('Female') ||
+      voice.name.includes('Samantha') ||
+      voice.name.includes('Victoria') ||
+      voice.name.includes('Karen') ||
+      voice.name.includes('Moira') ||
+      voice.name.includes('Tessa')
+    ) || voices.find(voice => voice.lang.startsWith('en'));
+
+    if (femaleVoice) {
+      utterance.voice = femaleVoice;
+    }
+
+    window.speechSynthesis.speak(utterance);
   };
 
   const trackGeneratedPhrase = (phrase, hebrew, english, simple, aiqBekar, source, generationTimeMs = null) => {
@@ -1326,7 +1355,7 @@ const GematriaCalculator = () => {
                     >
                       ⓘ
                     </span>
-                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-700 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                    <div className={`absolute left-1/2 -translate-x-1/2 top-full mt-2 z-50 w-72 px-4 py-3 bg-zinc-800 text-white text-sm font-normal rounded-lg shadow-lg before:content-[''] before:absolute before:bottom-full before:left-1/2 before:-translate-x-1/2 before:border-8 before:border-transparent before:border-b-zinc-800 transition-opacity duration-200 ${showTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                       Try combinations like XXX/666/111/XX, XXX/666/111/XXX, XXXX/666/111/XXX, and XXXX/6666/1111/XXXX!
                     </div>
                   </span>
@@ -1386,7 +1415,7 @@ const GematriaCalculator = () => {
                           >
                             ⓘ
                           </span>
-                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-700 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
+                          <div className={`absolute right-0 top-full mt-2 z-50 w-64 px-4 py-3 bg-zinc-800 text-white text-sm font-normal rounded-lg shadow-lg transition-opacity duration-200 ${showAiqTooltip ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                             Phrases including this system can take several minutes to generate, so consider it a lucky wildcard when you get one!
                           </div>
                         </span>
@@ -1430,14 +1459,31 @@ const GematriaCalculator = () => {
 
               {/* Manual Input Section */}
               <div>
-                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Calculate Phrase Value and Generate Anagrams
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900">
+                    Calculate Phrase Value and Generate Anagrams
+                  </h3>
+                  {results && (
+                    <span className="text-sm md:text-base font-mono font-bold text-red-600">
+                      {results.hebrew.total}/{results.english.total}/{results.simple.total}/{results.aiqBekar?.total || '-'}
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Enter a word or phrase:
-                    </label>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        Enter a word or phrase:
+                      </label>
+                      <button
+                        onClick={handleSpeak}
+                        disabled={!input.trim()}
+                        className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Speak phrase"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type="text"
