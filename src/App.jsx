@@ -1418,9 +1418,19 @@ const GematriaCalculator = () => {
                 </h3>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Enter a word or phrase:
-                    </label>
+                    <div className="flex items-center gap-2 mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        Enter a word or phrase:
+                      </label>
+                      <button
+                        onClick={() => speakPhrase(input)}
+                        disabled={!input.trim() || isSpeaking}
+                        className="p-1 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Speak phrase (cycles through voices)"
+                      >
+                        <Volume2 className={`w-4 h-4 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type="text"
@@ -1428,16 +1438,8 @@ const GematriaCalculator = () => {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
                         placeholder=""
-                        className="w-full px-4 py-3 pr-20 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
+                        className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                       />
-                      <button
-                        onClick={() => speakPhrase(input)}
-                        disabled={!input.trim() || isSpeaking}
-                        className="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
-                        title="Speak phrase (cycles through voices)"
-                      >
-                        <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
-                      </button>
                       <button
                         onClick={handleCopy}
                         disabled={!input.trim()}
