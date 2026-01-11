@@ -1358,7 +1358,7 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English (Simple)
+                      Simple
                     </label>
                     <select
                       value={targetSimple}
@@ -1372,9 +1372,9 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                        English (Aik Bekar⁹)
-                        <span className="relative inline-block">
+                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-2 md:gap-1">
+                        Aik Bekar⁹
+                        <span className="relative inline-block mr-2 md:mr-0">
                           <span
                             className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
                             onMouseEnter={() => setShowAiqTooltip(true)}
@@ -1507,7 +1507,7 @@ const GematriaCalculator = () => {
                   {clearing ? (
                     <>Clearing... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
                   ) : (
-                    <><Trash2 className="w-5 h-5" /> Clear Phrases</>
+                    <><Trash2 className="w-5 h-5 hidden md:block" /> Clear Phrases</>
                   )}
                 </button>
               </div>
@@ -1560,11 +1560,11 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Simple) */}
+                {/* Simple */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      English (Simple)
+                      Simple
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.simple.total}
@@ -1575,12 +1575,12 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Aik Bekar⁹) */}
+                {/* Aik Bekar⁹ */}
                 {results.aiqBekar && (
                   <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h3 className="text-lg md:text-xl font-bold text-white">
-                        English (Aik Bekar⁹)
+                        Aik Bekar⁹
                       </h3>
                       <span className="text-2xl md:text-3xl font-bold text-red-500">
                         {results.aiqBekar.total}
@@ -1596,7 +1596,7 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 pt-8 pb-3 text-center text-xs md:text-sm text-gray-500">
+          <div className="bg-black border-t border-zinc-800 pt-8 pb-3 px-4 md:px-0 text-center text-xs md:text-sm text-gray-500">
             <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
           </div>
         </div>
