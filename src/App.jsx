@@ -1413,9 +1413,16 @@ const GematriaCalculator = () => {
 
               {/* Manual Input Section */}
               <div>
-                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Calculate Phrase Value and Generate Anagrams
-                </h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900">
+                    Calculate Phrase Value and Generate Anagrams
+                  </h3>
+                  {results && (
+                    <div className="text-sm font-mono text-red-600 font-bold">
+                      H:{results.hebrew.total} E:{results.english.total} S:{results.simple.total}{results.aiqBekar ? ` A:${results.aiqBekar.total}` : ''}
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <div>
                     <div className="flex items-center gap-0.5 mb-1">
