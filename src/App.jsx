@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
+import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
 
 const GematriaCalculator = () => {
@@ -20,6 +20,8 @@ const GematriaCalculator = () => {
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [voiceIndex, setVoiceIndex] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -149,6 +151,38 @@ const GematriaCalculator = () => {
     }
   };
 
+  const speakPhrase = (text) => {
+    if (!text || !window.speechSynthesis) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    const voices = window.speechSynthesis.getVoices();
+    if (voices.length === 0) {
+      // Voices not loaded yet, try again after a short delay
+      window.speechSynthesis.onvoiceschanged = () => speakPhrase(text);
+      return;
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
+
+    // Cycle through available voices
+    const currentVoice = voices[voiceIndex % voices.length];
+    utterance.voice = currentVoice;
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Advance to next voice for next time
+      setVoiceIndex(prev => (prev + 1) % voices.length);
+    };
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const downloadPhraseTable = () => {
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
@@ -220,9 +254,11 @@ const GematriaCalculator = () => {
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
 
-    // Generate and download PDF
-    html2pdf().set(opt).from(container).save().then(() => {
+    // Generate PDF and open in new tab for review
+    html2pdf().set(opt).from(container).outputPdf('blob').then((pdfBlob) => {
       document.body.removeChild(container);
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      window.open(blobUrl, '_blank');
     });
   };
 
@@ -1392,8 +1428,16 @@ const GematriaCalculator = () => {
                         onChange={(e) => setInput(e.target.value)}
                         onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
                         placeholder=""
-                        className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
+                        className="w-full px-4 py-3 pr-20 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                       />
+                      <button
+                        onClick={() => speakPhrase(input)}
+                        disabled={!input.trim() || isSpeaking}
+                        className="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Speak phrase (cycles through voices)"
+                      >
+                        <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                      </button>
                       <button
                         onClick={handleCopy}
                         disabled={!input.trim()}
