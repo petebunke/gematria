@@ -917,13 +917,15 @@ const GematriaCalculator = () => {
         }
       }
     } else {
-      // Aik Bekar disabled - just do 3-way search
+      // Aik Bekar disabled - just do 3-way search with extended timeout for mobile
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
         parseInt(targetSimple),
         0,
-        enabledFlags3
+        enabledFlags3,
+        2000000,  // 2 million attempts
+        30000     // 30 second timeout for mobile reliability
       );
     }
 
@@ -941,8 +943,8 @@ const GematriaCalculator = () => {
         parseInt(targetSimple),
         aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
         aiqBekarEnabled ? { heb: true, eng: true, sim: true, aiq: true } : enabledFlags3,
-        1000000,
-        10000
+        2000000,
+        30000
       );
     }
 
