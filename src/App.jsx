@@ -250,6 +250,7 @@ const GematriaCalculator = () => {
       'dept': 'deppt',
       'inc': 'ink',
       'co': 'koh',
+      'bunke': 'bun-key',
       // Month abbreviations - use phonetic spellings to prevent expansion
       'jan': 'jann',
       'feb': 'febb',
