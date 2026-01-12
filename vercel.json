@@ -1,0 +1,15 @@
+{
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "gematriagenerator.app"
+        }
+      ],
+      "destination": "https://www.gematriagenerator.app/:path*",
+      "permanent": true
+    }
+  ]
+}
