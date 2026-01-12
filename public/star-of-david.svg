@@ -1,5 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- Star of David - two overlapping triangles -->
-  <path d="M16 4 L22 15 L10 15 Z" fill="none" stroke="#ef4444" stroke-width="2" stroke-linejoin="miter"/>
-  <path d="M16 28 L10 17 L22 17 Z" fill="none" stroke="#ef4444" stroke-width="2" stroke-linejoin="miter"/>
-</svg>
