@@ -91,6 +91,24 @@ const GematriaCalculator = () => {
     return repdigits.includes(num);
   };
 
+  // Input sanitization to prevent injection attacks
+  const sanitizeInput = (text) => {
+    if (!text) return '';
+
+    // Limit length to prevent DoS
+    const maxLength = 500;
+    let sanitized = text.slice(0, maxLength);
+
+    // Remove HTML tags
+    sanitized = sanitized.replace(/<[^>]*>/g, '');
+
+    // Only allow letters, numbers, spaces, and basic punctuation
+    // This blocks regex metacharacters like ^$.*+?{}[]|\()
+    sanitized = sanitized.replace(/[^a-zA-Z0-9\s',.\-!?]/g, '');
+
+    return sanitized;
+  };
+
   const handleCalculate = () => {
     if (!input.trim()) return;
 
@@ -1579,9 +1597,11 @@ const GematriaCalculator = () => {
                       <input
                         type="text"
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={(e) => setInput(sanitizeInput(e.target.value))}
                         onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
                         placeholder=""
+                        maxLength={500}
+                        autoComplete="off"
                         className="w-full px-4 py-3 pr-20 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                       />
                       <button
