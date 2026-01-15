@@ -238,11 +238,11 @@
           <tr>
             <th>Color</th>
             <th>Phrase</th>
+            <th class="right">Combination</th>
             <th class="right">Hebrew</th>
             <th class="right">English</th>
             <th class="right">Simple</th>
             <th class="right">Aik Bekar⁹</th>
-            <th class="right">Repdigit Score</th>
           </tr>
         </thead>
         <tbody id="phraseTable"></tbody>
@@ -392,11 +392,61 @@
       return Math.floor(15 + normalized * 85);
     }
 
-    // Sample phrases
+    // Verified gematria phrases organized by Hebrew/English/Simple/AikBekar
+    // Format: "phrase" // H/E/S/A
     let phrases = [
-      "stunner", "gematria", "matrix", "cipher", "truth",
-      "light", "divine", "sacred", "wisdom", "spirit",
-      "energy", "cosmic", "balance", "creation", "eternal"
+      // 11/66/11/33
+      "a gaba", "baga gba",
+      // 111/666/111/99
+      "which", "anarcho", "heath", "fowl", "had", "dawn", "fish", "hand",
+      // 111/666/111/333
+      "decide", "cabbagehead", "diacidic", "adib decade", "heidi decade",
+      // 222/666/111/55
+      "a hall shall lid",
+      // 222/666/111/99
+      "olio", "khaldian", "lion had oil", "akpoll", "glig a lag", "hood mild fall", "hill handbook",
+      "call kinghood", "locking ahold", "hang lockhole", "nail hook", "heal cloak", "holding half",
+      "lark", "linga long fill han",
+      // 333/666/111/99
+      "act shah high", "scat hash high", "sact as high shh", "shah highs cat", "haiti has hash",
+      // 444/666/111/99
+      "xl male fall", "alled lack oak xl", "xml chaka mall", "khan calm lax k", "dock leak lax l",
+      // 555/666/111/111
+      "stunner", "lets nut", "let tour", "tor lute", "lute rot", "quest on", "uso peps", "sem stun",
+      "out pose", "opus toe", "true lot", "url step", "ms tunes", "ms route", "ps serum", "sperm us",
+      "mu store", "rep sums", "kurt seq", "st menus", "nut mess", "tom sure", "pst rule", "ent slut",
+      "rut some", "rpm uses", "pose out", "toe soup", "net runs", "ron true",
+      // 555/666/111/99
+      "highland yoga", "uganda annual", "usa aka culled", "aclu facular",
+      // 777/666/111/99
+      "xbox add salad", "galaxy hd lake",
+      // 777/666/111/111
+      "xp ix hoo",
+      // 888/666/111/99
+      "baruch hazard", "rug raz had a ea",
+      // 888/666/111/111
+      "juice blade fief gf",
+      // 999/666/111/99
+      "black bull vala", "kama val luke",
+      // 1111/666/111/99
+      "lash which cap", "hiawatha hole", "flog hiawatha", "hiawatha golf", "hang sandwich",
+      "aye ayahuasca", "ayahuasca yea", "a gang shag win", "hold at hawaii", "a swag hanging",
+      // 1111/666/111/111
+      "added add efface", "decided bidi",
+      // 8888/6666/1111/1111
+      "vessel therapeutic chrysazol spot travelling solutize swagman citizenries symptosis fatwa boat",
+      // 5555/6666/1111/111
+      "russeting poor bamoth buggery sculks aeons details nonsolubly fin psychology omoideum postmarital",
+      // 6666/6666/1111/1111
+      "hesperornis jurassic sensitizes polyoecy stanford silting monkeyishly physiology confidantes",
+      // 7777/6666/1111/1111
+      "quaestiones makers interactions disavowedly errors spermatocyst addressed apteryxes outcrows",
+      // 7777/6666/1111/111
+      "barway filched firlot sovereignize helicteres oversorrow state priggishness civie soldiers dansker glaciable",
+      // 9999/6666/1111/111
+      "www moneyflower receptary creature attention juked econometrist tight cany yertchuk simaba fellowman",
+      // 333/666/111
+      "cad steadies dice"
     ];
 
     let phraseData = phrases.map(p => {
@@ -500,15 +550,16 @@
 
       tbody.innerHTML = phraseData.map(data => {
         const color = getHSLColor(data, ranges);
+        const combo = `${data.hebrew}/${data.english}/${data.simple}/${data.aiqBekar}`;
         return `
           <tr>
             <td><span class="color-swatch" style="background:${color}"></span></td>
             <td class="mono">${data.phrase}</td>
+            <td class="right mono" style="color:#a78bfa">${combo}</td>
             <td class="right mono" style="color:#f87171">${data.hebrew}</td>
             <td class="right mono" style="color:#71717a">${data.english}</td>
             <td class="right mono" style="color:#22c55e">${data.simple}</td>
             <td class="right mono" style="color:#fbbf24">${data.aiqBekar}</td>
-            <td class="right mono" style="color:#a1a1aa">${data.repdigitInfo.score}</td>
           </tr>
         `;
       }).join('');
@@ -557,7 +608,18 @@
     }
 
     function clearPhrases() {
-      phrases = ["stunner"];
+      // Reset to representative sample across different combinations
+      phrases = [
+        "stunner",           // 555/666/111/111
+        "which",             // 111/666/111/99
+        "decide",            // 111/666/111/333
+        "act shah high",     // 333/666/111/99
+        "xl male fall",      // 444/666/111/99
+        "xbox add salad",    // 777/666/111/99
+        "baruch hazard",     // 888/666/111/99
+        "black bull vala",   // 999/666/111/99
+        "lash which cap"     // 1111/666/111/99
+      ];
       phraseData = phrases.map(p => {
         const data = calcAll(p);
         data.repdigitInfo = calcRepdigitScore(data.aiqBekar);
