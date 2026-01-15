@@ -3,9 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gematria Matrix Visualization Demo</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+  <title>Gematria Matrix Visualization</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -15,12 +13,13 @@
       padding: 24px;
       min-height: 100vh;
     }
-    .container { max-width: 1000px; margin: 0 auto; }
+    .container { max-width: 1200px; margin: 0 auto; }
     h1 { font-size: 24px; margin-bottom: 8px; }
     .subtitle { color: #888; margin-bottom: 24px; }
+
     .legend {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
       gap: 12px;
       margin-bottom: 24px;
     }
@@ -32,24 +31,84 @@
     }
     .legend-label { font-size: 12px; color: #71717a; margin-bottom: 4px; }
     .legend-value { font-weight: bold; }
-    .legend-value.purple { color: #a855f7; }
-    .legend-value.blue { color: #3b82f6; }
-    .legend-value.green { color: #22c55e; }
-    .legend-value.red { color: #ef4444; }
-    .chart-container {
+    .legend-desc { font-size: 11px; color: #52525b; margin-top: 4px; }
+
+    .hue-spectrum {
+      height: 16px;
+      border-radius: 4px;
+      margin-top: 8px;
+      background: linear-gradient(to right,
+        hsl(0, 80%, 50%),
+        hsl(60, 80%, 50%),
+        hsl(120, 80%, 50%),
+        hsl(180, 80%, 50%),
+        hsl(240, 80%, 50%),
+        hsl(300, 80%, 50%),
+        hsl(360, 80%, 50%)
+      );
+    }
+
+    .matrix-container {
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 8px;
       padding: 16px;
       margin-bottom: 24px;
+      overflow-x: auto;
     }
+
+    .matrix-grid {
+      display: grid;
+      gap: 1px;
+      background: #27272a;
+      border: 1px solid #27272a;
+      width: fit-content;
+    }
+
+    .matrix-cell {
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: transform 0.1s;
+      position: relative;
+    }
+    .matrix-cell:hover {
+      transform: scale(1.1);
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(255,255,255,0.3);
+    }
+    .matrix-cell.empty {
+      background: #0a0a0a;
+    }
+
+    .tooltip {
+      position: fixed;
+      background: #18181b;
+      border: 1px solid #3f3f46;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 1000;
+      max-width: 280px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+      display: none;
+    }
+    .tooltip.visible { display: block; }
+    .tooltip-phrase { font-weight: bold; font-size: 14px; margin-bottom: 8px; }
+    .tooltip-values { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+    .tooltip-value { padding: 4px 8px; border-radius: 4px; }
+
     .controls {
       display: flex;
       gap: 12px;
       margin-bottom: 24px;
       flex-wrap: wrap;
     }
-    input, select, button {
+    input, button {
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 6px;
@@ -64,21 +123,31 @@
       cursor: pointer;
     }
     button:hover { background: #6d28d9; }
+
     .table-container {
       background: #18181b;
       border: 1px solid #27272a;
       border-radius: 8px;
       overflow: hidden;
+      margin-bottom: 24px;
     }
     table { width: 100%; border-collapse: collapse; font-size: 13px; }
     th { background: #27272a; text-align: left; padding: 10px; }
     th.right { text-align: right; }
     td { padding: 10px; border-top: 1px solid #27272a; }
     td.right { text-align: right; font-family: monospace; }
-    td.purple { color: #a855f7; }
-    td.blue { color: #3b82f6; }
-    td.green { color: #22c55e; }
-    td.red { color: #ef4444; }
+    td.mono { font-family: monospace; }
+
+    .color-swatch {
+      width: 24px;
+      height: 24px;
+      border-radius: 4px;
+      display: inline-block;
+      vertical-align: middle;
+      margin-right: 8px;
+      border: 1px solid #3f3f46;
+    }
+
     .example {
       background: #18181b;
       border: 1px solid #27272a;
@@ -96,97 +165,108 @@
       text-align: center;
       padding: 16px;
       border-radius: 8px;
+      background: #27272a;
     }
-    .example-item.purple { background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); }
-    .example-item.blue { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); }
-    .example-item.green { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); }
-    .example-item.red { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); }
-    .example-value { font-size: 28px; font-weight: bold; }
-    .example-label { font-size: 12px; margin-top: 4px; }
-    .note { background: #1c1917; border: 1px solid #422006; border-radius: 8px; padding: 16px; margin-top: 24px; }
-    .note h3 { color: #fbbf24; margin-bottom: 8px; }
-    .note p { color: #a8a29e; font-size: 13px; line-height: 1.6; }
-    .note code { background: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24; }
+    .example-value { font-size: 28px; font-weight: bold; font-family: monospace; }
+    .example-label { font-size: 12px; margin-top: 4px; color: #a1a1aa; }
+    .example-attr { font-size: 11px; color: #71717a; margin-top: 2px; }
+
+    .info-box {
+      background: #1c1917;
+      border: 1px solid #422006;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .info-box h3 { color: #fbbf24; margin-bottom: 8px; }
+    .info-box p, .info-box li { color: #a8a29e; font-size: 13px; line-height: 1.6; }
+    .info-box code { background: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24; }
+    .info-box ul { margin-left: 20px; margin-top: 8px; }
   </style>
 </head>
 <body>
   <div class="container">
     <h1>Gematria Matrix Visualization</h1>
-    <p class="subtitle">A grid-paper-like X/Y matrix where Z is color intensity</p>
+    <p class="subtitle">Cell-by-cell grid with HSL color encoding</p>
 
     <div class="legend">
       <div class="legend-item">
-        <div class="legend-label">X Axis</div>
-        <div class="legend-value purple">Hebrew Gematria</div>
+        <div class="legend-label">Hue (H)</div>
+        <div class="legend-value" style="color:#f87171">Hebrew Gematria</div>
+        <div class="legend-desc">Lower values → Red | Higher values → Violet</div>
+        <div class="hue-spectrum"></div>
       </div>
       <div class="legend-item">
-        <div class="legend-label">Y Axis</div>
-        <div class="legend-value blue">English Gematria</div>
+        <div class="legend-label">Saturation (S)</div>
+        <div class="legend-value" style="color:#fbbf24">Aik Bekar⁹ Repdigit Score</div>
+        <div class="legend-desc">
+          Weighted by: repdigit count, consecutive digits, digit value<br>
+          666 > 669 > 696 > 123
+        </div>
       </div>
       <div class="legend-item">
-        <div class="legend-label">Color (Z)</div>
-        <div class="legend-value green">Simple Gematria</div>
-        <div style="font-size:11px;color:#666;margin-top:4px">Darker → Brighter</div>
+        <div class="legend-label">Lightness (L)</div>
+        <div class="legend-value" style="color:#22c55e">Simple Gematria Digit Count</div>
+        <div class="legend-desc">2 digits = 25% (dark) | 3 digits = 50% | 4 digits = 75% (light)</div>
       </div>
       <div class="legend-item">
-        <div class="legend-label">4th Dimension</div>
-        <div class="legend-value red">Aik Bekar</div>
-        <select id="fourthDim" style="margin-top:8px;width:100%">
-          <option value="size">Cell Size</option>
-          <option value="opacity">Opacity</option>
-          <option value="border">Border Width</option>
-        </select>
+        <div class="legend-label">Opacity</div>
+        <div class="legend-value" style="color:#71717a">English Gematria (666)</div>
+        <div class="legend-desc">Always 100% - not graphed (constant)</div>
       </div>
     </div>
 
-    <div class="chart-container">
-      <canvas id="matrixChart" height="400"></canvas>
+    <div class="example">
+      <h2>Example: "stunner" → 555/666/111/111</h2>
+      <div class="example-grid" id="stunnerExample"></div>
+    </div>
+
+    <div class="matrix-container">
+      <h3 style="margin-bottom: 12px; color: #a1a1aa; font-size: 14px;">Phrase Matrix (hover for details)</h3>
+      <div class="matrix-grid" id="matrixGrid"></div>
     </div>
 
     <div class="controls">
       <input type="text" id="phraseInput" placeholder="Add a phrase to visualize...">
       <button onclick="addPhrase()">Add Phrase</button>
-    </div>
-
-    <div class="example">
-      <h2>Example: "stunner"</h2>
-      <div class="example-grid" id="stunnerExample"></div>
-      <p style="color:#666;font-size:12px;margin-top:12px">
-        Note: Values calculated using gematrix.org formulas from your codebase.
-      </p>
+      <button onclick="clearPhrases()" style="background:#dc2626;border-color:#dc2626;">Clear All</button>
     </div>
 
     <div class="table-container">
       <table>
         <thead>
           <tr>
+            <th>Color</th>
             <th>Phrase</th>
-            <th class="right" style="color:#a855f7">Hebrew</th>
-            <th class="right" style="color:#3b82f6">English</th>
-            <th class="right" style="color:#22c55e">Simple</th>
-            <th class="right" style="color:#ef4444">Aik Bekar</th>
+            <th class="right">Hebrew</th>
+            <th class="right">English</th>
+            <th class="right">Simple</th>
+            <th class="right">Aik Bekar⁹</th>
+            <th class="right">Repdigit Score</th>
           </tr>
         </thead>
         <tbody id="phraseTable"></tbody>
       </table>
     </div>
 
-    <div class="note">
-      <h3>How the 4th Dimension Works</h3>
-      <p>
-        Since we have 4 gematria values but only 3 spatial dimensions (X, Y, color),
-        the 4th value (Aik Bekar) can be encoded as:<br><br>
-        <strong>Cell Size:</strong> Larger rectangles = higher Aik Bekar values<br>
-        <strong>Opacity:</strong> More opaque cells = higher values<br>
-        <strong>Border Width:</strong> Thicker borders = higher values<br><br>
-        In <code>chartjs-chart-matrix</code>, this is achieved via dynamic <code>width</code>,
-        <code>height</code>, or <code>borderWidth</code> callbacks.
+    <div class="info-box">
+      <h3>Repdigit Saturation Scoring</h3>
+      <p>The Aik Bekar value determines saturation through repdigit analysis:</p>
+      <ul>
+        <li><strong>Total repdigits:</strong> Count of repeated digits (666 has 3, 669 has 2)</li>
+        <li><strong>Consecutive bonus:</strong> Adjacent repeats score higher (669 > 696)</li>
+        <li><strong>Value weight:</strong> Higher numbers rank above (1111 > 99, 8888 > 999)</li>
+      </ul>
+      <p style="margin-top: 12px;">
+        <strong>Formula:</strong> <code>score = (repdigitCount × 20) + (consecutiveBonus × 15) + (digitValue × digits / 10)</code>
       </p>
     </div>
+
+    <div id="tooltip" class="tooltip"></div>
   </div>
 
   <script>
-    // Gematria calculation values (from gematrix.org)
+    // Corrected Gematria values from gematrix.org
     const hebrewValues = {
       a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 600,
       k: 10, l: 20, m: 30, n: 40, o: 50, p: 60, q: 70, r: 80, s: 90, t: 100,
@@ -205,10 +285,12 @@
       u: 21, v: 22, w: 23, x: 24, y: 25, z: 26
     };
 
+    // Corrected Aik Bekar Base-9 values (derived from gematrix.org)
+    // stunner = s5 + t24 + u17 + n14 + n14 + e25 + r12 = 111
     const aiqBekarValues = {
-      a: 1, b: 20, c: 13, d: 6, e: 8, f: 17, g: 19, h: 3, i: 5, j: 14,
-      k: 16, l: 9, m: 11, n: 22, o: 15, p: 7, q: 18, r: 21, s: 4, t: 13,
-      u: 6, v: 8, w: 17, x: 19, y: 3, z: 5
+      a: 1, b: 2, c: 3, d: 4, e: 25, f: 6, g: 7, h: 8, i: 9, j: 10,
+      k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17, r: 12, s: 5, t: 24,
+      u: 17, v: 22, w: 23, x: 24, y: 25, z: 26
     };
 
     function calcGematria(text, values) {
@@ -228,159 +310,233 @@
       };
     }
 
-    // Sample phrases
-    let phrases = [
-      "stunner", "gematria", "matrix", "cipher", "decode",
-      "pattern", "sacred", "wisdom", "truth", "light",
-      "divine", "spirit", "energy", "harmony", "balance",
-      "creation", "universe", "cosmic", "eternal", "number"
-    ];
+    // Calculate repdigit score for saturation
+    function calcRepdigitScore(num) {
+      const str = num.toString();
+      const digits = str.split('');
 
-    let phraseData = phrases.map(calcAll);
-    let chart;
+      // Count character frequencies
+      const freq = {};
+      digits.forEach(d => freq[d] = (freq[d] || 0) + 1);
 
-    function getMaxValues() {
-      return {
-        hebrew: Math.max(...phraseData.map(p => p.hebrew)),
-        english: Math.max(...phraseData.map(p => p.english)),
-        simple: Math.max(...phraseData.map(p => p.simple)),
-        aiqBekar: Math.max(...phraseData.map(p => p.aiqBekar))
-      };
-    }
+      // Count total repdigits (digits that appear more than once)
+      let repdigitCount = 0;
+      let maxRepeatedDigit = 0;
+      let maxRepeatCount = 0;
 
-    function getColor(simple, maxSimple) {
-      const norm = Math.min(simple / maxSimple, 1);
-      const r = Math.floor(40 + norm * 180);
-      const g = Math.floor(30 + norm * 150);
-      const b = Math.floor(100 + (1 - norm) * 80);
-      return `rgb(${r}, ${g}, ${b})`;
-    }
-
-    function buildChart() {
-      const ctx = document.getElementById('matrixChart').getContext('2d');
-      const maxVals = getMaxValues();
-      const fourthDim = document.getElementById('fourthDim').value;
-
-      // Create matrix data points
-      const data = phraseData.map(p => ({
-        x: p.hebrew,
-        y: p.english,
-        v: p.simple,
-        a: p.aiqBekar,
-        phrase: p.phrase
-      }));
-
-      if (chart) chart.destroy();
-
-      chart = new Chart(ctx, {
-        type: 'matrix',
-        data: {
-          datasets: [{
-            label: 'Gematria Values',
-            data: data,
-            backgroundColor: (ctx) => {
-              const v = ctx.raw?.v || 0;
-              const base = getColor(v, maxVals.simple);
-              if (fourthDim === 'opacity') {
-                const alpha = 0.3 + (ctx.raw?.a / maxVals.aiqBekar) * 0.7;
-                return base.replace('rgb', 'rgba').replace(')', `, ${alpha})`);
-              }
-              return base;
-            },
-            borderColor: (ctx) => {
-              if (fourthDim === 'border') return '#fff';
-              return 'transparent';
-            },
-            borderWidth: (ctx) => {
-              if (fourthDim === 'border') {
-                return 1 + (ctx.raw?.a / maxVals.aiqBekar) * 4;
-              }
-              return 0;
-            },
-            width: (ctx) => {
-              if (fourthDim === 'size') {
-                return 15 + (ctx.raw?.a / maxVals.aiqBekar) * 25;
-              }
-              return 20;
-            },
-            height: (ctx) => {
-              if (fourthDim === 'size') {
-                return 15 + (ctx.raw?.a / maxVals.aiqBekar) * 25;
-              }
-              return 20;
-            }
-          }]
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                title: (items) => items[0]?.raw?.phrase || '',
-                label: (item) => {
-                  const d = item.raw;
-                  return [
-                    `Hebrew: ${d.x}`,
-                    `English: ${d.y}`,
-                    `Simple: ${d.v}`,
-                    `Aik Bekar: ${d.a}`
-                  ];
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              type: 'linear',
-              position: 'bottom',
-              title: { display: true, text: 'Hebrew Gematria', color: '#a855f7' },
-              grid: { color: '#27272a' },
-              ticks: { color: '#71717a' }
-            },
-            y: {
-              type: 'linear',
-              title: { display: true, text: 'English Gematria', color: '#3b82f6' },
-              grid: { color: '#27272a' },
-              ticks: { color: '#71717a' }
-            }
+      Object.entries(freq).forEach(([digit, count]) => {
+        if (count > 1) {
+          repdigitCount += count;
+          if (count > maxRepeatCount || (count === maxRepeatCount && parseInt(digit) > maxRepeatedDigit)) {
+            maxRepeatCount = count;
+            maxRepeatedDigit = parseInt(digit);
           }
         }
       });
+
+      // Count consecutive repeats (touching repdigits)
+      let consecutiveBonus = 0;
+      let currentRun = 1;
+      for (let i = 1; i < digits.length; i++) {
+        if (digits[i] === digits[i-1]) {
+          currentRun++;
+        } else {
+          if (currentRun > 1) {
+            consecutiveBonus += currentRun * currentRun; // Square for emphasis
+          }
+          currentRun = 1;
+        }
+      }
+      if (currentRun > 1) {
+        consecutiveBonus += currentRun * currentRun;
+      }
+
+      // Value weight: higher repdigit values and longer numbers score more
+      // 1111 > 99, 8888 > 999
+      const digitValue = maxRepeatedDigit;
+      const lengthBonus = digits.length;
+
+      // Combined score
+      const score = (repdigitCount * 20) + (consecutiveBonus * 15) + (digitValue * maxRepeatCount * 2) + (lengthBonus * 5);
+
+      return {
+        score,
+        repdigitCount,
+        consecutiveBonus,
+        maxRepeatedDigit,
+        maxRepeatCount
+      };
+    }
+
+    // Convert Hebrew value to Hue (0-300, red to violet)
+    function hebrewToHue(hebrew, minHebrew, maxHebrew) {
+      // Map to 0 (red) through 300 (violet/magenta)
+      const normalized = (hebrew - minHebrew) / (maxHebrew - minHebrew || 1);
+      return Math.floor(normalized * 300);
+    }
+
+    // Convert Simple digit count to Lightness
+    function simpleToLightness(simple) {
+      const digitCount = simple.toString().length;
+      if (digitCount <= 2) return 25;  // Dark
+      if (digitCount === 3) return 50; // Medium
+      return 75; // Light (4+ digits)
+    }
+
+    // Convert repdigit score to Saturation (0-100)
+    function scoreToSaturation(score, minScore, maxScore) {
+      if (maxScore === minScore) return 50;
+      const normalized = (score - minScore) / (maxScore - minScore);
+      // Range from 15% (desaturated) to 100% (vivid)
+      return Math.floor(15 + normalized * 85);
+    }
+
+    // Sample phrases
+    let phrases = [
+      "stunner", "gematria", "matrix", "cipher", "truth",
+      "light", "divine", "sacred", "wisdom", "spirit",
+      "energy", "cosmic", "balance", "creation", "eternal"
+    ];
+
+    let phraseData = phrases.map(p => {
+      const data = calcAll(p);
+      data.repdigitInfo = calcRepdigitScore(data.aiqBekar);
+      return data;
+    });
+
+    function getColorRanges() {
+      const hebrews = phraseData.map(p => p.hebrew);
+      const scores = phraseData.map(p => p.repdigitInfo.score);
+      return {
+        minHebrew: Math.min(...hebrews),
+        maxHebrew: Math.max(...hebrews),
+        minScore: Math.min(...scores),
+        maxScore: Math.max(...scores)
+      };
+    }
+
+    function getHSLColor(data, ranges) {
+      const h = hebrewToHue(data.hebrew, ranges.minHebrew, ranges.maxHebrew);
+      const s = scoreToSaturation(data.repdigitInfo.score, ranges.minScore, ranges.maxScore);
+      const l = simpleToLightness(data.simple);
+      return `hsl(${h}, ${s}%, ${l}%)`;
+    }
+
+    function buildMatrix() {
+      const grid = document.getElementById('matrixGrid');
+      const ranges = getColorRanges();
+
+      // Calculate grid dimensions (roughly square)
+      const count = phraseData.length;
+      const cols = Math.ceil(Math.sqrt(count));
+
+      grid.style.gridTemplateColumns = `repeat(${cols}, 40px)`;
+      grid.innerHTML = '';
+
+      phraseData.forEach((data, idx) => {
+        const cell = document.createElement('div');
+        cell.className = 'matrix-cell';
+        cell.style.backgroundColor = getHSLColor(data, ranges);
+        cell.dataset.index = idx;
+
+        cell.addEventListener('mouseenter', (e) => showTooltip(e, data, ranges));
+        cell.addEventListener('mouseleave', hideTooltip);
+        cell.addEventListener('mousemove', moveTooltip);
+
+        grid.appendChild(cell);
+      });
+    }
+
+    function showTooltip(e, data, ranges) {
+      const tooltip = document.getElementById('tooltip');
+      const color = getHSLColor(data, ranges);
+      const h = hebrewToHue(data.hebrew, ranges.minHebrew, ranges.maxHebrew);
+      const s = scoreToSaturation(data.repdigitInfo.score, ranges.minScore, ranges.maxScore);
+      const l = simpleToLightness(data.simple);
+
+      tooltip.innerHTML = `
+        <div class="tooltip-phrase">
+          <span class="color-swatch" style="background:${color}"></span>
+          ${data.phrase}
+        </div>
+        <div class="tooltip-values">
+          <div class="tooltip-value" style="background:#3f3f46">
+            <div style="color:#f87171">Hebrew: ${data.hebrew}</div>
+            <div style="font-size:10px;color:#71717a">Hue: ${h}°</div>
+          </div>
+          <div class="tooltip-value" style="background:#3f3f46">
+            <div style="color:#71717a">English: ${data.english}</div>
+            <div style="font-size:10px;color:#52525b">Always 666 (ignored)</div>
+          </div>
+          <div class="tooltip-value" style="background:#3f3f46">
+            <div style="color:#22c55e">Simple: ${data.simple}</div>
+            <div style="font-size:10px;color:#71717a">Lightness: ${l}% (${data.simple.toString().length} digits)</div>
+          </div>
+          <div class="tooltip-value" style="background:#3f3f46">
+            <div style="color:#fbbf24">Aik Bekar: ${data.aiqBekar}</div>
+            <div style="font-size:10px;color:#71717a">Saturation: ${s}%</div>
+            <div style="font-size:9px;color:#52525b">Score: ${data.repdigitInfo.score}</div>
+          </div>
+        </div>
+      `;
+      tooltip.classList.add('visible');
+      moveTooltip(e);
+    }
+
+    function moveTooltip(e) {
+      const tooltip = document.getElementById('tooltip');
+      tooltip.style.left = (e.clientX + 15) + 'px';
+      tooltip.style.top = (e.clientY + 15) + 'px';
+    }
+
+    function hideTooltip() {
+      document.getElementById('tooltip').classList.remove('visible');
     }
 
     function updateTable() {
       const tbody = document.getElementById('phraseTable');
-      tbody.innerHTML = phraseData.map(p => `
-        <tr>
-          <td style="font-family:monospace">${p.phrase}</td>
-          <td class="right purple">${p.hebrew}</td>
-          <td class="right blue">${p.english}</td>
-          <td class="right green">${p.simple}</td>
-          <td class="right red">${p.aiqBekar}</td>
-        </tr>
-      `).join('');
+      const ranges = getColorRanges();
+
+      tbody.innerHTML = phraseData.map(data => {
+        const color = getHSLColor(data, ranges);
+        return `
+          <tr>
+            <td><span class="color-swatch" style="background:${color}"></span></td>
+            <td class="mono">${data.phrase}</td>
+            <td class="right mono" style="color:#f87171">${data.hebrew}</td>
+            <td class="right mono" style="color:#71717a">${data.english}</td>
+            <td class="right mono" style="color:#22c55e">${data.simple}</td>
+            <td class="right mono" style="color:#fbbf24">${data.aiqBekar}</td>
+            <td class="right mono" style="color:#a1a1aa">${data.repdigitInfo.score}</td>
+          </tr>
+        `;
+      }).join('');
     }
 
     function showStunnerExample() {
       const s = calcAll('stunner');
+      const repInfo = calcRepdigitScore(s.aiqBekar);
+
       document.getElementById('stunnerExample').innerHTML = `
-        <div class="example-item purple">
-          <div class="example-value" style="color:#a855f7">${s.hebrew}</div>
-          <div class="example-label" style="color:#c084fc">Hebrew</div>
+        <div class="example-item">
+          <div class="example-value" style="color:#f87171">${s.hebrew}</div>
+          <div class="example-label">Hebrew</div>
+          <div class="example-attr">→ Hue (red-violet)</div>
         </div>
-        <div class="example-item blue">
-          <div class="example-value" style="color:#3b82f6">${s.english}</div>
-          <div class="example-label" style="color:#60a5fa">English</div>
+        <div class="example-item">
+          <div class="example-value" style="color:#71717a">${s.english}</div>
+          <div class="example-label">English</div>
+          <div class="example-attr">→ Ignored (constant)</div>
         </div>
-        <div class="example-item green">
+        <div class="example-item">
           <div class="example-value" style="color:#22c55e">${s.simple}</div>
-          <div class="example-label" style="color:#4ade80">Simple</div>
+          <div class="example-label">Simple</div>
+          <div class="example-attr">→ Lightness (${s.simple.toString().length} digits)</div>
         </div>
-        <div class="example-item red">
-          <div class="example-value" style="color:#ef4444">${s.aiqBekar}</div>
-          <div class="example-label" style="color:#f87171">Aik Bekar</div>
+        <div class="example-item">
+          <div class="example-value" style="color:#fbbf24">${s.aiqBekar}</div>
+          <div class="example-label">Aik Bekar⁹</div>
+          <div class="example-attr">→ Saturation (score: ${repInfo.score})</div>
         </div>
       `;
     }
@@ -390,21 +546,32 @@
       const phrase = input.value.trim().toLowerCase();
       if (phrase && !phrases.includes(phrase)) {
         phrases.push(phrase);
-        phraseData.push(calcAll(phrase));
-        buildChart();
+        const data = calcAll(phrase);
+        data.repdigitInfo = calcRepdigitScore(data.aiqBekar);
+        phraseData.push(data);
+        buildMatrix();
         updateTable();
         input.value = '';
       }
+    }
+
+    function clearPhrases() {
+      phrases = ["stunner"];
+      phraseData = phrases.map(p => {
+        const data = calcAll(p);
+        data.repdigitInfo = calcRepdigitScore(data.aiqBekar);
+        return data;
+      });
+      buildMatrix();
+      updateTable();
     }
 
     document.getElementById('phraseInput').addEventListener('keydown', (e) => {
       if (e.key === 'Enter') addPhrase();
     });
 
-    document.getElementById('fourthDim').addEventListener('change', buildChart);
-
     // Initialize
-    buildChart();
+    buildMatrix();
     updateTable();
     showStunnerExample();
   </script>
