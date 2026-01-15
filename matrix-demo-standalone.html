@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria Matrix Visualization Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2.0.1/dist/chartjs-chart-matrix.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0a0a0a;
+      color: #fff;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .container { max-width: 1000px; margin: 0 auto; }
+    h1 { font-size: 24px; margin-bottom: 8px; }
+    .subtitle { color: #888; margin-bottom: 24px; }
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .legend-item {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .legend-label { font-size: 12px; color: #71717a; margin-bottom: 4px; }
+    .legend-value { font-weight: bold; }
+    .legend-value.purple { color: #a855f7; }
+    .legend-value.blue { color: #3b82f6; }
+    .legend-value.green { color: #22c55e; }
+    .legend-value.red { color: #ef4444; }
+    .chart-container {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+    }
+    input, select, button {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 6px;
+      color: #fff;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    input { flex: 1; min-width: 200px; }
+    button {
+      background: #7c3aed;
+      border-color: #7c3aed;
+      cursor: pointer;
+    }
+    button:hover { background: #6d28d9; }
+    .table-container {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #27272a; text-align: left; padding: 10px; }
+    th.right { text-align: right; }
+    td { padding: 10px; border-top: 1px solid #27272a; }
+    td.right { text-align: right; font-family: monospace; }
+    td.purple { color: #a855f7; }
+    td.blue { color: #3b82f6; }
+    td.green { color: #22c55e; }
+    td.red { color: #ef4444; }
+    .example {
+      background: #18181b;
+      border: 1px solid #27272a;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .example h2 { font-size: 18px; margin-bottom: 12px; }
+    .example-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .example-item {
+      text-align: center;
+      padding: 16px;
+      border-radius: 8px;
+    }
+    .example-item.purple { background: rgba(168, 85, 247, 0.15); border: 1px solid rgba(168, 85, 247, 0.4); }
+    .example-item.blue { background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); }
+    .example-item.green { background: rgba(34, 197, 94, 0.15); border: 1px solid rgba(34, 197, 94, 0.4); }
+    .example-item.red { background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); }
+    .example-value { font-size: 28px; font-weight: bold; }
+    .example-label { font-size: 12px; margin-top: 4px; }
+    .note { background: #1c1917; border: 1px solid #422006; border-radius: 8px; padding: 16px; margin-top: 24px; }
+    .note h3 { color: #fbbf24; margin-bottom: 8px; }
+    .note p { color: #a8a29e; font-size: 13px; line-height: 1.6; }
+    .note code { background: #000; padding: 2px 6px; border-radius: 4px; color: #fbbf24; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gematria Matrix Visualization</h1>
+    <p class="subtitle">A grid-paper-like X/Y matrix where Z is color intensity</p>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-label">X Axis</div>
+        <div class="legend-value purple">Hebrew Gematria</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">Y Axis</div>
+        <div class="legend-value blue">English Gematria</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">Color (Z)</div>
+        <div class="legend-value green">Simple Gematria</div>
+        <div style="font-size:11px;color:#666;margin-top:4px">Darker → Brighter</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">4th Dimension</div>
+        <div class="legend-value red">Aik Bekar</div>
+        <select id="fourthDim" style="margin-top:8px;width:100%">
+          <option value="size">Cell Size</option>
+          <option value="opacity">Opacity</option>
+          <option value="border">Border Width</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <canvas id="matrixChart" height="400"></canvas>
+    </div>
+
+    <div class="controls">
+      <input type="text" id="phraseInput" placeholder="Add a phrase to visualize...">
+      <button onclick="addPhrase()">Add Phrase</button>
+    </div>
+
+    <div class="example">
+      <h2>Example: "stunner"</h2>
+      <div class="example-grid" id="stunnerExample"></div>
+      <p style="color:#666;font-size:12px;margin-top:12px">
+        Note: Values calculated using gematrix.org formulas from your codebase.
+      </p>
+    </div>
+
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Phrase</th>
+            <th class="right" style="color:#a855f7">Hebrew</th>
+            <th class="right" style="color:#3b82f6">English</th>
+            <th class="right" style="color:#22c55e">Simple</th>
+            <th class="right" style="color:#ef4444">Aik Bekar</th>
+          </tr>
+        </thead>
+        <tbody id="phraseTable"></tbody>
+      </table>
+    </div>
+
+    <div class="note">
+      <h3>How the 4th Dimension Works</h3>
+      <p>
+        Since we have 4 gematria values but only 3 spatial dimensions (X, Y, color),
+        the 4th value (Aik Bekar) can be encoded as:<br><br>
+        <strong>Cell Size:</strong> Larger rectangles = higher Aik Bekar values<br>
+        <strong>Opacity:</strong> More opaque cells = higher values<br>
+        <strong>Border Width:</strong> Thicker borders = higher values<br><br>
+        In <code>chartjs-chart-matrix</code>, this is achieved via dynamic <code>width</code>,
+        <code>height</code>, or <code>borderWidth</code> callbacks.
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Gematria calculation values (from gematrix.org)
+    const hebrewValues = {
+      a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 600,
+      k: 10, l: 20, m: 30, n: 40, o: 50, p: 60, q: 70, r: 80, s: 90, t: 100,
+      u: 200, v: 700, w: 900, x: 300, y: 400, z: 500
+    };
+
+    const englishValues = {
+      a: 6, b: 12, c: 18, d: 24, e: 30, f: 36, g: 42, h: 48, i: 54, j: 60,
+      k: 66, l: 72, m: 78, n: 84, o: 90, p: 96, q: 102, r: 108, s: 114, t: 120,
+      u: 126, v: 132, w: 138, x: 144, y: 150, z: 156
+    };
+
+    const simpleValues = {
+      a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9, j: 10,
+      k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17, r: 18, s: 19, t: 20,
+      u: 21, v: 22, w: 23, x: 24, y: 25, z: 26
+    };
+
+    const aiqBekarValues = {
+      a: 1, b: 20, c: 13, d: 6, e: 8, f: 17, g: 19, h: 3, i: 5, j: 14,
+      k: 16, l: 9, m: 11, n: 22, o: 15, p: 7, q: 18, r: 21, s: 4, t: 13,
+      u: 6, v: 8, w: 17, x: 19, y: 3, z: 5
+    };
+
+    function calcGematria(text, values) {
+      let total = 0;
+      const clean = text.toLowerCase().replace(/[^a-z]/g, '');
+      for (let c of clean) total += values[c] || 0;
+      return total;
+    }
+
+    function calcAll(phrase) {
+      return {
+        phrase,
+        hebrew: calcGematria(phrase, hebrewValues),
+        english: calcGematria(phrase, englishValues),
+        simple: calcGematria(phrase, simpleValues),
+        aiqBekar: calcGematria(phrase, aiqBekarValues)
+      };
+    }
+
+    // Sample phrases
+    let phrases = [
+      "stunner", "gematria", "matrix", "cipher", "decode",
+      "pattern", "sacred", "wisdom", "truth", "light",
+      "divine", "spirit", "energy", "harmony", "balance",
+      "creation", "universe", "cosmic", "eternal", "number"
+    ];
+
+    let phraseData = phrases.map(calcAll);
+    let chart;
+
+    function getMaxValues() {
+      return {
+        hebrew: Math.max(...phraseData.map(p => p.hebrew)),
+        english: Math.max(...phraseData.map(p => p.english)),
+        simple: Math.max(...phraseData.map(p => p.simple)),
+        aiqBekar: Math.max(...phraseData.map(p => p.aiqBekar))
+      };
+    }
+
+    function getColor(simple, maxSimple) {
+      const norm = Math.min(simple / maxSimple, 1);
+      const r = Math.floor(40 + norm * 180);
+      const g = Math.floor(30 + norm * 150);
+      const b = Math.floor(100 + (1 - norm) * 80);
+      return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function buildChart() {
+      const ctx = document.getElementById('matrixChart').getContext('2d');
+      const maxVals = getMaxValues();
+      const fourthDim = document.getElementById('fourthDim').value;
+
+      // Create matrix data points
+      const data = phraseData.map(p => ({
+        x: p.hebrew,
+        y: p.english,
+        v: p.simple,
+        a: p.aiqBekar,
+        phrase: p.phrase
+      }));
+
+      if (chart) chart.destroy();
+
+      chart = new Chart(ctx, {
+        type: 'matrix',
+        data: {
+          datasets: [{
+            label: 'Gematria Values',
+            data: data,
+            backgroundColor: (ctx) => {
+              const v = ctx.raw?.v || 0;
+              const base = getColor(v, maxVals.simple);
+              if (fourthDim === 'opacity') {
+                const alpha = 0.3 + (ctx.raw?.a / maxVals.aiqBekar) * 0.7;
+                return base.replace('rgb', 'rgba').replace(')', `, ${alpha})`);
+              }
+              return base;
+            },
+            borderColor: (ctx) => {
+              if (fourthDim === 'border') return '#fff';
+              return 'transparent';
+            },
+            borderWidth: (ctx) => {
+              if (fourthDim === 'border') {
+                return 1 + (ctx.raw?.a / maxVals.aiqBekar) * 4;
+              }
+              return 0;
+            },
+            width: (ctx) => {
+              if (fourthDim === 'size') {
+                return 15 + (ctx.raw?.a / maxVals.aiqBekar) * 25;
+              }
+              return 20;
+            },
+            height: (ctx) => {
+              if (fourthDim === 'size') {
+                return 15 + (ctx.raw?.a / maxVals.aiqBekar) * 25;
+              }
+              return 20;
+            }
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                title: (items) => items[0]?.raw?.phrase || '',
+                label: (item) => {
+                  const d = item.raw;
+                  return [
+                    `Hebrew: ${d.x}`,
+                    `English: ${d.y}`,
+                    `Simple: ${d.v}`,
+                    `Aik Bekar: ${d.a}`
+                  ];
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              type: 'linear',
+              position: 'bottom',
+              title: { display: true, text: 'Hebrew Gematria', color: '#a855f7' },
+              grid: { color: '#27272a' },
+              ticks: { color: '#71717a' }
+            },
+            y: {
+              type: 'linear',
+              title: { display: true, text: 'English Gematria', color: '#3b82f6' },
+              grid: { color: '#27272a' },
+              ticks: { color: '#71717a' }
+            }
+          }
+        }
+      });
+    }
+
+    function updateTable() {
+      const tbody = document.getElementById('phraseTable');
+      tbody.innerHTML = phraseData.map(p => `
+        <tr>
+          <td style="font-family:monospace">${p.phrase}</td>
+          <td class="right purple">${p.hebrew}</td>
+          <td class="right blue">${p.english}</td>
+          <td class="right green">${p.simple}</td>
+          <td class="right red">${p.aiqBekar}</td>
+        </tr>
+      `).join('');
+    }
+
+    function showStunnerExample() {
+      const s = calcAll('stunner');
+      document.getElementById('stunnerExample').innerHTML = `
+        <div class="example-item purple">
+          <div class="example-value" style="color:#a855f7">${s.hebrew}</div>
+          <div class="example-label" style="color:#c084fc">Hebrew</div>
+        </div>
+        <div class="example-item blue">
+          <div class="example-value" style="color:#3b82f6">${s.english}</div>
+          <div class="example-label" style="color:#60a5fa">English</div>
+        </div>
+        <div class="example-item green">
+          <div class="example-value" style="color:#22c55e">${s.simple}</div>
+          <div class="example-label" style="color:#4ade80">Simple</div>
+        </div>
+        <div class="example-item red">
+          <div class="example-value" style="color:#ef4444">${s.aiqBekar}</div>
+          <div class="example-label" style="color:#f87171">Aik Bekar</div>
+        </div>
+      `;
+    }
+
+    function addPhrase() {
+      const input = document.getElementById('phraseInput');
+      const phrase = input.value.trim().toLowerCase();
+      if (phrase && !phrases.includes(phrase)) {
+        phrases.push(phrase);
+        phraseData.push(calcAll(phrase));
+        buildChart();
+        updateTable();
+        input.value = '';
+      }
+    }
+
+    document.getElementById('phraseInput').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') addPhrase();
+    });
+
+    document.getElementById('fourthDim').addEventListener('change', buildChart);
+
+    // Initialize
+    buildChart();
+    updateTable();
+    showStunnerExample();
+  </script>
+</body>
+</html>
