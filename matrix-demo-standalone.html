@@ -285,12 +285,13 @@
       u: 21, v: 22, w: 23, x: 24, y: 25, z: 26
     };
 
-    // Corrected Aik Bekar Base-9 values (derived from gematrix.org)
-    // stunner = s5 + t24 + u17 + n14 + n14 + e25 + r12 = 111
+    // Aik Bekar Base-9 values from gematrix.org
+    // A B C D E F G H I J  K L M  N  O P  Q  R  S T  U  V  W X  Y  Z
+    // 1 20 13 6 25 18 11 4 23 16 9 2 21 14 7 26 19 12 5 24 17 10 3 22 15 8
     const aiqBekarValues = {
-      a: 1, b: 2, c: 3, d: 4, e: 25, f: 6, g: 7, h: 8, i: 9, j: 10,
-      k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17, r: 12, s: 5, t: 24,
-      u: 17, v: 22, w: 23, x: 24, y: 25, z: 26
+      a: 1, b: 20, c: 13, d: 6, e: 25, f: 18, g: 11, h: 4, i: 23, j: 16,
+      k: 9, l: 2, m: 21, n: 14, o: 7, p: 26, q: 19, r: 12, s: 5, t: 24,
+      u: 17, v: 10, w: 3, x: 22, y: 15, z: 8
     };
 
     function calcGematria(text, values) {
