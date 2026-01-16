@@ -189,7 +189,8 @@
     </div>
 
     <div class="control-group">
-      <button id="exportSvg" class="secondary">SVG</button>
+      <button id="exportGif" class="secondary">GIF</button>
+      <button id="exportHtml" class="secondary">HTML</button>
     </div>
   </div>
 
@@ -1123,21 +1124,369 @@
       }
     });
 
-    document.getElementById('exportSvg').addEventListener('click', () => {
-      const svg = document.getElementById('tessellationSvg');
-      const svgData = new XMLSerializer().serializeToString(svg);
-      const blob = new Blob([svgData], { type: 'image/svg+xml' });
+    // GIF Export using gif.js approach with canvas
+    document.getElementById('exportGif').addEventListener('click', async () => {
+      const btn = document.getElementById('exportGif');
+      const originalText = btn.textContent;
+      btn.textContent = '...';
+      btn.disabled = true;
+
+      try {
+        // Save current state
+        const savedConfigIndex = currentConfigIndex;
+        const savedVariation = currentVariation;
+        const wasPlaying = isPlaying;
+        if (wasPlaying) {
+          isPlaying = false;
+          if (animationTimer) clearTimeout(animationTimer);
+        }
+
+        const svg = document.getElementById('tessellationSvg');
+        const varCount = getVariationCount();
+        const totalFrames = CONFIG_KEYS.length * varCount;
+
+        // Get SVG dimensions
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const width = Math.round(viewBox[2]);
+        const height = Math.round(viewBox[3]);
+
+        // Create canvas for rendering
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        // Collect frames
+        const frames = [];
+        for (let i = 0; i < totalFrames; i++) {
+          currentConfigIndex = Math.floor(i / varCount);
+          currentVariation = i % varCount;
+          render();
+
+          const svgData = new XMLSerializer().serializeToString(svg);
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+
+          await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.fillStyle = '#f8f8f4';
+              ctx.fillRect(0, 0, width, height);
+              ctx.drawImage(img, 0, 0, width, height);
+              frames.push(ctx.getImageData(0, 0, width, height));
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = url;
+          });
+        }
+
+        // Encode GIF using simple encoder
+        const gif = encodeGif(frames, width, height, Math.round(frameSpeed / 10));
+
+        // Download
+        const blob = new Blob([gif], { type: 'image/gif' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `gematria-${displayMode}-${currentPhrase.split(' ')[0]}.gif`;
+        a.click();
+        URL.revokeObjectURL(url);
+
+        // Restore state
+        currentConfigIndex = savedConfigIndex;
+        currentVariation = savedVariation;
+        render();
+        if (wasPlaying) {
+          isPlaying = true;
+          animate();
+        }
+      } catch (err) {
+        console.error('GIF export error:', err);
+        alert('Error creating GIF: ' + err.message);
+      }
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+    });
+
+    // Simple GIF encoder (LZW-based)
+    function encodeGif(frames, width, height, delay) {
+      const buf = [];
+      const write = (b) => buf.push(b);
+      const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
+      const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
+
+      // Build global color table from all frames
+      const colorMap = new Map();
+      const colors = [];
+      frames.forEach(frame => {
+        for (let i = 0; i < frame.data.length; i += 4) {
+          const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+          const key = (r << 16) | (g << 8) | b;
+          if (!colorMap.has(key) && colors.length < 256) {
+            colorMap.set(key, colors.length);
+            colors.push([r, g, b]);
+          }
+        }
+      });
+      while (colors.length < 256) colors.push([0, 0, 0]);
+
+      // Header
+      writeStr('GIF89a');
+      writeShort(width);
+      writeShort(height);
+      write(0xf7); // GCT flag, 8 bits color
+      write(0);    // BG color
+      write(0);    // Aspect ratio
+
+      // Global Color Table
+      colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+
+      // Netscape extension for looping
+      write(0x21); write(0xff); write(0x0b);
+      writeStr('NETSCAPE2.0');
+      write(0x03); write(0x01);
+      writeShort(0); // Loop forever
+      write(0x00);
+
+      // Frames
+      frames.forEach(frame => {
+        // Graphics Control Extension
+        write(0x21); write(0xf9); write(0x04);
+        write(0x00); // No transparency
+        writeShort(delay);
+        write(0x00); write(0x00);
+
+        // Image Descriptor
+        write(0x2c);
+        writeShort(0); writeShort(0);
+        writeShort(width); writeShort(height);
+        write(0x00); // No local color table
+
+        // Image Data with LZW
+        const minCodeSize = 8;
+        write(minCodeSize);
+
+        const pixels = [];
+        for (let i = 0; i < frame.data.length; i += 4) {
+          const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+          const key = (r << 16) | (g << 8) | b;
+          pixels.push(colorMap.get(key) || 0);
+        }
+
+        const lzwData = lzwEncode(pixels, minCodeSize);
+        for (let i = 0; i < lzwData.length; i += 255) {
+          const chunk = lzwData.slice(i, i + 255);
+          write(chunk.length);
+          chunk.forEach(b => write(b));
+        }
+        write(0x00);
+      });
+
+      write(0x3b); // Trailer
+      return new Uint8Array(buf);
+    }
+
+    function lzwEncode(pixels, minCodeSize) {
+      const clearCode = 1 << minCodeSize;
+      const eoiCode = clearCode + 1;
+      let codeSize = minCodeSize + 1;
+      let nextCode = eoiCode + 1;
+      const table = new Map();
+      for (let i = 0; i < clearCode; i++) table.set(String(i), i);
+
+      const output = [];
+      let bits = 0, bitCount = 0;
+      const emit = (code) => {
+        bits |= code << bitCount;
+        bitCount += codeSize;
+        while (bitCount >= 8) {
+          output.push(bits & 0xff);
+          bits >>= 8;
+          bitCount -= 8;
+        }
+      };
+
+      emit(clearCode);
+      let prefix = String(pixels[0]);
+
+      for (let i = 1; i < pixels.length; i++) {
+        const suffix = String(pixels[i]);
+        const combined = prefix + ',' + suffix;
+        if (table.has(combined)) {
+          prefix = combined;
+        } else {
+          emit(table.get(prefix));
+          if (nextCode < 4096) {
+            table.set(combined, nextCode++);
+            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+          }
+          prefix = suffix;
+        }
+      }
+      emit(table.get(prefix));
+      emit(eoiCode);
+      if (bitCount > 0) output.push(bits & 0xff);
+      return output;
+    }
+
+    // HTML Export - standalone animated file
+    document.getElementById('exportHtml').addEventListener('click', () => {
+      const htmlContent = generateStandaloneHtml();
+      const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      let varName = 'stacked';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sexdeca') {
-        varName = currentVariation === 0 ? 'normal' : 'inverted';
-      }
-      a.download = `gematria-${displayMode}-${CONFIG_KEYS[currentConfigIndex]}-${varName}.svg`;
+      a.download = `gematria-${displayMode}-${currentPhrase.split(' ')[0]}.html`;
       a.click();
       URL.revokeObjectURL(url);
     });
+
+    function generateStandaloneHtml() {
+      const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
+      return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria - ${currentPhrase}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { background: #f5f5f0; display: flex; align-items: center; justify-content: center; min-height: 100vh; }
+    svg { max-width: 95vw; max-height: 95vh; border: 2px solid #333; background: #f8f8f4; }
+  </style>
+</head>
+<body>
+  <svg id="svg" preserveAspectRatio="xMidYMid meet"></svg>
+  <script>
+    const TRI_SIZE = 32;
+    const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
+    const COLS = 9;
+    const BASE_ROWS = 3;
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const ROW_COLORS = { 0: '#c41e3a', 1: '#2e8b57', 2: '#1e4d8c' };
+    const phrase = ${JSON.stringify(currentPhrase)};
+    const combo = ${JSON.stringify(currentCombo)};
+    const displayMode = ${JSON.stringify(displayMode)};
+    const frameSpeed = ${frameSpeed};
+    const CONFIG_KEYS = ${JSON.stringify(CONFIG_KEYS)};
+    const CONFIGS = {
+      ${CONFIG_KEYS.map(key => `'${key}': { name: '${key}', getSymbol: ${CONFIGS[key].getSymbol.toString()} }`).join(',\n      ')}
+    };
+
+    let currentConfigIndex = 0;
+    let currentVariation = 0;
+
+    function getLetterFrequency(p) {
+      const freq = {};
+      const clean = p.toUpperCase().replace(/[^A-Z]/g, '');
+      for (const c of clean) freq[c] = (freq[c] || 0) + 1;
+      const maxFreq = Math.max(...Object.values(freq), 1);
+      return { freq, maxFreq };
+    }
+
+    function getLetterOpacity(symbol, ld) {
+      if (symbol === '*') return 0.15;
+      const count = ld.freq[symbol] || 0;
+      if (count === 0) return 0.15;
+      return 0.3 + (count / ld.maxFreq) * 0.7;
+    }
+
+    function isLetterInPhrase(symbol, ld) {
+      return symbol !== '*' && (ld.freq[symbol] || 0) > 0;
+    }
+
+    function comboToCMYK(c) {
+      const toP = v => Math.round((v % 1000) / 10);
+      return { c: toP(c[0]), m: toP(c[1]), y: toP(c[2]), k: toP(c[3]) };
+    }
+
+    function cmykToHex(c, m, y, k) {
+      c /= 100; m /= 100; y /= 100; k /= 100;
+      const r = Math.round(255 * (1-c) * (1-k));
+      const g = Math.round(255 * (1-m) * (1-k));
+      const b = Math.round(255 * (1-y) * (1-k));
+      return '#' + [r,g,b].map(x => x.toString(16).padStart(2,'0')).join('');
+    }
+
+    function generateBasePolyhedron() {
+      const t = [];
+      for (let row = 0; row < BASE_ROWS; row++)
+        for (let col = 0; col < COLS; col++)
+          t.push({ row, col, pointing: col % 2 === 0 ? 'up' : 'down', index: row * COLS + col, polyhedronRow: row });
+      return t;
+    }
+
+    ${buildSingle.toString()}
+    ${buildDualStacked.toString()}
+    ${buildQuadMirrored.toString()}
+    ${buildOcta.toString()}
+    ${buildSexdeca.toString()}
+
+    function getTrianglePath(x, y, pointing) {
+      const hw = TRI_SIZE / 2;
+      if (pointing === 'up') return \`M \${x} \${y + TRI_HEIGHT} L \${x + hw} \${y} L \${x + TRI_SIZE} \${y + TRI_HEIGHT} Z\`;
+      return \`M \${x} \${y} L \${x + TRI_SIZE} \${y} L \${x + hw} \${y + TRI_HEIGHT} Z\`;
+    }
+
+    function getVariationCount() {
+      if (displayMode === 'sexdeca' || displayMode === 'octa' || displayMode === 'quad') return 2;
+      return 1;
+    }
+
+    function render() {
+      const svg = document.getElementById('svg');
+      const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
+      const cmyk = comboToCMYK(combo);
+      const hex = cmykToHex(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+      const ld = getLetterFrequency(phrase);
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      let triangles, totalWidth, totalHeight;
+
+      if (displayMode === 'single') { triangles = buildSingle(); totalWidth = polyWidth; totalHeight = BASE_ROWS * TRI_HEIGHT; }
+      else if (displayMode === 'dual') { triangles = buildDualStacked(); totalWidth = polyWidth; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
+      else if (displayMode === 'sexdeca') { triangles = buildSexdeca(currentVariation); const GAP = 8; const qh = BASE_ROWS * 2 * TRI_HEIGHT; const oh = qh * 2 + GAP; totalWidth = polyWidth * 4; totalHeight = oh * 2 + GAP; }
+      else if (displayMode === 'octa') { triangles = buildOcta(currentVariation); totalWidth = polyWidth * 4; totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + 8; }
+      else { triangles = buildQuadMirrored(currentVariation); totalWidth = polyWidth * 2; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
+
+      svg.setAttribute('viewBox', \`0 0 \${totalWidth} \${totalHeight}\`);
+      let content = \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#f8f8f4"/>\`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const opacity = getLetterOpacity(symbol, ld);
+        const inPhrase = isLetterInPhrase(symbol, ld);
+        const fill = inPhrase ? hex : '#f8f8f4';
+        const fillOp = inPhrase ? opacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        content += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOp}" stroke="#333" stroke-width="1"/>\`;
+        const tx = tri.x + TRI_SIZE / 2;
+        const ty = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const transform = tri.yMirror ? \`transform="translate(\${tx * 2}, 0) scale(-1, 1)"\` : '';
+        const textColor = inPhrase ? '#ffffff' : ROW_COLORS[tri.polyhedronRow % 3];
+        content += \`<text x="\${tx}" y="\${ty}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${opacity}" \${transform}>\${symbol}</text>\`;
+      });
+      svg.innerHTML = content;
+    }
+
+    function animate() {
+      const varCount = getVariationCount();
+      if (varCount > 1) {
+        currentVariation++;
+        if (currentVariation >= varCount) { currentVariation = 0; currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length; }
+      } else { currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length; }
+      render();
+      setTimeout(animate, frameSpeed);
+    }
+
+    render();
+    setTimeout(animate, frameSpeed);
+  <\/script>
+</body>
+</html>`;
+    }
 
     // Render tiled background (static, uses first config)
     function renderBackground() {
