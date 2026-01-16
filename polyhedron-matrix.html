@@ -411,8 +411,8 @@
       return allTriangles;
     }
 
-    // Build single mode: just one 3-row polyhedron
-    // Rows 0, 2 are X-flipped (pointing reversed) for honeycomb pattern
+    // Build single mode: just one 3-row polyhedron, X-flipped
+    // Rows 0, 2 are X-flipped for honeycomb, then whole thing X-flipped
     function buildSingle() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
@@ -424,11 +424,13 @@
         const x = t.col * (TRI_SIZE / 2);
         const y = t.row * TRI_HEIGHT;
 
-        // X-flip for rows 0, 2
+        // X-flip for rows 0, 2, then flip entire form
         let pointing = t.pointing;
         if (xFlipRows.includes(t.row)) {
           pointing = pointing === 'up' ? 'down' : 'up';
         }
+        // X-flip the whole form
+        pointing = pointing === 'up' ? 'down' : 'up';
 
         allTriangles.push({
           ...t,
@@ -583,15 +585,31 @@
         const quadYOffset = qRow * (quadHeight + GAP);
 
         // Columns within this quadrant
-        const columns = yFlipAll
-          ? [
-              { colIndex: 0, yMirror: false },
-              { colIndex: 1, yMirror: true }
-            ]
-          : [
-              { colIndex: 0, yMirror: true },
-              { colIndex: 1, yMirror: false }
-            ];
+        // For bottom row (xFlipAll), swap column order so same shapes touch
+        let columns;
+        if (xFlipAll) {
+          // Bottom row: swap column order
+          columns = yFlipAll
+            ? [
+                { colIndex: 0, yMirror: true },
+                { colIndex: 1, yMirror: false }
+              ]
+            : [
+                { colIndex: 0, yMirror: false },
+                { colIndex: 1, yMirror: true }
+              ];
+        } else {
+          // Top row: normal order
+          columns = yFlipAll
+            ? [
+                { colIndex: 0, yMirror: false },
+                { colIndex: 1, yMirror: true }
+              ]
+            : [
+                { colIndex: 0, yMirror: true },
+                { colIndex: 1, yMirror: false }
+              ];
+        }
 
         columns.forEach(({ colIndex, yMirror }) => {
           // Top half (rows 0-2)
