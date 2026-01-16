@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria Polyhedron Matrix</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f0;
+      color: #333;
+      padding: 24px;
+      min-height: 100vh;
+    }
+    .container { max-width: 1400px; margin: 0 auto; }
+    h1 { font-size: 24px; margin-bottom: 8px; color: #333; }
+    .subtitle { color: #666; margin-bottom: 24px; }
+
+    .controls {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 24px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    select, button, input {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      color: #333;
+      padding: 8px 12px;
+      font-size: 14px;
+    }
+    button {
+      background: #6b5b95;
+      border-color: #6b5b95;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #5a4a84; }
+    button.secondary {
+      background: #fff;
+      color: #6b5b95;
+      border-color: #6b5b95;
+    }
+
+    .matrix-container {
+      background: #fff;
+      border: 2px solid #333;
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 24px;
+      display: flex;
+      justify-content: center;
+    }
+
+    .legend {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+      margin-bottom: 24px;
+    }
+    .legend-item {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      padding: 12px;
+    }
+    .legend-label { font-size: 12px; color: #666; margin-bottom: 4px; }
+    .legend-value { font-weight: bold; color: #333; }
+    .legend-desc { font-size: 11px; color: #888; margin-top: 4px; }
+
+    .color-preview {
+      width: 100%;
+      height: 40px;
+      border-radius: 4px;
+      margin-top: 8px;
+      border: 1px solid #ccc;
+    }
+
+    .info-box {
+      background: #f0f0e8;
+      border: 1px solid #d0d0c0;
+      border-radius: 8px;
+      padding: 16px;
+      margin-bottom: 24px;
+    }
+    .info-box h3 { color: #6b5b95; margin-bottom: 8px; }
+    .info-box p, .info-box li { color: #555; font-size: 13px; line-height: 1.6; }
+    .info-box code { background: #e0e0d8; padding: 2px 6px; border-radius: 4px; color: #6b5b95; }
+
+    .config-display {
+      font-family: monospace;
+      font-size: 14px;
+      padding: 8px;
+      background: #f8f8f4;
+      border-radius: 4px;
+      margin-top: 8px;
+    }
+
+    .frame-indicator {
+      font-size: 12px;
+      color: #666;
+      margin-left: 12px;
+    }
+
+    .export-buttons {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Gematria Polyhedron Matrix</h1>
+    <p class="subtitle">Triangular tessellation with CMYK color encoding from gematria values</p>
+
+    <div class="legend">
+      <div class="legend-item">
+        <div class="legend-label">Gematria Combo</div>
+        <div class="legend-value" id="currentCombo">555/666/111/111</div>
+        <div class="legend-desc">Hebrew / English / Simple / Aik Bekar⁹</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">CMYK Values</div>
+        <div class="legend-value" id="cmykValues">C:56% M:67% Y:11% K:11%</div>
+        <div class="legend-desc">Derived from gematria percentages</div>
+        <div class="color-preview" id="colorPreview"></div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">Current Configuration</div>
+        <div class="legend-value" id="configName">a-*-z</div>
+        <div class="config-display" id="configPattern">A → ... → Z</div>
+      </div>
+      <div class="legend-item">
+        <div class="legend-label">Animation</div>
+        <div class="legend-value">
+          <span id="variationNum">1</span>/12 variations
+          <span class="frame-indicator">Frame <span id="frameNum">1</span>/6</span>
+        </div>
+        <div class="legend-desc">6 configs × 2 mirror variations</div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <select id="phraseSelect">
+        <option value="555/666/111/111">stunner (555/666/111/111)</option>
+        <option value="111/666/111/99">which (111/666/111/99)</option>
+        <option value="333/666/111/99">act shah high (333/666/111/99)</option>
+        <option value="777/666/111/99">xbox add salad (777/666/111/99)</option>
+        <option value="1111/666/111/99">hiawatha (1111/666/111/99)</option>
+        <option value="8888/6666/1111/1111">therapeutic (8888/6666/1111/1111)</option>
+      </select>
+      <button id="playPause">⏸ Pause</button>
+      <button id="prevVar" class="secondary">◀ Prev</button>
+      <button id="nextVar" class="secondary">Next ▶</button>
+      <div class="export-buttons">
+        <button id="exportGif">Export GIF</button>
+        <button id="exportWebm">Export WebM</button>
+        <button id="exportSvg">Export SVG+HTML</button>
+      </div>
+    </div>
+
+    <div class="matrix-container">
+      <svg id="matrixSvg" width="800" height="600" viewBox="0 0 800 600"></svg>
+    </div>
+
+    <div class="info-box">
+      <h3>Polyhedron Configurations</h3>
+      <p>The alphabet is arranged in triangular rows of 3, forming polyhedrons:</p>
+      <ul style="margin-left: 20px; margin-top: 8px;">
+        <li><code>a-*-z</code>: A at start, Z at end (forward)</li>
+        <li><code>*-a-z</code>: A in middle-left position</li>
+        <li><code>a-z-*</code>: A and Z together at start</li>
+        <li><code>z-*-a</code>: Reverse of a-*-z</li>
+        <li><code>*-z-a</code>: Reverse of *-a-z</li>
+        <li><code>z-a-*</code>: Reverse of a-z-*</li>
+      </ul>
+      <p style="margin-top: 12px;">Each config creates 2 variations via mirroring (X and XY), totaling 12 animation frames.</p>
+    </div>
+  </div>
+
+  <script>
+    // Triangle geometry constants
+    const TRI_SIZE = 40;
+    const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
+    const COLS = 12;
+    const ROWS = 9;
+
+    // Alphabet
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+
+    // 6 configuration patterns for arranging letters in triangle rows
+    const CONFIGS = {
+      'a-*-z': { name: 'a-*-z', order: (i) => i, desc: 'A → ... → Z' },
+      '*-a-z': { name: '*-a-z', order: (i) => (i + 8) % 26, desc: '... → A → Z' },
+      'a-z-*': { name: 'a-z-*', order: (i) => i < 13 ? i * 2 : (i - 13) * 2 + 1, desc: 'A,Z interleaved' },
+      'z-*-a': { name: 'z-*-a', order: (i) => 25 - i, desc: 'Z → ... → A' },
+      '*-z-a': { name: '*-z-a', order: (i) => 25 - ((i + 8) % 26), desc: '... → Z → A' },
+      'z-a-*': { name: 'z-a-*', order: (i) => i < 13 ? 25 - i * 2 : 25 - ((i - 13) * 2 + 1), desc: 'Z,A interleaved' }
+    };
+
+    const CONFIG_KEYS = Object.keys(CONFIGS);
+
+    // Current state
+    let currentCombo = [555, 666, 111, 111];
+    let currentConfigIndex = 0;
+    let currentVariation = 0; // 0-1 for each config (2 mirror variations)
+    let currentFrame = 0;
+    let isPlaying = true;
+    let animationId = null;
+
+    // Convert gematria combo to CMYK percentages
+    function comboToCMYK(combo) {
+      return {
+        c: Math.round((combo[0] % 1000) / 10),  // First 3 digits as percentage
+        m: Math.round((combo[1] % 1000) / 10),
+        y: Math.round((combo[2] % 1000) / 10),
+        k: Math.round((combo[3] % 1000) / 10)
+      };
+    }
+
+    // Convert CMYK to RGB
+    function cmykToRgb(c, m, y, k) {
+      c = c / 100;
+      m = m / 100;
+      y = y / 100;
+      k = k / 100;
+
+      const r = Math.round(255 * (1 - c) * (1 - k));
+      const g = Math.round(255 * (1 - m) * (1 - k));
+      const b = Math.round(255 * (1 - y) * (1 - k));
+
+      return { r, g, b };
+    }
+
+    // Convert RGB to Hex
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    // Get color from combo
+    function getColorFromCombo(combo) {
+      const cmyk = comboToCMYK(combo);
+      const rgb = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+      return {
+        cmyk,
+        rgb,
+        hex: rgbToHex(rgb.r, rgb.g, rgb.b)
+      };
+    }
+
+    // Generate triangle positions for the grid
+    function generateTriangleGrid() {
+      const triangles = [];
+      const offsetX = 100;
+      const offsetY = 50;
+
+      for (let row = 0; row < ROWS; row++) {
+        const rowOffset = (row % 2) * (TRI_SIZE / 2);
+
+        for (let col = 0; col < COLS; col++) {
+          const x = offsetX + col * TRI_SIZE + rowOffset;
+          const y = offsetY + row * TRI_HEIGHT;
+
+          // Up-pointing triangle
+          triangles.push({
+            x, y,
+            pointing: 'up',
+            row, col,
+            index: triangles.length
+          });
+
+          // Down-pointing triangle (offset)
+          if (col < COLS - 1) {
+            triangles.push({
+              x: x + TRI_SIZE / 2,
+              y: y,
+              pointing: 'down',
+              row, col,
+              index: triangles.length
+            });
+          }
+        }
+      }
+
+      return triangles;
+    }
+
+    // Get letter for a triangle based on current config
+    function getLetterForTriangle(tri, config, variation) {
+      const configObj = CONFIGS[config];
+      const totalTris = ROWS * COLS * 2;
+      let idx = tri.index % 26;
+
+      // Apply config ordering
+      idx = configObj.order(idx);
+
+      // Apply variation mirroring
+      if (variation === 1) {
+        idx = 25 - idx;
+      }
+
+      return ALPHABET[idx];
+    }
+
+    // Check if triangle should be highlighted (part of the pattern)
+    function isHighlighted(tri, config, variation) {
+      // Highlight pattern based on position (creates the visual pattern from the image)
+      const patternRows = [2, 3, 4, 5]; // Middle rows
+      const patternCols = [3, 4, 5, 6, 7]; // Middle columns
+
+      if (patternRows.includes(tri.row) && patternCols.includes(tri.col % COLS)) {
+        return true;
+      }
+
+      // Additional highlight for specific positions
+      if ((tri.row === 1 || tri.row === 6) && (tri.col === 4 || tri.col === 5)) {
+        return true;
+      }
+
+      return false;
+    }
+
+    // Get letter color based on position
+    function getLetterColor(letter, tri) {
+      const idx = ALPHABET.indexOf(letter);
+
+      // Color coding similar to the image:
+      // Blue: A-I (first 9)
+      // Red: R-Z in middle rows
+      // Green: E, F, N and some others
+
+      if (tri.row >= 2 && tri.row <= 4) {
+        if (idx >= 17 && idx <= 25) return '#c41e3a'; // Red for R-Z
+        if (idx >= 18 && idx <= 22) return '#c41e3a'; // Red
+      }
+
+      if (['E', 'F', 'N'].includes(letter)) {
+        return '#2e8b57'; // Green
+      }
+
+      return '#1e4d8c'; // Blue default
+    }
+
+    // Draw triangle path
+    function getTrianglePath(tri) {
+      const { x, y, pointing } = tri;
+
+      if (pointing === 'up') {
+        return `M ${x} ${y + TRI_HEIGHT} L ${x + TRI_SIZE / 2} ${y} L ${x + TRI_SIZE} ${y + TRI_HEIGHT} Z`;
+      } else {
+        return `M ${x} ${y} L ${x + TRI_SIZE / 2} ${y + TRI_HEIGHT} L ${x - TRI_SIZE / 2} ${y + TRI_HEIGHT} Z`;
+      }
+    }
+
+    // Render the SVG
+    function render() {
+      const svg = document.getElementById('matrixSvg');
+      const config = CONFIG_KEYS[currentConfigIndex];
+      const color = getColorFromCombo(currentCombo);
+
+      // Update UI
+      document.getElementById('currentCombo').textContent = currentCombo.join('/');
+      document.getElementById('cmykValues').textContent =
+        `C:${color.cmyk.c}% M:${color.cmyk.m}% Y:${color.cmyk.y}% K:${color.cmyk.k}%`;
+      document.getElementById('colorPreview').style.backgroundColor = color.hex;
+      document.getElementById('configName').textContent = config;
+      document.getElementById('configPattern').textContent = CONFIGS[config].desc;
+      document.getElementById('variationNum').textContent = currentConfigIndex * 2 + currentVariation + 1;
+      document.getElementById('frameNum').textContent = currentFrame + 1;
+
+      // Generate triangles
+      const triangles = generateTriangleGrid();
+
+      // Build SVG content
+      let svgContent = `
+        <defs>
+          <pattern id="grid" width="${TRI_SIZE}" height="${TRI_HEIGHT * 2}" patternUnits="userSpaceOnUse">
+            <path d="M 0 0 L ${TRI_SIZE / 2} ${TRI_HEIGHT} L 0 ${TRI_HEIGHT * 2}" fill="none" stroke="#333" stroke-width="1"/>
+            <path d="M ${TRI_SIZE} 0 L ${TRI_SIZE / 2} ${TRI_HEIGHT} L ${TRI_SIZE} ${TRI_HEIGHT * 2}" fill="none" stroke="#333" stroke-width="1"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="#f8f8f4"/>
+      `;
+
+      // Draw triangles
+      triangles.forEach(tri => {
+        const letter = getLetterForTriangle(tri, config, currentVariation);
+        const highlighted = isHighlighted(tri, config, currentVariation);
+        const path = getTrianglePath(tri);
+        const letterColor = getLetterColor(letter, tri);
+
+        // Triangle fill
+        const fill = highlighted ? color.hex : '#f8f8f4';
+        const fillOpacity = highlighted ? 0.6 : 1;
+
+        svgContent += `
+          <path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="1.5"/>
+        `;
+
+        // Letter
+        const textX = tri.x + (tri.pointing === 'up' ? TRI_SIZE / 2 : 0);
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.65 : TRI_HEIGHT * 0.45);
+
+        svgContent += `
+          <text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
+                font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="${letterColor}">
+            ${letter}
+          </text>
+        `;
+      });
+
+      svg.innerHTML = svgContent;
+    }
+
+    // Animation loop
+    function animate() {
+      if (!isPlaying) return;
+
+      currentFrame++;
+      if (currentFrame >= 6) {
+        currentFrame = 0;
+        currentVariation++;
+        if (currentVariation >= 2) {
+          currentVariation = 0;
+          currentConfigIndex++;
+          if (currentConfigIndex >= CONFIG_KEYS.length) {
+            currentConfigIndex = 0;
+          }
+        }
+      }
+
+      render();
+      animationId = setTimeout(animate, 500); // 500ms per frame
+    }
+
+    // Event handlers
+    document.getElementById('playPause').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('playPause').textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+      if (isPlaying) animate();
+    });
+
+    document.getElementById('prevVar').addEventListener('click', () => {
+      const totalVariations = CONFIG_KEYS.length * 2;
+      let current = currentConfigIndex * 2 + currentVariation;
+      current = (current - 1 + totalVariations) % totalVariations;
+      currentConfigIndex = Math.floor(current / 2);
+      currentVariation = current % 2;
+      currentFrame = 0;
+      render();
+    });
+
+    document.getElementById('nextVar').addEventListener('click', () => {
+      const totalVariations = CONFIG_KEYS.length * 2;
+      let current = currentConfigIndex * 2 + currentVariation;
+      current = (current + 1) % totalVariations;
+      currentConfigIndex = Math.floor(current / 2);
+      currentVariation = current % 2;
+      currentFrame = 0;
+      render();
+    });
+
+    document.getElementById('phraseSelect').addEventListener('change', (e) => {
+      const parts = e.target.value.split('/').map(Number);
+      currentCombo = parts;
+      render();
+    });
+
+    // Export functions
+    document.getElementById('exportGif').addEventListener('click', () => {
+      alert('GIF export requires additional library (gif.js). The SVG frames can be captured and converted to GIF using external tools.');
+    });
+
+    document.getElementById('exportWebm').addEventListener('click', () => {
+      alert('WebM export requires canvas recording. The SVG animation can be recorded using browser APIs or external tools.');
+    });
+
+    document.getElementById('exportSvg').addEventListener('click', () => {
+      const svg = document.getElementById('matrixSvg');
+      const svgData = new XMLSerializer().serializeToString(svg);
+
+      const html = `<!DOCTYPE html>
+<html>
+<head>
+  <title>Gematria Polyhedron Animation</title>
+  <style>
+    body { margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100vh; background: #f5f5f0; }
+  </style>
+</head>
+<body>
+  ${svgData}
+  <script>
+    // Animation can be added here by manipulating SVG elements
+  <\/script>
+</body>
+</html>`;
+
+      const blob = new Blob([html], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gematria-polyhedron.html';
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    // Initialize
+    render();
+    animate();
+  </script>
+</body>
+</html>
