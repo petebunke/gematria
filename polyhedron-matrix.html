@@ -419,9 +419,11 @@
     // Build dual mode: single column polyhedron (6 rows)
     // Top 3 rows: original, Bottom 3 rows: X-mirrored (reflected vertically)
     // Rows 0, 2, 4 are X-flipped (pointing reversed) for honeycomb pattern
-    function buildDualStacked() {
+    // variation 0 = Normal, variation 1 = Inverted (y-flipped positions)
+    function buildDualStacked(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
+      const totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
 
       // Rows that need X-flip (1st, 3rd, 5th = 0, 2, 4)
       const xFlipRows = [0, 2, 4];
@@ -429,12 +431,22 @@
       // Top half: original (rows 0, 1, 2)
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
-        const y = t.row * TRI_HEIGHT;
+        let y = t.row * TRI_HEIGHT;
         const finalRow = t.row;
+
+        // For inverted, flip y positions
+        if (variation === 1) {
+          y = totalHeight - y - TRI_HEIGHT;
+        }
 
         // X-flip for rows 0, 2, 4
         let pointing = t.pointing;
         if (xFlipRows.includes(finalRow)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+
+        // For inverted, also flip pointing
+        if (variation === 1) {
           pointing = pointing === 'up' ? 'down' : 'up';
         }
 
@@ -453,11 +465,21 @@
         const mirroredRow = BASE_ROWS - 1 - t.row; // 2->0, 1->1, 0->2
         const x = t.col * (TRI_SIZE / 2);
         const finalRow = BASE_ROWS + mirroredRow;
-        const y = finalRow * TRI_HEIGHT;
+        let y = finalRow * TRI_HEIGHT;
+
+        // For inverted, flip y positions
+        if (variation === 1) {
+          y = totalHeight - y - TRI_HEIGHT;
+        }
 
         // X-flip for rows 0, 2, 4
         let pointing = t.pointing;
         if (xFlipRows.includes(finalRow)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+
+        // For inverted, also flip pointing
+        if (variation === 1) {
           pointing = pointing === 'up' ? 'down' : 'up';
         }
 
@@ -476,16 +498,23 @@
 
     // Build single mode: just one 3-row polyhedron, X-flipped
     // Rows 0, 2 are X-flipped for honeycomb, then whole thing X-flipped
-    function buildSingle() {
+    // variation 0 = Normal, variation 1 = Inverted (y-flipped positions)
+    function buildSingle(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
+      const totalHeight = BASE_ROWS * TRI_HEIGHT;
 
       // Rows that need X-flip (1st, 3rd = 0, 2)
       const xFlipRows = [0, 2];
 
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
-        const y = t.row * TRI_HEIGHT;
+        let y = t.row * TRI_HEIGHT;
+
+        // For inverted, flip y positions
+        if (variation === 1) {
+          y = totalHeight - y - TRI_HEIGHT;
+        }
 
         // X-flip for rows 0, 2, then flip entire form
         let pointing = t.pointing;
@@ -494,6 +523,11 @@
         }
         // X-flip the whole form
         pointing = pointing === 'up' ? 'down' : 'up';
+
+        // For inverted, also flip pointing
+        if (variation === 1) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
 
         allTriangles.push({
           ...t,
@@ -1032,11 +1066,8 @@
       // Update UI
       document.getElementById('configName').textContent = config.name;
 
-      // Variation name based on mode
-      let varName = '-';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'square' || displayMode === 'rectangle' || displayMode === 'cube') {
-        varName = currentVariation === 0 ? 'Normal' : 'Inverted';
-      }
+      // Variation name - all modes now have Normal/Inverted
+      const varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       document.getElementById('variationName').textContent = varName;
       document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
 
@@ -1048,11 +1079,11 @@
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
 
       if (displayMode === 'single') {
-        triangles = buildSingle();
+        triangles = buildSingle(currentVariation);
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * TRI_HEIGHT;
       } else if (displayMode === 'dual') {
-        triangles = buildDualStacked();
+        triangles = buildDualStacked(currentVariation);
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       } else if (displayMode === 'cube') {
@@ -1133,13 +1164,9 @@
     }
 
     // Get number of variations for current mode
+    // All modes now have Normal and Inverted variations
     function getVariationCount() {
-      if (displayMode === 'cube') return 2;
-      if (displayMode === 'rectangle') return 2;
-      if (displayMode === 'square') return 2;
-      if (displayMode === 'octa') return 2;
-      if (displayMode === 'quad') return 2;
-      return 1; // single and dual have no variations
+      return 2;
     }
 
     // Mode order for osc cycling
@@ -1371,6 +1398,7 @@
 
     // Loop button - cycles through loop modes
     // 0 = both (forward then backward), 1 = forward only (LOOP 1), 2 = backward only (LOOP 2)
+    // Auto and Loop are mutually exclusive - turn off Auto when Loop 1 or 2 is selected
     document.getElementById('loopBtn').addEventListener('click', () => {
       loopMode = (loopMode + 1) % 3;
       const btn = document.getElementById('loopBtn');
@@ -1385,11 +1413,15 @@
         btn.style.background = '#6b5b95';
         btn.style.color = '#ffffff';
         configDirection = 1; // Forward only
+        // Turn off Auto when Loop 1 is selected
+        if (oscActive) stopOsc();
       } else {
         btn.textContent = 'LOOP 2';
         btn.style.background = '#6b5b95';
         btn.style.color = '#ffffff';
         configDirection = -1; // Backward only
+        // Turn off Auto when Loop 2 is selected
+        if (oscActive) stopOsc();
       }
     });
 
@@ -1434,6 +1466,14 @@
       btn.style.background = '#6b5b95';
       btn.style.color = '#ffffff';
 
+      // Auto and Loop are mutually exclusive - reset Loop to default
+      loopMode = 0;
+      configDirection = 1;
+      const loopBtn = document.getElementById('loopBtn');
+      loopBtn.textContent = 'LOOP';
+      loopBtn.style.background = '';
+      loopBtn.style.color = '';
+
       // Auto-play if paused
       if (!isPlaying) {
         isPlaying = true;
@@ -1469,7 +1509,7 @@
       // Apply aik bekar formula to LAST combo value to set ms speed
       const aikBekarValue = currentCombo[currentCombo.length - 1];
       frameSpeed = aikBekarToMs(aikBekarValue);
-      document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toFixed(2));
+      document.getElementById('frameSpeed').value = Math.floor(frameSpeed * 100) / 100;
 
       render();
       renderBackground();
@@ -1511,9 +1551,9 @@
       // Build triangles based on mode
       let triangles;
       if (displayMode === 'single') {
-        triangles = buildSingle();
+        triangles = buildSingle(variation);
       } else if (displayMode === 'dual') {
-        triangles = buildDualStacked();
+        triangles = buildDualStacked(variation);
       } else if (displayMode === 'cube') {
         triangles = buildCube(variation);
       } else if (displayMode === 'rectangle') {
@@ -1547,8 +1587,34 @@
       return svgContent;
     }
 
+    // Helper to get dimensions for a specific mode
+    function getModeDimensions(mode) {
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 8;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+
+      if (mode === 'single') return { width: polyWidth, height: BASE_ROWS * TRI_HEIGHT };
+      if (mode === 'dual') return { width: polyWidth, height: BASE_ROWS * 2 * TRI_HEIGHT };
+      if (mode === 'quad') return { width: polyWidth * 2, height: BASE_ROWS * 2 * TRI_HEIGHT };
+      if (mode === 'octa') return { width: polyWidth * 4, height: quadHeight * 2 + GAP };
+      if (mode === 'square') return { width: polyWidth * 4, height: octaHeight * 2 + GAP };
+      if (mode === 'rectangle') {
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        return { width: squareWidth * 4 + GAP * 3, height: squareHeight };
+      }
+      // cube
+      const squareWidth = polyWidth * 4;
+      const squareHeight = octaHeight * 2 + GAP;
+      const rectangleWidth = squareWidth * 4 + GAP * 3;
+      const rectangleHeight = squareHeight;
+      return { width: rectangleWidth, height: rectangleHeight * 4 + GAP * 3 };
+    }
+
     // GIF Export - renders off-screen without affecting the main view
-    // Respects current loop mode: 0 = ping-pong, 1 = forward only, 2 = backward only
+    // When Auto is on, cycles through all modes from single to cube and back
+    // Otherwise respects current loop mode: 0 = ping-pong, 1 = forward only, 2 = backward only
     document.getElementById('exportGif').addEventListener('click', async () => {
       const btn = document.getElementById('exportGif');
       const originalText = btn.textContent;
@@ -1556,69 +1622,62 @@
       btn.disabled = true;
 
       try {
-        const varCount = getVariationCount();
-        const baseFrameCount = CONFIG_KEYS.length * varCount;
+        const varCount = 2; // All modes have 2 variations now
+        const framesPerMode = CONFIG_KEYS.length * varCount;
 
-        // Build frame sequence based on loop mode
-        const frameSequence = [];
-        if (loopMode === 2) {
-          // Backward only
-          for (let i = baseFrameCount - 1; i >= 0; i--) {
-            frameSequence.push(i);
-          }
-        } else if (loopMode === 1) {
-          // Forward only
-          for (let i = 0; i < baseFrameCount; i++) {
-            frameSequence.push(i);
-          }
+        // Build frame sequence
+        let frameSequence = [];
+        let modeSequence = [];
+
+        if (oscActive) {
+          // Auto mode: cycle through all modes from single to cube and back
+          const forwardModes = [...MODE_ORDER];
+          const backwardModes = [...MODE_ORDER].reverse().slice(1, -1); // Exclude first and last to avoid duplicates
+          const allModes = [...forwardModes, ...backwardModes];
+
+          allModes.forEach(mode => {
+            // For each mode, add all config/variation combinations with ping-pong
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(mode);
+            }
+            for (let i = framesPerMode - 2; i > 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(mode);
+            }
+          });
         } else {
-          // Ping-pong: forward then backward
-          for (let i = 0; i < baseFrameCount; i++) {
-            frameSequence.push(i);
-          }
-          for (let i = baseFrameCount - 2; i > 0; i--) {
-            frameSequence.push(i);
+          // Normal mode: just current mode with loop settings
+          if (loopMode === 2) {
+            // Backward only
+            for (let i = framesPerMode - 1; i >= 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+          } else if (loopMode === 1) {
+            // Forward only
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+          } else {
+            // Ping-pong: forward then backward
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+            for (let i = framesPerMode - 2; i > 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
           }
         }
 
-        // Calculate actual content dimensions
-        const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
-        let width, height;
-        const GAP = 8;
-        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
-        const octaHeight = quadHeight * 2 + GAP;
-
-        if (displayMode === 'single') {
-          width = polyWidth;
-          height = BASE_ROWS * TRI_HEIGHT;
-        } else if (displayMode === 'dual') {
-          width = polyWidth;
-          height = BASE_ROWS * 2 * TRI_HEIGHT;
-        } else if (displayMode === 'quad') {
-          width = polyWidth * 2;
-          height = BASE_ROWS * 2 * TRI_HEIGHT;
-        } else if (displayMode === 'octa') {
-          width = polyWidth * 4;
-          height = quadHeight * 2 + GAP;
-        } else if (displayMode === 'square') {
-          width = polyWidth * 4;
-          height = octaHeight * 2 + GAP;
-        } else if (displayMode === 'cube') {
-          const squareWidth = polyWidth * 4;
-          const squareHeight = octaHeight * 2 + GAP;
-          const rectangleWidth = squareWidth * 4 + GAP * 3;
-          const rectangleHeight = squareHeight;
-          width = rectangleWidth;
-          height = rectangleHeight * 4 + GAP * 3;
-        } else { // rectangle
-          const squareWidth = polyWidth * 4;
-          const squareHeight = octaHeight * 2 + GAP;
-          width = squareWidth * 4 + GAP * 3;
-          height = squareHeight;
-        }
-
-        width = Math.round(width);
-        height = Math.round(height);
+        // Calculate canvas dimensions (use cube size for Auto, otherwise current mode)
+        const canvasMode = oscActive ? 'cube' : displayMode;
+        const dims = getModeDimensions(canvasMode);
+        const width = Math.round(dims.width);
+        const height = Math.round(dims.height);
 
         // Create canvas for rendering
         const canvas = document.createElement('canvas');
@@ -1626,15 +1685,23 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
+        // Temporarily save current display mode
+        const savedDisplayMode = displayMode;
+
         // Collect frames (off-screen, doesn't affect main view)
         const frames = [];
         for (let i = 0; i < frameSequence.length; i++) {
           const frameIdx = frameSequence[i];
+          const mode = modeSequence[i];
           const configIdx = Math.floor(frameIdx / varCount);
           const variation = frameIdx % varCount;
 
+          // Temporarily set display mode for frame generation
+          displayMode = mode;
+          const modeDims = getModeDimensions(mode);
+
           // Generate SVG content off-screen
-          const svgData = generateFrameSvg(configIdx, variation, width, height);
+          const svgData = generateFrameSvg(configIdx, variation, modeDims.width, modeDims.height);
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
 
@@ -1643,7 +1710,10 @@
             img.onload = () => {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, width, height);
-              ctx.drawImage(img, 0, 0, width, height);
+              // Center the mode's content within the canvas
+              const offsetX = (width - modeDims.width) / 2;
+              const offsetY = (height - modeDims.height) / 2;
+              ctx.drawImage(img, offsetX, offsetY, modeDims.width, modeDims.height);
               frames.push(ctx.getImageData(0, 0, width, height));
               URL.revokeObjectURL(url);
               resolve();
@@ -1653,6 +1723,9 @@
           });
         }
 
+        // Restore display mode
+        displayMode = savedDisplayMode;
+
         // Encode GIF with current frame speed
         const gif = encodeGif(frames, width, height, Math.round(frameSpeed / 10));
 
@@ -1661,12 +1734,15 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `gematria-${displayMode}-${currentPhrase.split(' ')[0]}.gif`;
+        const modeLabel = oscActive ? 'auto' : savedDisplayMode;
+        a.download = `gematria-${modeLabel}-${currentPhrase.split(' ')[0]}.gif`;
         a.click();
         URL.revokeObjectURL(url);
       } catch (err) {
         console.error('GIF export error:', err);
         alert('Error creating GIF: ' + err.message);
+        // Restore display mode on error too
+        displayMode = savedDisplayMode;
       }
 
       btn.textContent = originalText;
@@ -1943,8 +2019,7 @@
     }
 
     function getVariationCount() {
-      if (currentDisplayMode === 'cube' || currentDisplayMode === 'rectangle' || currentDisplayMode === 'square' || currentDisplayMode === 'octa' || currentDisplayMode === 'quad') return 2;
-      return 1;
+      return 2; // All modes have Normal/Inverted
     }
 
     function render() {
@@ -1959,8 +2034,8 @@
       const octaHeight = quadHeight * 2 + GAP;
       let triangles, totalWidth, totalHeight;
 
-      if (currentDisplayMode === 'single') { triangles = buildSingle(); totalWidth = polyWidth; totalHeight = BASE_ROWS * TRI_HEIGHT; }
-      else if (currentDisplayMode === 'dual') { triangles = buildDualStacked(); totalWidth = polyWidth; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
+      if (currentDisplayMode === 'single') { triangles = buildSingle(currentVariation); totalWidth = polyWidth; totalHeight = BASE_ROWS * TRI_HEIGHT; }
+      else if (currentDisplayMode === 'dual') { triangles = buildDualStacked(currentVariation); totalWidth = polyWidth; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
       else if (currentDisplayMode === 'cube') { triangles = buildCube(currentVariation); const sw = polyWidth * 4; const sh = octaHeight * 2 + GAP; const rw = sw * 4 + GAP * 3; totalWidth = rw; totalHeight = sh * 4 + GAP * 3; }
       else if (currentDisplayMode === 'rectangle') { triangles = buildRectangle(currentVariation); const sw = polyWidth * 4; const sh = octaHeight * 2 + GAP; totalWidth = sw * 4 + GAP * 3; totalHeight = sh; }
       else if (currentDisplayMode === 'square') { triangles = buildSquare(currentVariation); totalWidth = polyWidth * 4; totalHeight = octaHeight * 2 + GAP; }
@@ -2192,7 +2267,7 @@
     // Initialize - set frameSpeed from default phrase's aik bekar value
     const initialAikBekar = currentCombo[currentCombo.length - 1];
     frameSpeed = aikBekarToMs(initialAikBekar);
-    document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toFixed(2));
+    document.getElementById('frameSpeed').value = Math.floor(frameSpeed * 100) / 100;
 
     render();
     renderBackground();
