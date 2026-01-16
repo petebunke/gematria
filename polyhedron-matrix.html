@@ -63,6 +63,10 @@
       color: #333;
       padding: 4px 6px;
       font-size: 11px;
+      outline: none;
+    }
+    select:focus, input:focus {
+      border-color: #6b5b95;
     }
 
     input[type="number"] {
@@ -151,7 +155,7 @@
         <option value="dual">Dual (6 rows)</option>
         <option value="quad">Quad (2 columns)</option>
         <option value="octa">Octa (8 forms)</option>
-        <option value="sexdeca">Sexdeca (16 forms)</option>
+        <option value="sexdeca" selected>Sexdeca (16 forms)</option>
       </select>
     </div>
 
@@ -167,7 +171,7 @@
 
     <div class="control-group">
       <span class="control-label">Speed</span>
-      <input type="number" id="frameSpeed" value="333.333" min="1" max="5000" step="0.001">
+      <input type="number" id="frameSpeed" value="66.6" min="1" max="5000" step="0.001">
       <span class="control-label">ms</span>
     </div>
 
@@ -279,8 +283,8 @@
     let currentVariation = 0; // 0 = normal, 1 = inverted
     let isPlaying = true;
     let animationTimer = null;
-    let frameSpeed = 333.333;
-    let displayMode = 'single'; // 'single', 'dual', 'quad', or 'octa'
+    let frameSpeed = 66.6;
+    let displayMode = 'sexdeca'; // 'single', 'dual', 'quad', 'octa', or 'sexdeca'
     let configDirection = 1; // 1 = forward, -1 = reverse
     let loopMode = 0; // 0 = both (forward then backward), 1 = forward only, 2 = backward only
 
@@ -1210,6 +1214,9 @@
         animationTimer = setTimeout(animate, frameSpeed);
       }
 
+      // Update background animation speed
+      renderBackground();
+
       // Move to next position in sequence
       if (oscAscending) {
         oscIndex++;
@@ -1284,11 +1291,12 @@
     });
 
     document.getElementById('frameSpeed').addEventListener('input', (e) => {
-      frameSpeed = parseFloat(e.target.value) || 333.333;
+      frameSpeed = parseFloat(e.target.value) || 66.6;
       if (isPlaying && animationTimer) {
         clearTimeout(animationTimer);
         animationTimer = setTimeout(animate, frameSpeed);
       }
+      renderBackground();
     });
 
     // GIF Export using gif.js approach with canvas
@@ -1676,7 +1684,8 @@
 
       const totalWidth = tilesX * tileWidth;
       const totalHeight = (tilesY + 1) * tileHeight;
-      const animDuration = 30; // seconds for full cycle
+      // Animation duration correlates to frameSpeed (faster animation = faster scroll)
+      const animDuration = Math.max(5, frameSpeed / 10); // seconds for full cycle
 
       bgSvg.setAttribute('viewBox', `0 0 ${totalWidth} ${screenHeight}`);
 
