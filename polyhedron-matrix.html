@@ -411,18 +411,24 @@
       return allTriangles;
     }
 
-    // Build single mode: just one 3-row polyhedron, X-flipped
-    // All pointings are reversed from base
+    // Build single mode: just one 3-row polyhedron
+    // Rows 0, 2 are X-flipped (pointing reversed) for honeycomb pattern
     function buildSingle() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
+
+      // Rows that need X-flip (1st, 3rd = 0, 2)
+      const xFlipRows = [0, 2];
 
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
         const y = t.row * TRI_HEIGHT;
 
-        // X-flip all pointings
-        const pointing = t.pointing === 'up' ? 'down' : 'up';
+        // X-flip for rows 0, 2
+        let pointing = t.pointing;
+        if (xFlipRows.includes(t.row)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
 
         allTriangles.push({
           ...t,
@@ -547,7 +553,8 @@
       return allTriangles;
     }
 
-    // Build octa mode: 2x2 grid of 4 quad forms
+    // Build octa mode: 2x2 grid of 4 quad forms with gaps
+    // Arranged so same shapes touch same shapes
     // Top-left: Original quad, Top-right: Y-mirrored clone
     // Bottom-left: X-mirrored clone, Bottom-right: X&Y-mirrored clone
     // variation 0 = Normal, variation 1 = Inverted
@@ -559,8 +566,11 @@
       const quadWidth = polyWidth * 2;
       const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       const xFlipRows = [0, 2, 4];
+      const GAP = 8; // Gap between quads
 
-      // 4 quadrants: [row, col, xFlipAll, yFlipAll]
+      // 4 quadrants arranged so same shapes touch
+      // Top row: Original | Y-mirrored (touching at Y-mirror edge)
+      // Bottom row: X-mirrored versions (touching top row at X-mirror edge)
       const quadrants = [
         { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false }, // Top-left: original
         { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },  // Top-right: Y-mirrored
@@ -569,8 +579,8 @@
       ];
 
       quadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
-        const quadXOffset = qCol * quadWidth;
-        const quadYOffset = qRow * quadHeight;
+        const quadXOffset = qCol * (quadWidth + GAP);
+        const quadYOffset = qRow * (quadHeight + GAP);
 
         // Columns within this quadrant
         const columns = yFlipAll
@@ -725,8 +735,9 @@
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       } else if (displayMode === 'octa') {
         triangles = buildOcta(currentVariation);
-        totalWidth = polyWidth * 4;  // 2x2 grid of quads
-        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT;
+        const GAP = 8;
+        totalWidth = polyWidth * 4 + GAP;  // 2x2 grid of quads with gap
+        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + GAP;
       } else {
         // quad mode
         triangles = buildQuadMirrored(currentVariation);
