@@ -1394,25 +1394,35 @@
     });
 
     // Convert aik bekar repdigit value to ms speed
-    // 1111 → 1.111 ms (divide by 1000)
-    // 333 → 33.3 ms (divide by 10)
-    // 99 → 999 ms (multiply by 10 + last digit)
+    // Digits are mirrored: 1↔9, 2↔8, 3↔7, 4↔6, 5↔5
+    // 1111 → mirrored 9999 → 9.999 ms
+    // 111 → mirrored 999 → 99.9 ms
+    // 99 → mirrored 11 → 111 ms
     function aikBekarToMs(value) {
       if (value <= 0) return 666;
+
+      // Get the repeating digit and number of digits
       const numDigits = Math.floor(Math.log10(value)) + 1;
+      const digit = Math.floor(value / Math.pow(10, numDigits - 1)); // First digit
+
+      // Mirror the digit (1↔9, 2↔8, 3↔7, 4↔6, 5↔5)
+      const mirroredDigit = 10 - digit;
+
+      // Calculate mirrored value (same structure, different digit)
+      const mirroredValue = mirroredDigit * value / digit;
 
       if (numDigits >= 4) {
         // 4+ digits: divide by 10^(numDigits-1)
-        return value / Math.pow(10, numDigits - 1);
+        return mirroredValue / Math.pow(10, numDigits - 1);
       } else if (numDigits === 3) {
         // 3 digits: divide by 10
-        return value / 10;
+        return mirroredValue / 10;
       } else if (numDigits === 2) {
-        // 2 digits: multiply by 10 + last digit
-        return value * 10 + (value % 10);
+        // 2 digits: multiply by 10 + mirrored digit
+        return mirroredValue * 10 + mirroredDigit;
       } else {
         // 1 digit: multiply by 1111
-        return value * 1111;
+        return mirroredValue * 1111;
       }
     }
 
@@ -2065,7 +2075,7 @@
 
       // Speed: pixels per millisecond (based on frameSpeed)
       // Slower scroll speed for subtle background animation
-      const scrollSpeed = bgTileHeight / (Math.max(3, frameSpeed / 20) * 4000);
+      const scrollSpeed = bgTileHeight / (Math.max(3, frameSpeed / 20) * 8000);
 
       bgColumns.forEach((col, i) => {
         col.offset += col.direction * scrollSpeed * deltaTime;
@@ -2102,7 +2112,7 @@
     // Initialize - set frameSpeed from default phrase's aik bekar value
     const initialAikBekar = currentCombo[currentCombo.length - 1];
     frameSpeed = aikBekarToMs(initialAikBekar);
-    document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
+    document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toFixed(2));
 
     render();
     renderBackground();
