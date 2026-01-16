@@ -423,42 +423,34 @@
     }
 
     // Build dual mode: single column polyhedron (6 rows)
-    // Top 3 rows: original, Bottom 3 rows: X-mirrored (reflected vertically)
-    // Rows 0, 2, 4 are X-flipped (pointing reversed) for honeycomb pattern
+    // Top 3 rows: original, Bottom 3 rows: Y-mirrored (reflected vertically)
+    // Rows 1, 3, 5 are X-flipped (pointing reversed) for honeycomb pattern
     // variation 0 = Normal, variation 1 = Inverted (y-flipped letter positions only)
     // Form stays static, only letter indices are flipped for inverted
     function buildDualStacked(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
-      const TOTAL_ROWS = BASE_ROWS * 2; // 6 rows total
 
-      // Rows that need X-flip (1st, 3rd, 5th = 0, 2, 4)
-      const xFlipRows = [0, 2, 4];
+      // Rows that need X-flip for honeycomb pattern (2nd, 4th, 6th = 1, 3, 5)
+      const xFlipRows = [1, 3, 5];
 
       // Top half: original (rows 0, 1, 2)
+      // Normal: letterRow = t.row (gives 0,1,2)
+      // Inverted: letterRow = 2-t.row (gives 2,1,0)
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
         const y = t.row * TRI_HEIGHT;
         const finalRow = t.row;
 
-        // X-flip for rows 0, 2, 4
+        // X-flip for rows 1, 3, 5
         let pointing = t.pointing;
         if (xFlipRows.includes(finalRow)) {
           pointing = pointing === 'up' ? 'down' : 'up';
         }
 
-        // For inverted, flip the letter index (y-flip letter positions)
-        let letterIndex = t.index;
-        let letterRow = t.polyhedronRow;
-        if (variation === 1) {
-          // Top half (rows 0-2) gets letters from bottom half (rows 5-3)
-          const flippedRow = TOTAL_ROWS - 1 - finalRow; // 0->5, 1->4, 2->3
-          // Bottom half uses mirrored rows, so we need to map correctly
-          // Row 5 has letters from row 0, row 4 from row 1, row 3 from row 2
-          const srcRow = BASE_ROWS - 1 - (flippedRow - BASE_ROWS); // 5->0, 4->1, 3->2
-          letterIndex = srcRow * COLS + t.col;
-          letterRow = srcRow;
-        }
+        // For inverted, flip row 0 <-> row 2 letter positions
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
 
         allTriangles.push({
           ...t,
@@ -471,29 +463,25 @@
         });
       });
 
-      // Bottom half: X-mirrored (rows 2, 1, 0 placed at rows 3, 4, 5)
-      // Same letters, reversed row order, pointing flipped from source row
+      // Bottom half: Y-mirrored (rows 2, 1, 0 reflected at rows 3, 4, 5)
+      // Normal: letterRow = t.row directly (gives row3=2, row4=1, row5=0 - proper reflection)
+      // Inverted: letterRow = 2-t.row (gives row3=0, row4=1, row5=2 - reflecting inverted top)
       base.forEach(t => {
-        const mirroredRow = BASE_ROWS - 1 - t.row; // 2->0, 1->1, 0->2
+        const mirroredRow = BASE_ROWS - 1 - t.row; // t.row: 0->2, 1->1, 2->0
         const x = t.col * (TRI_SIZE / 2);
-        const finalRow = BASE_ROWS + mirroredRow;
+        const finalRow = BASE_ROWS + mirroredRow; // finalRow: 5, 4, 3
         const y = finalRow * TRI_HEIGHT;
 
-        // X-flip for rows 0, 2, 4
+        // X-flip for rows 1, 3, 5
         let pointing = t.pointing;
         if (xFlipRows.includes(finalRow)) {
           pointing = pointing === 'up' ? 'down' : 'up';
         }
 
-        // For inverted, flip the letter index (y-flip letter positions)
-        let letterIndex = t.index;
-        let letterRow = BASE_ROWS - 1 - t.polyhedronRow;
-        if (variation === 1) {
-          // Bottom half (rows 3-5) gets letters from top half (rows 2-0)
-          const flippedRow = TOTAL_ROWS - 1 - finalRow; // 3->2, 4->1, 5->0
-          letterIndex = flippedRow * COLS + t.col;
-          letterRow = flippedRow;
-        }
+        // Normal: proper reflection (row 3 shows row 2's letters, etc.)
+        // Inverted: reflect the inverted top (row 3 shows row 0's letters, etc.)
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
 
         allTriangles.push({
           ...t,
