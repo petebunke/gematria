@@ -1683,14 +1683,11 @@ const GematriaCalculator = () => {
                 </div>
 
                 {/* Results decoration image */}
-                <div className="w-full">
-                  <img
-                    src="/results-decoration.gif"
-                    alt="Decorative Star of David pattern"
-                    className="w-full h-auto object-contain rounded-lg"
-                    style={{ maxHeight: '200px' }}
-                  />
-                </div>
+                <img
+                  src="/results-decoration.gif"
+                  alt="Decorative Star of David pattern"
+                  className="w-full h-auto rounded-lg"
+                />
 
                 {/* Hebrew */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
