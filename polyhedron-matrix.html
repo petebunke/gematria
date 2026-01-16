@@ -1288,6 +1288,11 @@
       displayMode = e.target.value;
       currentVariation = 0;
       render();
+      // Ensure animation continues after mode change (for oscillator)
+      if (isPlaying && animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(animate, frameSpeed);
+      }
     });
 
     document.getElementById('frameSpeed').addEventListener('input', (e) => {
@@ -1730,11 +1735,15 @@
       // Initialize column positions if needed
       if (bgColumns.length !== tilesX) {
         bgColumns = [];
+        const staggerOffset = bgTileHeight / 3;
         for (let col = 0; col < tilesX; col++) {
           const goingUp = col % 2 === 0;
+          // Stagger alternating columns by 1/3 tile height
+          const baseOffset = goingUp ? 0 : -bgTileHeight;
+          const stagger = (col % 2) * staggerOffset;
           bgColumns.push({
             direction: goingUp ? -1 : 1, // -1 = up, 1 = down
-            offset: goingUp ? 0 : -bgTileHeight // down-scrolling starts offset
+            offset: baseOffset - stagger
           });
         }
       }
