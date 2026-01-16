@@ -387,7 +387,8 @@
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
-      const polyWidth = COLS * (TRI_SIZE / 2);
+      // Width = (COLS-1) half-widths for spacing + full triangle width
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
 
       // Two columns: left (Y-mirrored) and right (original)
       const columns = [
@@ -503,7 +504,8 @@
       let triangles;
       let totalWidth, totalHeight;
 
-      const polyWidth = COLS * (TRI_SIZE / 2);
+      // Width = (COLS-1) half-widths for spacing + full triangle width
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
 
       if (displayMode === 'dual') {
         triangles = buildDualStacked();
