@@ -137,7 +137,8 @@
         <option value="single">Single (3 rows)</option>
         <option value="dual">Dual (6 rows)</option>
         <option value="quad">Quad (2 columns)</option>
-        <option value="octa">Octa (8 variations)</option>
+        <option value="octa">Octa (8 forms)</option>
+        <option value="sexdeca">Sexdeca (16 forms)</option>
       </select>
     </div>
 
@@ -702,6 +703,174 @@
       return allTriangles;
     }
 
+    // Build sexdeca mode: 4x2 grid of 8 quads (16 poly forms total)
+    // Left half: Original octa layout (4 quads in 2x2)
+    // Right half: X-mirrored octa layout (4 quads in 2x2, with additional xFlipAll applied)
+    // variation 0 = Normal, variation 1 = Inverted
+    function buildSexdeca(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const xFlipRows = [0, 2, 4];
+      const GAP = 8; // Gap between quads
+
+      // 8 quadrants: 4 for left octa, 4 for right (x-mirrored) octa
+      // Left half: Original octa
+      // Right half: X-mirrored octa (all 8 forms get additional X-flip)
+      const octaHalves = [
+        { halfCol: 0, globalXFlip: false }, // Left: original octa
+        { halfCol: 1, globalXFlip: true }   // Right: x-mirrored octa
+      ];
+
+      // Octa quadrants within each half
+      const octaQuadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false }, // Top-left: original
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },  // Top-right: Y-mirrored
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },  // Bottom-left: X-mirrored
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }    // Bottom-right: X&Y-mirrored
+      ];
+
+      const octaWidth = quadWidth * 2 + GAP;
+
+      octaHalves.forEach(({ halfCol, globalXFlip }) => {
+        const halfXOffset = halfCol * (octaWidth + GAP);
+
+        octaQuadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+          const quadXOffset = halfXOffset + qCol * (quadWidth + GAP);
+          const quadYOffset = qRow * (quadHeight + GAP);
+
+          // Combined X-flip: octa's xFlipAll XOR global X-flip for this half
+          const combinedXFlip = xFlipAll !== globalXFlip;
+
+          // For bottom row (combinedXFlip), swap column order so same shapes touch
+          let columns;
+          if (combinedXFlip) {
+            // Bottom row: swap column order
+            columns = yFlipAll
+              ? [
+                  { colIndex: 0, yMirror: true },
+                  { colIndex: 1, yMirror: false }
+                ]
+              : [
+                  { colIndex: 0, yMirror: false },
+                  { colIndex: 1, yMirror: true }
+                ];
+          } else {
+            // Top row: normal order
+            columns = yFlipAll
+              ? [
+                  { colIndex: 0, yMirror: false },
+                  { colIndex: 1, yMirror: true }
+                ]
+              : [
+                  { colIndex: 0, yMirror: true },
+                  { colIndex: 1, yMirror: false }
+                ];
+          }
+
+          columns.forEach(({ colIndex, yMirror }) => {
+            // Top half (rows 0-2)
+            base.forEach(t => {
+              let col = t.col;
+              let pointing = t.pointing;
+              let row, polyRow;
+
+              if (variation === 0) {
+                row = t.row;
+                polyRow = t.polyhedronRow;
+              } else {
+                row = BASE_ROWS - 1 - t.row;
+                polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+              }
+
+              if (yMirror) {
+                col = COLS - 1 - col;
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (xFlipRows.includes(row)) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (xFlipAll) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (globalXFlip) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+
+              allTriangles.push({
+                ...t,
+                col,
+                pointing,
+                polyhedronRow: polyRow,
+                x,
+                y,
+                yMirror,
+                section: 'top'
+              });
+            });
+
+            // Bottom half (rows 3-5)
+            base.forEach(t => {
+              let col = t.col;
+              let pointing = t.pointing;
+              let row, polyRow;
+
+              if (variation === 0) {
+                const mirroredRow = BASE_ROWS - 1 - t.row;
+                row = BASE_ROWS + mirroredRow;
+                polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+              } else {
+                row = BASE_ROWS + t.row;
+                polyRow = t.polyhedronRow;
+              }
+
+              if (yMirror) {
+                col = COLS - 1 - col;
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (xFlipRows.includes(row)) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (xFlipAll) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              if (globalXFlip) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+
+              allTriangles.push({
+                ...t,
+                col,
+                pointing,
+                polyhedronRow: polyRow,
+                x,
+                y,
+                yMirror,
+                section: 'bottom'
+              });
+            });
+          });
+        });
+      });
+
+      return allTriangles;
+    }
+
     // Get triangle path
     function getTrianglePath(x, y, pointing) {
       const halfWidth = TRI_SIZE / 2;
@@ -724,9 +893,7 @@
 
       // Variation name based on mode
       let varName = '-';
-      if (displayMode === 'quad') {
-        varName = currentVariation === 0 ? 'Normal' : 'Inverted';
-      } else if (displayMode === 'octa') {
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sexdeca') {
         varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       }
       document.getElementById('variationName').textContent = varName;
@@ -751,6 +918,13 @@
         triangles = buildDualStacked();
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (displayMode === 'sexdeca') {
+        triangles = buildSexdeca(currentVariation);
+        const GAP = 8;
+        const quadWidth = polyWidth * 2;
+        const octaWidth = quadWidth * 2 + GAP;
+        totalWidth = octaWidth * 2 + GAP;  // 2 octas side by side with gaps
+        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + GAP;  // 2 rows of quads
       } else if (displayMode === 'octa') {
         triangles = buildOcta(currentVariation);
         const GAP = 8;
@@ -809,6 +983,7 @@
 
     // Get number of variations for current mode
     function getVariationCount() {
+      if (displayMode === 'sexdeca') return 2;
       if (displayMode === 'octa') return 2;
       if (displayMode === 'quad') return 2;
       return 1; // single and dual have no variations
@@ -942,8 +1117,11 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const varName = displayMode === 'quad' ? (currentVariation === 0 ? 'normal' : 'inverted') : 'stacked';
-      a.download = `gematria-${CONFIG_KEYS[currentConfigIndex]}-${varName}.svg`;
+      let varName = 'stacked';
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sexdeca') {
+        varName = currentVariation === 0 ? 'normal' : 'inverted';
+      }
+      a.download = `gematria-${displayMode}-${CONFIG_KEYS[currentConfigIndex]}-${varName}.svg`;
       a.click();
       URL.revokeObjectURL(url);
     });
