@@ -314,7 +314,6 @@
 
     // Self-oscillator (swing) state
     let oscActive = false;
-    let oscTimer = null;
     let oscDigit = 1;
     let oscDigitDirection = 1; // 1 = ascending through digits, -1 = descending
     let oscSequence = [];
@@ -1139,6 +1138,11 @@
               if (currentVariation >= varCount) currentVariation = 0;
             }
 
+            // If osc is active, step the ms sequence on each direction change
+            if (oscActive) {
+              stepOscMs();
+            }
+
             // If osc is active and we just completed a backward pass (full cycle), advance mode
             if (oscActive && wasGoingBackward) {
               const currentModeIndex = MODE_ORDER.indexOf(displayMode);
@@ -1215,7 +1219,9 @@
         e.preventDefault();
         const currentDistance = getDistance(e.touches);
         const newScale = initialScale * (currentDistance / initialDistance);
-        scale = Math.max(0.25, Math.min(5, newScale));
+        // Rectangle mode: limit zoom out to 75%
+        const minZoom = displayMode === 'rectangle' ? 0.75 : 0.25;
+        scale = Math.max(minZoom, Math.min(5, newScale));
         render();
       }
     }, { passive: false });
@@ -1224,7 +1230,9 @@
     container.addEventListener('wheel', (e) => {
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
-      scale = Math.max(0.25, Math.min(5, scale * zoomFactor));
+      // Rectangle mode: limit zoom out to 75%
+      const minZoom = displayMode === 'rectangle' ? 0.75 : 0.25;
+      scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
       render();
     }, { passive: false });
 
@@ -1292,30 +1300,12 @@
       return seq;
     }
 
-    function oscStep() {
+    // Step the ms sequence forward or backward (called when config cycle completes)
+    function stepOscMs() {
       if (!oscActive) return;
 
       const seq = oscSequence;
       if (!seq || seq.length === 0) return;
-
-      const maxVal = seq[seq.length - 1];
-
-      // Ensure oscIndex is in bounds
-      if (oscIndex < 0) oscIndex = 0;
-      if (oscIndex >= seq.length) oscIndex = seq.length - 1;
-
-      // Update frame speed to current sequence value
-      frameSpeed = seq[oscIndex];
-      document.getElementById('frameSpeed').value = frameSpeed;
-
-      // Reset animation timer with new speed (always reset if playing)
-      if (isPlaying) {
-        if (animationTimer) clearTimeout(animationTimer);
-        animationTimer = setTimeout(animate, frameSpeed);
-      }
-
-      // Update background animation speed without resetting position
-      updateBackgroundSpeed();
 
       // Move to next position in sequence
       if (oscAscending) {
@@ -1334,8 +1324,16 @@
         }
       }
 
-      // Schedule next step - interval is the max repdigit value
-      oscTimer = setTimeout(oscStep, maxVal);
+      // Ensure oscIndex is in bounds
+      if (oscIndex < 0) oscIndex = 0;
+      if (oscIndex >= seq.length) oscIndex = seq.length - 1;
+
+      // Update frame speed to current sequence value
+      frameSpeed = seq[oscIndex];
+      document.getElementById('frameSpeed').value = frameSpeed;
+
+      // Update background animation speed without resetting position
+      updateBackgroundSpeed();
     }
 
     function startOsc() {
@@ -1350,13 +1348,24 @@
       btn.textContent = 'ON';
       btn.style.background = '#6b5b95';
       btn.style.color = '#ffffff';
-      oscStep();
+
+      // Auto-play if paused
+      if (!isPlaying) {
+        isPlaying = true;
+        document.getElementById('playPause').textContent = '⏸';
+        animate();
+      }
+
+      // Set initial frame speed from sequence
+      if (oscSequence.length > 0) {
+        frameSpeed = oscSequence[oscIndex];
+        document.getElementById('frameSpeed').value = frameSpeed;
+        updateBackgroundSpeed();
+      }
     }
 
     function stopOsc() {
       oscActive = false;
-      if (oscTimer) clearTimeout(oscTimer);
-      oscTimer = null;
       const btn = document.getElementById('oscToggle');
       btn.textContent = 'OFF';
       btn.style.background = '';
