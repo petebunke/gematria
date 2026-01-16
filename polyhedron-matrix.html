@@ -215,7 +215,6 @@
 
     <div class="control-group">
       <span class="control-label">Swing</span>
-      <input type="number" id="oscDigit" value="1" min="1" max="9" style="width: 35px;">
       <button id="oscToggle" class="secondary">OFF</button>
     </div>
 
@@ -315,11 +314,6 @@
 
     // Self-oscillator (swing) state
     let oscActive = false;
-    let oscDigit = 1;
-    let oscDigitDirection = 1; // 1 = ascending through digits, -1 = descending
-    let oscSequence = [];
-    let oscIndex = 0;
-    let oscAscending = true;
 
     // Zoom and pan state
     let scale = 0.5;
@@ -1140,37 +1134,27 @@
               if (currentVariation >= varCount) currentVariation = 0;
             }
 
-            // If osc is active, step the ms sequence on each direction change
-            if (oscActive) {
-              stepOscMs();
-            }
-
             // If osc is active and we just completed a backward pass (full cycle), advance mode
             if (oscActive && wasGoingBackward) {
               const currentModeIndex = MODE_ORDER.indexOf(displayMode);
               let nextModeIndex = currentModeIndex + oscModeDirection;
 
-              // Reverse mode direction at boundaries and cycle digit
+              // Reverse mode direction at boundaries
               if (nextModeIndex >= MODE_ORDER.length || nextModeIndex < 0) {
                 oscModeDirection *= -1;
                 nextModeIndex = currentModeIndex + oscModeDirection;
-
-                // Cycle swing digit 1-9 and back
-                let nextDigit = oscDigit + oscDigitDirection;
-                if (nextDigit > 9 || nextDigit < 1) {
-                  oscDigitDirection *= -1;
-                  nextDigit = oscDigit + oscDigitDirection;
-                }
-                oscDigit = nextDigit;
-                document.getElementById('oscDigit').value = oscDigit;
-                oscSequence = buildOscSequence(oscDigit);
-                oscIndex = 0;
-                oscAscending = true;
               }
 
               displayMode = MODE_ORDER[nextModeIndex];
               document.getElementById('displayMode').value = displayMode;
               currentVariation = 0;
+              // Reset pan when mode changes during swing
+              panX = 0;
+              panY = 0;
+              // Set appropriate zoom for rectangle mode
+              if (displayMode === 'rectangle') {
+                scale = 0.75;
+              }
             }
           } else {
             // Wrap around for locked loop modes
@@ -1181,7 +1165,13 @@
       }
 
       render();
-      animationTimer = setTimeout(animate, frameSpeed);
+
+      // When swing is active, use 1111ms pause on single and rectangle modes
+      let delay = frameSpeed;
+      if (oscActive && (displayMode === 'single' || displayMode === 'rectangle')) {
+        delay = 1111;
+      }
+      animationTimer = setTimeout(animate, delay);
     }
 
     // Get total variation index
@@ -1351,18 +1341,6 @@
       }
     });
 
-    // Self-oscillator - cycles through repdigits of selected digit
-    function buildOscSequence(digit) {
-      const seq = [];
-      let val = digit;
-      // Build ascending: 1, 11, 111 (max 3 digits)
-      while (val <= 999) {
-        seq.push(val);
-        val = val * 10 + digit;
-      }
-      return seq;
-    }
-
     // Convert aik bekar repdigit value to ms speed
     // 1111 → 1.111 ms, 111 → 11.11 ms, 11 → 111.1 ms, 1 → 1111.1 ms
     function aikBekarToMs(value) {
@@ -1371,50 +1349,8 @@
       return 1111.1 / Math.pow(10, numDigits - 1);
     }
 
-    // Step the ms sequence forward or backward (called when config cycle completes)
-    function stepOscMs() {
-      if (!oscActive) return;
-
-      const seq = oscSequence;
-      if (!seq || seq.length === 0) return;
-
-      // Move to next position in sequence
-      if (oscAscending) {
-        oscIndex++;
-        if (oscIndex >= seq.length) {
-          oscAscending = false;
-          oscIndex = seq.length - 2; // Skip the max value, go to second-to-last
-          if (oscIndex < 0) oscIndex = 0;
-        }
-      } else {
-        oscIndex--;
-        if (oscIndex < 0) {
-          oscAscending = true;
-          oscIndex = 1; // Skip the min value, go to second
-          if (oscIndex >= seq.length) oscIndex = 0;
-        }
-      }
-
-      // Ensure oscIndex is in bounds
-      if (oscIndex < 0) oscIndex = 0;
-      if (oscIndex >= seq.length) oscIndex = seq.length - 1;
-
-      // Update frame speed using aik bekar formula
-      const aikBekarValue = seq[oscIndex];
-      frameSpeed = aikBekarToMs(aikBekarValue);
-      document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
-
-      // Update background animation speed without resetting position
-      updateBackgroundSpeed();
-    }
-
     function startOsc() {
-      oscDigit = parseInt(document.getElementById('oscDigit').value) || 1;
-      oscSequence = buildOscSequence(oscDigit);
-      oscIndex = 0;
-      oscAscending = true;
       oscModeDirection = 1; // Reset mode direction
-      oscDigitDirection = 1; // Reset digit direction
       oscActive = true;
       const btn = document.getElementById('oscToggle');
       btn.textContent = 'ON';
@@ -1428,13 +1364,8 @@
         animate();
       }
 
-      // Set initial frame speed from sequence using aik bekar formula
-      if (oscSequence.length > 0) {
-        const aikBekarValue = oscSequence[oscIndex];
-        frameSpeed = aikBekarToMs(aikBekarValue);
-        document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
-        updateBackgroundSpeed();
-      }
+      // Frame speed comes from phrase selection via aik bekar formula
+      // (already set when phrase was selected)
     }
 
     function stopOsc() {
@@ -1453,19 +1384,18 @@
       }
     });
 
-    document.getElementById('oscDigit').addEventListener('change', () => {
-      if (oscActive) {
-        stopOsc();
-        startOsc();
-      }
-    });
-
     document.getElementById('phraseSelect').addEventListener('change', (e) => {
       const [phrase, combo] = e.target.value.split('|');
       currentPhrase = phrase;
       currentCombo = combo.split('/').map(Number);
+
+      // Apply aik bekar formula to first combo value to set ms speed
+      frameSpeed = aikBekarToMs(currentCombo[0]);
+      document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
+
       render();
       renderBackground();
+      updateBackgroundSpeed();
     });
 
     document.getElementById('displayMode').addEventListener('change', (e) => {
