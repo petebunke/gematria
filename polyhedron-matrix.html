@@ -339,15 +339,13 @@
       return triangles;
     }
 
-    // Build dual mode: same as quad polyhedron structure but single column
-    // Top: original, Bottom: X-mirrored (same as quad's right column)
+    // Build dual mode: single column polyhedron (6 rows)
+    // Top 3 rows: original, Bottom 3 rows: X-mirrored (same letters, reversed row order)
     function buildDualStacked() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
-      const polyWidth = COLS * (TRI_SIZE / 2);
-
-      // Top half: original (same as quad top-right)
+      // Top half: original (rows 0, 1, 2)
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
         const y = t.row * TRI_HEIGHT;
@@ -360,43 +358,36 @@
         });
       });
 
-      // Bottom half: X-mirrored rows, then Y-mirrored (horizontal flip)
-      // Same structure as quad's bottom-right quadrant
+      // Bottom half: X-mirrored (rows 2, 1, 0 placed at rows 3, 4, 5)
+      // Same letters, reversed row order
       base.forEach(t => {
-        // X-mirror: reverse rows
-        const xMirroredRow = BASE_ROWS - 1 - t.row;
-        // Y-mirror: reverse columns and flip pointing
-        const col = COLS - 1 - t.col;
-        const pointing = t.pointing === 'up' ? 'down' : 'up';
-
-        const x = col * (TRI_SIZE / 2);
-        const y = (BASE_ROWS + xMirroredRow) * TRI_HEIGHT;
+        const mirroredRow = BASE_ROWS - 1 - t.row; // 2->0, 1->1, 0->2
+        const x = t.col * (TRI_SIZE / 2);
+        const y = (BASE_ROWS + mirroredRow) * TRI_HEIGHT;
 
         allTriangles.push({
           ...t,
-          col,
-          pointing,
           polyhedronRow: BASE_ROWS - 1 - t.polyhedronRow,
           x,
           y,
-          yMirror: true
+          yMirror: false
         });
       });
 
       return allTriangles;
     }
 
-    // Build quad mode: mirrored polycolumn pairs
-    // Top half: left Y-mirrored, right original
-    // Bottom half: left Y-mirrored + Y-flipped, right Y-flipped (horizontal flip for bottom)
-    // variation 0 = Normal: [base on top, X-mirror below]
-    // variation 1 = Inverted: [X-mirror on top, base below]
+    // Build quad mode: two columns of 6-row polyhedrons
+    // Left column: Y-mirrored (horizontally flipped letters)
+    // Right column: Original orientation
+    // Each column has: top 3 rows original, bottom 3 rows X-mirrored
+    // variation 0 = Normal: [original on top, X-mirror below]
+    // variation 1 = Inverted: [X-mirror on top, original below]
     function buildQuadMirrored(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
       const polyWidth = COLS * (TRI_SIZE / 2);
-      const polyHeight = BASE_ROWS * TRI_HEIGHT;
 
       // Two columns: left (Y-mirrored) and right (original)
       const columns = [
@@ -405,11 +396,7 @@
       ];
 
       columns.forEach(({ colIndex, yMirror }) => {
-        // For each column, build a polycolumn (6 rows):
-        // Normal (variation 0): top = original rows, bottom = X-reflected rows
-        // Inverted (variation 1): top = X-reflected rows, bottom = original rows
-
-        // Top half
+        // Top half (rows 0-2)
         base.forEach(t => {
           let col = t.col;
           let pointing = t.pointing;
@@ -420,7 +407,7 @@
             row = t.row;
             polyRow = t.polyhedronRow;
           } else {
-            // Inverted: X-reflected on top (rows reversed)
+            // Inverted: X-mirrored on top (rows 2,1,0)
             row = BASE_ROWS - 1 - t.row;
             polyRow = BASE_ROWS - 1 - t.polyhedronRow;
           }
@@ -445,27 +432,24 @@
           });
         });
 
-        // Bottom half: also Y-mirrored (horizontal flip)
+        // Bottom half (rows 3-5): X-mirrored from top
         base.forEach(t => {
           let col = t.col;
           let pointing = t.pointing;
           let row, polyRow;
 
           if (variation === 0) {
-            // Normal: X-reflected on bottom (rows reversed)
-            row = BASE_ROWS + (BASE_ROWS - 1 - t.row);
+            // Normal: X-mirrored on bottom (rows 2,1,0 at positions 3,4,5)
+            const mirroredRow = BASE_ROWS - 1 - t.row;
+            row = BASE_ROWS + mirroredRow;
             polyRow = BASE_ROWS - 1 - t.polyhedronRow;
           } else {
-            // Inverted: original on bottom
+            // Inverted: original on bottom (rows 0,1,2 at positions 3,4,5)
             row = BASE_ROWS + t.row;
             polyRow = t.polyhedronRow;
           }
 
-          // Bottom half is Y-mirrored (horizontal flip)
-          // If column was already Y-mirrored, this un-mirrors it
-          // If column was not Y-mirrored, this mirrors it
-          const bottomYMirror = !yMirror;
-          if (bottomYMirror) {
+          if (yMirror) {
             col = COLS - 1 - col;
             pointing = pointing === 'up' ? 'down' : 'up';
           }
@@ -480,7 +464,7 @@
             polyhedronRow: polyRow,
             x,
             y,
-            yMirror: bottomYMirror,
+            yMirror,
             section: 'bottom'
           });
         });
