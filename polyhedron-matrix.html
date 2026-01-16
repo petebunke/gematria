@@ -1363,6 +1363,14 @@
       return seq;
     }
 
+    // Convert aik bekar repdigit value to ms speed
+    // 1111 → 1.111 ms, 111 → 11.11 ms, 11 → 111.1 ms, 1 → 1111.1 ms
+    function aikBekarToMs(value) {
+      if (value <= 0) return 666;
+      const numDigits = Math.floor(Math.log10(value)) + 1;
+      return 1111.1 / Math.pow(10, numDigits - 1);
+    }
+
     // Step the ms sequence forward or backward (called when config cycle completes)
     function stepOscMs() {
       if (!oscActive) return;
@@ -1391,9 +1399,10 @@
       if (oscIndex < 0) oscIndex = 0;
       if (oscIndex >= seq.length) oscIndex = seq.length - 1;
 
-      // Update frame speed to current sequence value
-      frameSpeed = seq[oscIndex];
-      document.getElementById('frameSpeed').value = frameSpeed;
+      // Update frame speed using aik bekar formula
+      const aikBekarValue = seq[oscIndex];
+      frameSpeed = aikBekarToMs(aikBekarValue);
+      document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
 
       // Update background animation speed without resetting position
       updateBackgroundSpeed();
@@ -1419,10 +1428,11 @@
         animate();
       }
 
-      // Set initial frame speed from sequence
+      // Set initial frame speed from sequence using aik bekar formula
       if (oscSequence.length > 0) {
-        frameSpeed = oscSequence[oscIndex];
-        document.getElementById('frameSpeed').value = frameSpeed;
+        const aikBekarValue = oscSequence[oscIndex];
+        frameSpeed = aikBekarToMs(aikBekarValue);
+        document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
         updateBackgroundSpeed();
       }
     }
