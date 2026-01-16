@@ -1663,6 +1663,12 @@
 </html>`;
     }
 
+    // Background animation state
+    let bgColumns = [];
+    let bgTileHeight = 0;
+    let bgAnimationId = null;
+    let bgLastTime = 0;
+
     // Render tiled background with animated columns
     function renderBackground() {
       const bgSvg = document.getElementById('backgroundSvg');
@@ -1674,18 +1680,15 @@
       const triangles = buildQuadMirrored(0); // Use Normal variation
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
       const tileWidth = polyWidth * 2;
-      const tileHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      bgTileHeight = BASE_ROWS * 2 * TRI_HEIGHT;
 
       // Calculate how many tiles needed to cover screen
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
       const tilesX = Math.ceil(screenWidth / tileWidth) + 2;
-      const tilesY = Math.ceil(screenHeight / tileHeight) + 3;
+      const tilesY = Math.ceil(screenHeight / bgTileHeight) + 3;
 
       const totalWidth = tilesX * tileWidth;
-      const totalHeight = (tilesY + 1) * tileHeight;
-      // Animation duration correlates to frameSpeed (faster animation = faster scroll)
-      const animDuration = Math.max(5, frameSpeed / 10); // seconds for full cycle
 
       bgSvg.setAttribute('viewBox', `0 0 ${totalWidth} ${screenHeight}`);
 
@@ -1694,7 +1697,6 @@
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
-        const letterColor = getLetterColor(tri.polyhedronRow);
 
         const isInPhrase = isLetterInPhrase(symbol, letterData);
         const fill = isInPhrase ? color.hex : '#f8f8f4';
@@ -1721,51 +1723,69 @@
 
       let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${screenHeight}" fill="#f5f5f0"/>`;
 
-      // CSS animations for columns using CSS custom property for duration
-      svgContent += `<style>
-        :root { --scroll-duration: ${animDuration}s; }
-        @keyframes scrollUp {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-${tileHeight}px); }
-        }
-        @keyframes scrollDown {
-          0% { transform: translateY(-${tileHeight}px); }
-          100% { transform: translateY(0); }
-        }
-        .col-up { animation: scrollUp var(--scroll-duration) linear infinite; }
-        .col-down { animation: scrollDown var(--scroll-duration) linear infinite; }
-      </style>`;
-
       // Create pattern for reuse
       svgContent += `<defs><g id="tile">${tileContent}</g></defs>`;
 
-      // Create columns with alternating animations
-      for (let col = 0; col < tilesX; col++) {
-        const direction = col % 2 === 0 ? 'col-up' : 'col-down';
-        const xPos = col * tileWidth;
+      // Create columns (no CSS animation - we'll animate with JS)
+      // Initialize column positions if needed
+      if (bgColumns.length !== tilesX) {
+        bgColumns = [];
+        for (let col = 0; col < tilesX; col++) {
+          const goingUp = col % 2 === 0;
+          bgColumns.push({
+            direction: goingUp ? -1 : 1, // -1 = up, 1 = down
+            offset: goingUp ? 0 : -bgTileHeight // down-scrolling starts offset
+          });
+        }
+      }
 
-        svgContent += `<g class="${direction}">`;
+      for (let col = 0; col < tilesX; col++) {
+        const xPos = col * tileWidth;
+        svgContent += `<g id="bgCol${col}">`;
         for (let row = -1; row < tilesY; row++) {
-          const yPos = row * tileHeight;
+          const yPos = row * bgTileHeight;
           svgContent += `<use href="#tile" x="${xPos}" y="${yPos}"/>`;
         }
         svgContent += `</g>`;
       }
 
       bgSvg.innerHTML = svgContent;
+
+      // Start background animation loop if not running
+      if (!bgAnimationId) {
+        bgLastTime = performance.now();
+        bgAnimationId = requestAnimationFrame(animateBackground);
+      }
     }
 
-    // Update background scroll speed without re-rendering
+    // JavaScript-based background animation
+    function animateBackground(currentTime) {
+      const deltaTime = currentTime - bgLastTime;
+      bgLastTime = currentTime;
+
+      // Speed: pixels per millisecond (based on frameSpeed)
+      // At frameSpeed=666, scroll speed should be moderate
+      const scrollSpeed = bgTileHeight / (Math.max(5, frameSpeed / 10) * 1000);
+
+      bgColumns.forEach((col, i) => {
+        col.offset += col.direction * scrollSpeed * deltaTime;
+
+        // Wrap around
+        if (col.offset <= -bgTileHeight) col.offset += bgTileHeight;
+        if (col.offset >= 0) col.offset -= bgTileHeight;
+
+        const colEl = document.getElementById(`bgCol${i}`);
+        if (colEl) {
+          colEl.setAttribute('transform', `translate(0, ${col.offset})`);
+        }
+      });
+
+      bgAnimationId = requestAnimationFrame(animateBackground);
+    }
+
+    // Update background scroll speed - now a no-op since JS animation reads frameSpeed directly
     function updateBackgroundSpeed() {
-      const bgSvg = document.getElementById('backgroundSvg');
-      const styleEl = bgSvg.querySelector('style');
-      if (styleEl) {
-        const animDuration = Math.max(5, frameSpeed / 10);
-        styleEl.textContent = styleEl.textContent.replace(
-          /--scroll-duration:\s*[\d.]+s/,
-          `--scroll-duration: ${animDuration}s`
-        );
-      }
+      // Speed changes are picked up automatically by animateBackground
     }
 
     // Handle window resize
