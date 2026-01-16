@@ -190,7 +190,7 @@
 
     <div class="control-group">
       <span class="control-label">Osc</span>
-      <input type="number" id="oscDigit" value="3" min="1" max="9" style="width: 35px;">
+      <input type="number" id="oscDigit" value="6" min="1" max="9" style="width: 35px;">
       <button id="oscToggle" class="secondary">OFF</button>
     </div>
 
@@ -291,7 +291,7 @@
     // Self-oscillator state
     let oscActive = false;
     let oscTimer = null;
-    let oscDigit = 3;
+    let oscDigit = 6;
     let oscSequence = [];
     let oscIndex = 0;
     let oscAscending = true;
@@ -1733,12 +1733,13 @@
 
       // Create columns (no CSS animation - we'll animate with JS)
       // Initialize column positions if needed
+      const totalColumnHeight = tilesY * bgTileHeight;
       if (bgColumns.length !== tilesX) {
         bgColumns = [];
-        const staggerOffset = bgTileHeight / 3;
+        const staggerOffset = totalColumnHeight / 3;
         for (let col = 0; col < tilesX; col++) {
           const goingUp = col % 2 === 0;
-          // Stagger alternating columns by 1/3 tile height
+          // Stagger alternating columns by 1/3 of total column height
           const baseOffset = goingUp ? 0 : -bgTileHeight;
           const stagger = (col % 2) * staggerOffset;
           bgColumns.push({
