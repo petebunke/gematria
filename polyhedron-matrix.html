@@ -1125,7 +1125,13 @@
     document.getElementById('reverseBtn').addEventListener('click', () => {
       configDirection *= -1;
       const btn = document.getElementById('reverseBtn');
-      btn.style.background = configDirection === -1 ? '#c41e3a' : '';
+      if (configDirection === -1) {
+        btn.style.background = '#c41e3a';
+        btn.style.color = '#ffffff';
+      } else {
+        btn.style.background = '';
+        btn.style.color = '';
+      }
     });
 
     // Self-oscillator - cycles through repdigits of selected digit
@@ -1144,15 +1150,21 @@
       if (!oscActive) return;
 
       const seq = oscSequence;
+      if (!seq || seq.length === 0) return;
+
       const maxVal = seq[seq.length - 1];
+
+      // Ensure oscIndex is in bounds
+      if (oscIndex < 0) oscIndex = 0;
+      if (oscIndex >= seq.length) oscIndex = seq.length - 1;
 
       // Update frame speed to current sequence value
       frameSpeed = seq[oscIndex];
       document.getElementById('frameSpeed').value = frameSpeed;
 
-      // Reset animation timer with new speed
-      if (isPlaying && animationTimer) {
-        clearTimeout(animationTimer);
+      // Reset animation timer with new speed (always reset if playing)
+      if (isPlaying) {
+        if (animationTimer) clearTimeout(animationTimer);
         animationTimer = setTimeout(animate, frameSpeed);
       }
 
@@ -1162,12 +1174,14 @@
         if (oscIndex >= seq.length) {
           oscAscending = false;
           oscIndex = seq.length - 2; // Skip the max value, go to second-to-last
+          if (oscIndex < 0) oscIndex = 0;
         }
       } else {
         oscIndex--;
         if (oscIndex < 0) {
           oscAscending = true;
           oscIndex = 1; // Skip the min value, go to second
+          if (oscIndex >= seq.length) oscIndex = 0;
         }
       }
 
@@ -1181,8 +1195,10 @@
       oscIndex = 0;
       oscAscending = true;
       oscActive = true;
-      document.getElementById('oscToggle').textContent = 'ON';
-      document.getElementById('oscToggle').style.background = '#2e8b57';
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'ON';
+      btn.style.background = '#03ffcb';
+      btn.style.color = '#ffffff';
       oscStep();
     }
 
@@ -1190,8 +1206,10 @@
       oscActive = false;
       if (oscTimer) clearTimeout(oscTimer);
       oscTimer = null;
-      document.getElementById('oscToggle').textContent = 'OFF';
-      document.getElementById('oscToggle').style.background = '';
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'OFF';
+      btn.style.background = '';
+      btn.style.color = '';
     }
 
     document.getElementById('oscToggle').addEventListener('click', () => {
