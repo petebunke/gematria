@@ -16,31 +16,31 @@
       font-family: system-ui, -apple-system, sans-serif;
       background: #f5f5f0;
       color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
     }
 
     .controls-overlay {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
       background: rgba(255,255,255,0.95);
       border-bottom: 2px solid #333;
-      padding: 10px 20px;
-      z-index: 100;
+      padding: 8px 16px;
+      width: 100%;
       display: flex;
-      gap: 14px;
+      gap: 12px;
       align-items: center;
       flex-wrap: wrap;
+      justify-content: center;
     }
 
     .control-group {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
     }
 
     .control-label {
-      font-size: 10px;
+      font-size: 9px;
       color: #666;
       text-transform: uppercase;
     }
@@ -50,12 +50,12 @@
       border: 1px solid #ccc;
       border-radius: 4px;
       color: #333;
-      padding: 5px 8px;
-      font-size: 12px;
+      padding: 4px 6px;
+      font-size: 11px;
     }
 
     input[type="number"] {
-      width: 70px;
+      width: 60px;
     }
 
     button {
@@ -73,33 +73,35 @@
 
     .info-display {
       font-family: monospace;
-      font-size: 11px;
+      font-size: 10px;
       background: #f0f0e8;
-      padding: 3px 6px;
+      padding: 2px 5px;
       border-radius: 4px;
     }
 
     .color-swatch {
-      width: 20px;
-      height: 20px;
-      border-radius: 4px;
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
       border: 1px solid #333;
     }
 
     .tessellation-container {
-      position: fixed;
-      top: 50px;
-      left: 0;
-      right: 0;
-      bottom: 0;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
       overflow: hidden;
       touch-action: none;
+      padding: 20px;
     }
 
     #tessellationSvg {
-      width: 100%;
-      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
       touch-action: none;
+      border: 2px solid #333;
+      background: #f8f8f4;
     }
   </style>
 </head>
@@ -118,13 +120,22 @@
     </div>
 
     <div class="control-group">
+      <span class="control-label">Mode</span>
+      <select id="displayMode">
+        <option value="dual">Dual Columns</option>
+        <option value="quad">Quad Mirrors</option>
+      </select>
+    </div>
+
+    <div class="control-group">
       <span class="control-label">Config</span>
       <span class="info-display" id="configName">a-*-z</span>
     </div>
 
     <div class="control-group">
-      <span class="control-label">Speed (ms)</span>
+      <span class="control-label">Speed</span>
       <input type="number" id="frameSpeed" value="33.33" min="1" max="1000" step="0.01">
+      <span class="control-label">ms</span>
     </div>
 
     <div class="control-group">
@@ -140,12 +151,12 @@
     </div>
 
     <div class="control-group">
-      <button id="exportSvg">SVG</button>
+      <span class="control-label">Zoom</span>
+      <span class="info-display" id="zoomLevel">100%</span>
     </div>
 
     <div class="control-group">
-      <span class="control-label">Zoom</span>
-      <span class="info-display" id="zoomLevel">100%</span>
+      <button id="exportSvg" class="secondary">SVG</button>
     </div>
   </div>
 
@@ -155,7 +166,7 @@
 
   <script>
     // Constants
-    const TRI_SIZE = 36;
+    const TRI_SIZE = 32;
     const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
     const COLS = 9;      // Triangles per row in base polyhedron
     const BASE_ROWS = 3; // Base polyhedron rows
@@ -227,11 +238,10 @@
     let isPlaying = true;
     let animationTimer = null;
     let frameSpeed = 33.33;
+    let displayMode = 'dual'; // 'dual' or 'quad'
 
     // Zoom state
     let scale = 1;
-    let panX = 0;
-    let panY = 0;
     let initialDistance = 0;
     let initialScale = 1;
 
@@ -323,20 +333,90 @@
       return triangles;
     }
 
-    // Build quad mirror: one unit showing original + X-mirror + Y-mirror + XY-mirror
+    // Build dual column layout:
+    // 1. Base polyhedron (3 rows)
+    // 2. X-reflect below to make polycolumn (6 rows)
+    // 3. Y-reflect to make dual columns
+    function buildDualColumns() {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+
+      const polyWidth = COLS * (TRI_SIZE / 2);
+      const polyHeight = BASE_ROWS * TRI_HEIGHT;
+
+      // Build the polycolumn (original + X-reflected below)
+      // Then Y-reflect the whole thing for the right side
+
+      // Left column: Y-mirrored (letters appear reversed)
+      // Right column: Original orientation
+
+      const sections = [
+        { colIndex: 0, yMirror: true },   // Left: Y-mirrored
+        { colIndex: 1, yMirror: false }   // Right: Original
+      ];
+
+      sections.forEach(({ colIndex, yMirror }) => {
+        // Top half: original rows (0, 1, 2)
+        base.forEach(t => {
+          let col = t.col;
+          let pointing = t.pointing;
+
+          if (yMirror) {
+            col = COLS - 1 - col;
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = t.row * TRI_HEIGHT;
+
+          allTriangles.push({
+            ...t,
+            col,
+            pointing,
+            x,
+            y,
+            yMirror,
+            section: 'top'
+          });
+        });
+
+        // Bottom half: X-reflected (rows reversed: 2, 1, 0)
+        base.forEach(t => {
+          let col = t.col;
+          let pointing = t.pointing;
+          const xReflectedRow = BASE_ROWS - 1 - t.row;
+
+          if (yMirror) {
+            col = COLS - 1 - col;
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = (BASE_ROWS + xReflectedRow) * TRI_HEIGHT;
+
+          allTriangles.push({
+            ...t,
+            col,
+            pointing,
+            polyhedronRow: xReflectedRow,
+            x,
+            y,
+            yMirror,
+            section: 'bottom'
+          });
+        });
+      });
+
+      return allTriangles;
+    }
+
+    // Build quad mirror layout (original implementation)
     function buildQuadMirror() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
-      // Dimensions of one polyhedron
       const polyWidth = COLS * (TRI_SIZE / 2);
       const polyHeight = BASE_ROWS * TRI_HEIGHT;
-
-      // Quadrant positions:
-      // Top-right: Original
-      // Top-left: Y-mirrored (horizontal flip)
-      // Bottom-right: X-mirrored (vertical flip)
-      // Bottom-left: XY-mirrored (both flips)
 
       const quadrants = [
         { qx: 1, qy: 0, xMirror: false, yMirror: false }, // Top-right: Original
@@ -352,19 +432,16 @@
           let pointing = t.pointing;
           let polyRow = t.polyhedronRow;
 
-          // Apply Y-mirror (horizontal flip) - flip columns and pointing
           if (yMirror) {
             col = COLS - 1 - col;
             pointing = pointing === 'up' ? 'down' : 'up';
           }
 
-          // Apply X-mirror (vertical flip) - flip rows
           if (xMirror) {
             row = BASE_ROWS - 1 - row;
             polyRow = BASE_ROWS - 1 - t.polyhedronRow;
           }
 
-          // Calculate position within quad
           const x = qx * polyWidth + col * (TRI_SIZE / 2);
           const y = qy * polyHeight + row * TRI_HEIGHT;
 
@@ -376,6 +453,7 @@
             polyhedronRow: polyRow,
             x,
             y,
+            yMirror,
             quadrant: { qx, qy, xMirror, yMirror }
           });
         });
@@ -394,7 +472,7 @@
       }
     }
 
-    // Render quad mirror
+    // Render
     function render() {
       const svg = document.getElementById('tessellationSvg');
       const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
@@ -408,30 +486,39 @@
       document.getElementById('colorSwatch').style.backgroundColor = color.hex;
       document.getElementById('zoomLevel').textContent = `${Math.round(scale * 100)}%`;
 
-      // Build quad mirror
-      const quadMirror = buildQuadMirror();
+      // Build triangles based on mode
+      const triangles = displayMode === 'dual' ? buildDualColumns() : buildQuadMirror();
 
-      // Quad dimensions
-      const quadWidth = COLS * TRI_SIZE;  // 2 polyhedrons wide
-      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      // Calculate dimensions
+      const polyWidth = COLS * (TRI_SIZE / 2);
+      let totalWidth, totalHeight;
 
-      // Apply zoom and pan via viewBox
-      const viewWidth = quadWidth / scale;
-      const viewHeight = quadHeight / scale;
-      const viewX = (quadWidth - viewWidth) / 2 - panX / scale;
-      const viewY = (quadHeight - viewHeight) / 2 - panY / scale;
+      if (displayMode === 'dual') {
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else {
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      }
+
+      // Apply zoom via viewBox
+      const viewWidth = totalWidth / scale;
+      const viewHeight = totalHeight / scale;
+      const viewX = (totalWidth - viewWidth) / 2;
+      const viewY = (totalHeight - viewHeight) / 2;
 
       svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
+      svg.setAttribute('width', totalWidth * scale * 0.8);
+      svg.setAttribute('height', totalHeight * scale * 0.8);
 
-      let svgContent = `<rect x="0" y="0" width="${quadWidth}" height="${quadHeight}" fill="#f8f8f4"/>`;
+      let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="#f8f8f4"/>`;
 
       // Draw all triangles
-      quadMirror.forEach(tri => {
+      triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
         const letterColor = getLetterColor(tri.polyhedronRow);
 
-        // Highlight triangles whose letter appears in the phrase
         const isInPhrase = isLetterInPhrase(symbol, letterData);
         const fill = isInPhrase ? color.hex : '#f8f8f4';
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
@@ -443,13 +530,13 @@
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
 
-        // Mirror text for Y-mirrored quadrants
-        const textTransform = tri.quadrant.yMirror
+        // Mirror text for Y-mirrored sections
+        const textTransform = tri.yMirror
           ? `translate(${textX * 2}, 0) scale(-1, 1)`
           : '';
 
         svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
-                             font-family="Arial" font-size="10" font-weight="bold"
+                             font-family="Arial" font-size="9" font-weight="bold"
                              fill="${letterColor}" fill-opacity="${letterOpacity}"
                              ${textTransform ? `transform="${textTransform}"` : ''}>${symbol}</text>`;
       });
@@ -527,9 +614,13 @@
       render();
     });
 
+    document.getElementById('displayMode').addEventListener('change', (e) => {
+      displayMode = e.target.value;
+      render();
+    });
+
     document.getElementById('frameSpeed').addEventListener('change', (e) => {
       frameSpeed = parseFloat(e.target.value) || 33.33;
-      // Restart animation with new speed if playing
       if (isPlaying && animationTimer) {
         clearTimeout(animationTimer);
         animationTimer = setTimeout(animate, frameSpeed);
@@ -543,7 +634,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `gematria-${CONFIG_KEYS[currentConfigIndex]}.svg`;
+      a.download = `gematria-${displayMode}-${CONFIG_KEYS[currentConfigIndex]}.svg`;
       a.click();
       URL.revokeObjectURL(url);
     });
