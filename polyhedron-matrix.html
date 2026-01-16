@@ -1214,8 +1214,8 @@
         animationTimer = setTimeout(animate, frameSpeed);
       }
 
-      // Update background animation speed
-      renderBackground();
+      // Update background animation speed without resetting position
+      updateBackgroundSpeed();
 
       // Move to next position in sequence
       if (oscAscending) {
@@ -1296,7 +1296,7 @@
         clearTimeout(animationTimer);
         animationTimer = setTimeout(animate, frameSpeed);
       }
-      renderBackground();
+      updateBackgroundSpeed();
     });
 
     // GIF Export using gif.js approach with canvas
@@ -1721,8 +1721,9 @@
 
       let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${screenHeight}" fill="#f5f5f0"/>`;
 
-      // CSS animations for columns
+      // CSS animations for columns using CSS custom property for duration
       svgContent += `<style>
+        :root { --scroll-duration: ${animDuration}s; }
         @keyframes scrollUp {
           0% { transform: translateY(0); }
           100% { transform: translateY(-${tileHeight}px); }
@@ -1731,8 +1732,8 @@
           0% { transform: translateY(-${tileHeight}px); }
           100% { transform: translateY(0); }
         }
-        .col-up { animation: scrollUp ${animDuration}s linear infinite; }
-        .col-down { animation: scrollDown ${animDuration}s linear infinite; }
+        .col-up { animation: scrollUp var(--scroll-duration) linear infinite; }
+        .col-down { animation: scrollDown var(--scroll-duration) linear infinite; }
       </style>`;
 
       // Create pattern for reuse
@@ -1752,6 +1753,19 @@
       }
 
       bgSvg.innerHTML = svgContent;
+    }
+
+    // Update background scroll speed without re-rendering
+    function updateBackgroundSpeed() {
+      const bgSvg = document.getElementById('backgroundSvg');
+      const styleEl = bgSvg.querySelector('style');
+      if (styleEl) {
+        const animDuration = Math.max(5, frameSpeed / 10);
+        styleEl.textContent = styleEl.textContent.replace(
+          /--scroll-duration:\s*[\d.]+s/,
+          `--scroll-duration: ${animDuration}s`
+        );
+      }
     }
 
     // Handle window resize
