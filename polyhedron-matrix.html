@@ -1765,7 +1765,7 @@
 
       // Speed: pixels per millisecond (based on frameSpeed)
       // At frameSpeed=666, scroll speed should be moderate
-      const scrollSpeed = bgTileHeight / (Math.max(5, frameSpeed / 10) * 1000);
+      const scrollSpeed = bgTileHeight / (Math.max(3, frameSpeed / 20) * 1000);
 
       bgColumns.forEach((col, i) => {
         col.offset += col.direction * scrollSpeed * deltaTime;
