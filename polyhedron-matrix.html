@@ -411,24 +411,18 @@
       return allTriangles;
     }
 
-    // Build single mode: just one 3-row polyhedron
-    // Rows 0, 2 are X-flipped (pointing reversed) for honeycomb pattern
+    // Build single mode: just one 3-row polyhedron, X-flipped
+    // All pointings are reversed from base
     function buildSingle() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
-
-      // Rows that need X-flip (1st, 3rd = 0, 2)
-      const xFlipRows = [0, 2];
 
       base.forEach(t => {
         const x = t.col * (TRI_SIZE / 2);
         const y = t.row * TRI_HEIGHT;
 
-        // X-flip for rows 0, 2
-        let pointing = t.pointing;
-        if (xFlipRows.includes(t.row)) {
-          pointing = pointing === 'up' ? 'down' : 'up';
-        }
+        // X-flip all pointings
+        const pointing = t.pointing === 'up' ? 'down' : 'up';
 
         allTriangles.push({
           ...t,
@@ -553,119 +547,126 @@
       return allTriangles;
     }
 
-    // Build octa mode: 8 variations of quad mode
-    // Base quad (2 variations) + X-flipped (2) + Y-flipped (2) + X&Y-flipped (2) = 8 total
-    // variation 0-1: Normal quad (normal/inverted)
-    // variation 2-3: X-flipped quad (all pointings reversed)
-    // variation 4-5: Y-flipped quad (columns swapped)
-    // variation 6-7: X&Y-flipped quad (both transforms)
+    // Build octa mode: 2x2 grid of 4 quad forms
+    // Top-left: Original quad, Top-right: Y-mirrored clone
+    // Bottom-left: X-mirrored clone, Bottom-right: X&Y-mirrored clone
+    // variation 0 = Normal, variation 1 = Inverted
     function buildOcta(variation) {
-      const quadVariation = variation % 2; // 0 = normal, 1 = inverted
-      const xFlipAll = (variation >= 2 && variation <= 3) || (variation >= 6);
-      const yFlipAll = variation >= 4;
-
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       const xFlipRows = [0, 2, 4];
 
-      // Determine column order based on Y-flip
-      const columns = yFlipAll
-        ? [
-            { colIndex: 0, yMirror: false },  // Swapped: original on left
-            { colIndex: 1, yMirror: true }    // Y-mirrored on right
-          ]
-        : [
-            { colIndex: 0, yMirror: true },   // Left: Y-mirrored
-            { colIndex: 1, yMirror: false }   // Right: Original
-          ];
+      // 4 quadrants: [row, col, xFlipAll, yFlipAll]
+      const quadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false }, // Top-left: original
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },  // Top-right: Y-mirrored
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },  // Bottom-left: X-mirrored
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }    // Bottom-right: X&Y-mirrored
+      ];
 
-      columns.forEach(({ colIndex, yMirror }) => {
-        // Top half (rows 0-2)
-        base.forEach(t => {
-          let col = t.col;
-          let pointing = t.pointing;
-          let row, polyRow;
+      quadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+        const quadXOffset = qCol * quadWidth;
+        const quadYOffset = qRow * quadHeight;
 
-          if (quadVariation === 0) {
-            row = t.row;
-            polyRow = t.polyhedronRow;
-          } else {
-            row = BASE_ROWS - 1 - t.row;
-            polyRow = BASE_ROWS - 1 - t.polyhedronRow;
-          }
+        // Columns within this quadrant
+        const columns = yFlipAll
+          ? [
+              { colIndex: 0, yMirror: false },
+              { colIndex: 1, yMirror: true }
+            ]
+          : [
+              { colIndex: 0, yMirror: true },
+              { colIndex: 1, yMirror: false }
+            ];
 
-          if (yMirror) {
-            col = COLS - 1 - col;
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+        columns.forEach(({ colIndex, yMirror }) => {
+          // Top half (rows 0-2)
+          base.forEach(t => {
+            let col = t.col;
+            let pointing = t.pointing;
+            let row, polyRow;
 
-          if (xFlipRows.includes(row)) {
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+            if (variation === 0) {
+              row = t.row;
+              polyRow = t.polyhedronRow;
+            } else {
+              row = BASE_ROWS - 1 - t.row;
+              polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+            }
 
-          // Apply global X-flip (reverse all pointings)
-          if (xFlipAll) {
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+            if (yMirror) {
+              col = COLS - 1 - col;
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
 
-          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
-          const y = row * TRI_HEIGHT;
+            if (xFlipRows.includes(row)) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
 
-          allTriangles.push({
-            ...t,
-            col,
-            pointing,
-            polyhedronRow: polyRow,
-            x,
-            y,
-            yMirror,
-            section: 'top'
+            if (xFlipAll) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
+
+            allTriangles.push({
+              ...t,
+              col,
+              pointing,
+              polyhedronRow: polyRow,
+              x,
+              y,
+              yMirror,
+              section: 'top'
+            });
           });
-        });
 
-        // Bottom half (rows 3-5)
-        base.forEach(t => {
-          let col = t.col;
-          let pointing = t.pointing;
-          let row, polyRow;
+          // Bottom half (rows 3-5)
+          base.forEach(t => {
+            let col = t.col;
+            let pointing = t.pointing;
+            let row, polyRow;
 
-          if (quadVariation === 0) {
-            const mirroredRow = BASE_ROWS - 1 - t.row;
-            row = BASE_ROWS + mirroredRow;
-            polyRow = BASE_ROWS - 1 - t.polyhedronRow;
-          } else {
-            row = BASE_ROWS + t.row;
-            polyRow = t.polyhedronRow;
-          }
+            if (variation === 0) {
+              const mirroredRow = BASE_ROWS - 1 - t.row;
+              row = BASE_ROWS + mirroredRow;
+              polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+            } else {
+              row = BASE_ROWS + t.row;
+              polyRow = t.polyhedronRow;
+            }
 
-          if (yMirror) {
-            col = COLS - 1 - col;
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+            if (yMirror) {
+              col = COLS - 1 - col;
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
 
-          if (xFlipRows.includes(row)) {
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+            if (xFlipRows.includes(row)) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
 
-          // Apply global X-flip (reverse all pointings)
-          if (xFlipAll) {
-            pointing = pointing === 'up' ? 'down' : 'up';
-          }
+            if (xFlipAll) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
 
-          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
-          const y = row * TRI_HEIGHT;
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
 
-          allTriangles.push({
-            ...t,
-            col,
-            pointing,
-            polyhedronRow: polyRow,
-            x,
-            y,
-            yMirror,
-            section: 'bottom'
+            allTriangles.push({
+              ...t,
+              col,
+              pointing,
+              polyhedronRow: polyRow,
+              x,
+              y,
+              yMirror,
+              section: 'bottom'
+            });
           });
         });
       });
@@ -698,8 +699,7 @@
       if (displayMode === 'quad') {
         varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       } else if (displayMode === 'octa') {
-        const octaNames = ['N', 'I', 'NX', 'IX', 'NY', 'IY', 'NXY', 'IXY'];
-        varName = octaNames[currentVariation] || '-';
+        varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       }
       document.getElementById('variationName').textContent = varName;
 
@@ -725,8 +725,8 @@
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       } else if (displayMode === 'octa') {
         triangles = buildOcta(currentVariation);
-        totalWidth = polyWidth * 2;
-        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        totalWidth = polyWidth * 4;  // 2x2 grid of quads
+        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT;
       } else {
         // quad mode
         triangles = buildQuadMirrored(currentVariation);
@@ -780,7 +780,7 @@
 
     // Get number of variations for current mode
     function getVariationCount() {
-      if (displayMode === 'octa') return 8;
+      if (displayMode === 'octa') return 2;
       if (displayMode === 'quad') return 2;
       return 1; // single and dual have no variations
     }
