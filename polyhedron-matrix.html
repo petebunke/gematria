@@ -931,64 +931,35 @@
       return allTriangles;
     }
 
-    // Build rectangle mode: 4 sexdeca grids side by side, each rotated 90° clockwise from the previous
+    // Build rectangle mode: 4 sexdeca grids side by side, alternating x-flip
+    // Pattern: original > x-flipped > original > x-flipped
     // variation 0 = Normal, variation 1 = Inverted
     function buildRectangle(variation) {
       const allTriangles = [];
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
       const GAP = 8;
-      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
-      const octaHeight = quadHeight * 2 + GAP;
       const sexdecaWidth = polyWidth * 4;
-      const sexdecaHeight = octaHeight * 2 + GAP;
 
-      // Build 4 sexdeca grids
+      // Build 4 sexdeca grids with alternating x-flip
       for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
         const sexdecaTriangles = buildSexdeca(variation);
         const xOffset = gridIndex * (sexdecaWidth + GAP);
+        const shouldXFlip = gridIndex % 2 === 1; // Flip 2nd and 4th (indices 1 and 3)
 
-        // Apply rotation based on grid index (0, 90, 180, 270 degrees clockwise)
         sexdecaTriangles.forEach(tri => {
-          let newX, newY;
-          const centerX = sexdecaWidth / 2;
-          const centerY = sexdecaHeight / 2;
-
-          // Translate to origin, rotate, translate back
-          const relX = tri.x - centerX;
-          const relY = tri.y - centerY;
-
-          switch (gridIndex) {
-            case 0: // No rotation
-              newX = tri.x + xOffset;
-              newY = tri.y;
-              break;
-            case 1: // 90° clockwise
-              newX = xOffset + centerX + relY;
-              newY = centerY - relX;
-              break;
-            case 2: // 180°
-              newX = xOffset + centerX - relX;
-              newY = centerY - relY;
-              break;
-            case 3: // 270° clockwise (90° counter-clockwise)
-              newX = xOffset + centerX - relY;
-              newY = centerY + relX;
-              break;
-          }
-
-          // Adjust pointing for rotations
           let newPointing = tri.pointing;
-          if (gridIndex === 1 || gridIndex === 3) {
-            // 90° or 270° rotations flip pointing
+
+          // X-flip: flip the pointing direction
+          if (shouldXFlip) {
             newPointing = tri.pointing === 'up' ? 'down' : 'up';
           }
 
           allTriangles.push({
             ...tri,
-            x: newX,
-            y: newY,
+            x: tri.x + xOffset,
+            y: tri.y,
             pointing: newPointing,
-            rotationIndex: gridIndex
+            gridIndex: gridIndex
           });
         });
       }
@@ -1418,6 +1389,10 @@
     document.getElementById('displayMode').addEventListener('change', (e) => {
       displayMode = e.target.value;
       currentVariation = 0;
+      // Set appropriate default zoom for rectangle mode
+      if (displayMode === 'rectangle') {
+        scale = 0.75; // More zoomed in for rectangle
+      }
       render();
       // Ensure animation continues after mode change (for oscillator)
       if (isPlaying && animationTimer) {
@@ -1435,7 +1410,7 @@
       updateBackgroundSpeed();
     });
 
-    // GIF Export using gif.js approach with canvas
+    // GIF Export using canvas and improved encoder
     document.getElementById('exportGif').addEventListener('click', async () => {
       const btn = document.getElementById('exportGif');
       const originalText = btn.textContent;
@@ -1446,20 +1421,56 @@
         // Save current state
         const savedConfigIndex = currentConfigIndex;
         const savedVariation = currentVariation;
+        const savedScale = scale;
         const wasPlaying = isPlaying;
         if (wasPlaying) {
           isPlaying = false;
           if (animationTimer) clearTimeout(animationTimer);
         }
 
+        // Set scale to 1 for GIF export (full size)
+        scale = 1;
+
         const svg = document.getElementById('tessellationSvg');
         const varCount = getVariationCount();
         const totalFrames = CONFIG_KEYS.length * varCount;
 
-        // Get SVG dimensions
-        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
-        const width = Math.round(viewBox[2]);
-        const height = Math.round(viewBox[3]);
+        // First render to get proper dimensions at scale 1
+        currentConfigIndex = 0;
+        currentVariation = 0;
+        render();
+
+        // Calculate actual content dimensions (not scaled viewBox)
+        const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+        let width, height;
+        const GAP = 8;
+        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        const octaHeight = quadHeight * 2 + GAP;
+
+        if (displayMode === 'single') {
+          width = polyWidth;
+          height = BASE_ROWS * TRI_HEIGHT;
+        } else if (displayMode === 'dual') {
+          width = polyWidth;
+          height = BASE_ROWS * 2 * TRI_HEIGHT;
+        } else if (displayMode === 'quad') {
+          width = polyWidth * 2;
+          height = BASE_ROWS * 2 * TRI_HEIGHT;
+        } else if (displayMode === 'octa') {
+          width = polyWidth * 4;
+          height = quadHeight * 2 + GAP;
+        } else if (displayMode === 'sexdeca') {
+          width = polyWidth * 4;
+          height = octaHeight * 2 + GAP;
+        } else { // rectangle
+          const sexdecaWidth = polyWidth * 4;
+          const sexdecaHeight = octaHeight * 2 + GAP;
+          width = sexdecaWidth * 4 + GAP * 3;
+          height = sexdecaHeight;
+        }
+
+        width = Math.round(width);
+        height = Math.round(height);
 
         // Create canvas for rendering
         const canvas = document.createElement('canvas');
@@ -1474,7 +1485,13 @@
           currentVariation = i % varCount;
           render();
 
-          const svgData = new XMLSerializer().serializeToString(svg);
+          // Get fresh SVG content with proper viewBox
+          const svgClone = svg.cloneNode(true);
+          svgClone.setAttribute('viewBox', `0 0 ${width} ${height}`);
+          svgClone.setAttribute('width', width);
+          svgClone.setAttribute('height', height);
+
+          const svgData = new XMLSerializer().serializeToString(svgClone);
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
 
@@ -1493,7 +1510,7 @@
           });
         }
 
-        // Encode GIF using simple encoder
+        // Encode GIF
         const gif = encodeGif(frames, width, height, Math.round(frameSpeed / 10));
 
         // Download
@@ -1508,6 +1525,7 @@
         // Restore state
         currentConfigIndex = savedConfigIndex;
         currentVariation = savedVariation;
+        scale = savedScale;
         render();
         if (wasPlaying) {
           isPlaying = true;
@@ -1522,27 +1540,57 @@
       btn.disabled = false;
     });
 
-    // Simple GIF encoder (LZW-based)
+    // GIF encoder with proper color quantization
     function encodeGif(frames, width, height, delay) {
       const buf = [];
       const write = (b) => buf.push(b);
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
-      // Build global color table from all frames
-      const colorMap = new Map();
-      const colors = [];
+      // Build global color table with better quantization
+      const colorCounts = new Map();
+
+      // Count colors across all frames
       frames.forEach(frame => {
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
+          // Quantize to 5 bits per channel to reduce unique colors
+          const r = frame.data[i] & 0xf8;
+          const g = frame.data[i+1] & 0xf8;
+          const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
-          if (!colorMap.has(key) && colors.length < 256) {
-            colorMap.set(key, colors.length);
-            colors.push([r, g, b]);
-          }
+          colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
       });
+
+      // Sort by frequency and take top 256
+      const sortedColors = [...colorCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 256)
+        .map(([key]) => key);
+
+      const colorMap = new Map();
+      const colors = [];
+      sortedColors.forEach((key, idx) => {
+        colorMap.set(key, idx);
+        colors.push([(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
+      });
       while (colors.length < 256) colors.push([0, 0, 0]);
+
+      // Find nearest color function
+      const findNearest = (r, g, b) => {
+        const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
+        const key = (qr << 16) | (qg << 8) | qb;
+        if (colorMap.has(key)) return colorMap.get(key);
+
+        // Find closest color
+        let minDist = Infinity, closest = 0;
+        for (let i = 0; i < colors.length; i++) {
+          const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
+          const dist = dr*dr + dg*dg + db*db;
+          if (dist < minDist) { minDist = dist; closest = i; }
+        }
+        return closest;
+      };
 
       // Header
       writeStr('GIF89a');
@@ -1582,9 +1630,7 @@
 
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i], g = frame.data[i+1], b = frame.data[i+2];
-          const key = (r << 16) | (g << 8) | b;
-          pixels.push(colorMap.get(key) || 0);
+          pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
         }
 
         const lzwData = lzwEncode(pixels, minCodeSize);
@@ -1621,6 +1667,12 @@
       };
 
       emit(clearCode);
+      if (pixels.length === 0) {
+        emit(eoiCode);
+        if (bitCount > 0) output.push(bits & 0xff);
+        return output;
+      }
+
       let prefix = String(pixels[0]);
 
       for (let i = 1; i < pixels.length; i++) {
@@ -1633,6 +1685,13 @@
           if (nextCode < 4096) {
             table.set(combined, nextCode++);
             if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+          } else {
+            // Clear table when full
+            emit(clearCode);
+            table.clear();
+            for (let j = 0; j < clearCode; j++) table.set(String(j), j);
+            nextCode = eoiCode + 1;
+            codeSize = minCodeSize + 1;
           }
           prefix = suffix;
         }
