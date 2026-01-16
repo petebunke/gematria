@@ -97,8 +97,8 @@
     }
 
     #tessellationSvg {
-      width: 400px;
-      height: 300px;
+      width: 800px;
+      height: 600px;
       touch-action: none;
       border: 2px solid #333;
       background: #f8f8f4;
@@ -339,22 +339,30 @@
       return triangles;
     }
 
-    // Build dual mode: single column polyhedron (6 rows)
-    // Top 3 rows: original, Bottom 3 rows: X-mirrored (same letters, reversed row order)
-    // Row 0 (1st row) is X-flipped (pointing reversed)
+    // Build dual mode: single column polyhedron (6 rows) with honeycomb pattern
+    // Uses same structure as quad mode but only one column (no Y-mirror)
+    // Rows 0, 2, 4 (1st, 3rd, 5th) are X-flipped and offset for honeycomb
     function buildDualStacked() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
+      // Rows that need X-flip and honeycomb offset (1st, 3rd, 5th = 0, 2, 4)
+      const xFlipRows = [0, 2, 4];
+
       // Top half: original (rows 0, 1, 2)
       base.forEach(t => {
-        const x = t.col * (TRI_SIZE / 2);
-        const y = t.row * TRI_HEIGHT;
-        const finalRow = t.row;
-        // X-flip row 0 (1st row)
-        const pointing = finalRow === 0
-          ? (t.pointing === 'up' ? 'down' : 'up')
-          : t.pointing;
+        const row = t.row;
+        let pointing = t.pointing;
+
+        // X-flip for rows 0, 2, 4
+        if (xFlipRows.includes(row)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+
+        // Honeycomb offset for X-flipped rows
+        const rowOffset = xFlipRows.includes(row) ? TRI_SIZE / 2 : 0;
+        const x = rowOffset + t.col * (TRI_SIZE / 2);
+        const y = row * TRI_HEIGHT;
 
         allTriangles.push({
           ...t,
@@ -366,14 +374,20 @@
       });
 
       // Bottom half: X-mirrored (rows 2, 1, 0 placed at rows 3, 4, 5)
-      // Same letters, reversed row order
       base.forEach(t => {
-        const mirroredRow = BASE_ROWS - 1 - t.row; // 2->0, 1->1, 0->2
-        const x = t.col * (TRI_SIZE / 2);
+        const mirroredRow = BASE_ROWS - 1 - t.row;
         const finalRow = BASE_ROWS + mirroredRow;
+        let pointing = t.pointing;
+
+        // X-flip for rows 0, 2, 4
+        if (xFlipRows.includes(finalRow)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+
+        // Honeycomb offset for X-flipped rows
+        const rowOffset = xFlipRows.includes(finalRow) ? TRI_SIZE / 2 : 0;
+        const x = rowOffset + t.col * (TRI_SIZE / 2);
         const y = finalRow * TRI_HEIGHT;
-        // No X-flip needed for bottom half rows (3, 4, 5)
-        const pointing = t.pointing;
 
         allTriangles.push({
           ...t,
@@ -388,30 +402,33 @@
       return allTriangles;
     }
 
-    // Build quad mode: two columns of 6-row polyhedrons
+    // Build quad mode: two columns of 6-row polyhedrons with honeycomb pattern
     // Left column: Y-mirrored (horizontally flipped letters)
     // Right column: Original orientation
-    // Each column has: top 3 rows original, bottom 3 rows X-mirrored
-    // Rows 0, 2, 4 (1st, 3rd, 5th) are X-flipped (pointing reversed)
+    // Columns are connected (meshed together)
+    // Rows 0, 2, 4 (1st, 3rd, 5th) are X-flipped and offset for honeycomb
     // variation 0 = Normal: [original on top, X-mirror below]
     // variation 1 = Inverted: [X-mirror on top, original below]
     function buildQuadMirrored(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
-      // Width = (COLS-1) half-widths for spacing + full triangle width
-      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      // Base width for one polyhedron column (non-offset rows)
+      const basePolyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      // Add extra half for offset rows
+      const polyWidth = basePolyWidth + TRI_SIZE / 2;
 
-      // Rows that need X-flip (1st, 3rd, 5th = 0, 2, 4)
+      // Rows that need X-flip and honeycomb offset (1st, 3rd, 5th = 0, 2, 4)
       const xFlipRows = [0, 2, 4];
 
       // Two columns: left (Y-mirrored) and right (original)
+      // Right column is offset to connect/mesh with left column
       const columns = [
-        { colIndex: 0, yMirror: true },   // Left: Y-mirrored
-        { colIndex: 1, yMirror: false }   // Right: Original
+        { colIndex: 0, yMirror: true, xOffset: 0 },           // Left: Y-mirrored
+        { colIndex: 1, yMirror: false, xOffset: polyWidth - TRI_SIZE / 2 }  // Right: Original, connected
       ];
 
-      columns.forEach(({ colIndex, yMirror }) => {
+      columns.forEach(({ colIndex, yMirror, xOffset }) => {
         // Top half (rows 0-2)
         base.forEach(t => {
           let col = t.col;
@@ -438,7 +455,9 @@
             pointing = pointing === 'up' ? 'down' : 'up';
           }
 
-          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          // Honeycomb offset for X-flipped rows
+          const rowOffset = xFlipRows.includes(row) ? TRI_SIZE / 2 : 0;
+          const x = xOffset + rowOffset + col * (TRI_SIZE / 2);
           const y = row * TRI_HEIGHT;
 
           allTriangles.push({
@@ -480,7 +499,9 @@
             pointing = pointing === 'up' ? 'down' : 'up';
           }
 
-          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          // Honeycomb offset for X-flipped rows
+          const rowOffset = xFlipRows.includes(row) ? TRI_SIZE / 2 : 0;
+          const x = xOffset + rowOffset + col * (TRI_SIZE / 2);
           const y = row * TRI_HEIGHT;
 
           allTriangles.push({
@@ -529,8 +550,10 @@
       let triangles;
       let totalWidth, totalHeight;
 
-      // Width = (COLS-1) half-widths for spacing + full triangle width
-      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      // Base width for one polyhedron (non-offset rows)
+      const basePolyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      // Full width including honeycomb offset
+      const polyWidth = basePolyWidth + TRI_SIZE / 2;
 
       if (displayMode === 'dual') {
         triangles = buildDualStacked();
@@ -538,7 +561,8 @@
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       } else {
         triangles = buildQuadMirrored(currentVariation);
-        totalWidth = polyWidth * 2;
+        // Two columns connected: polyWidth + (polyWidth - TRI_SIZE/2) = 2*polyWidth - TRI_SIZE/2
+        totalWidth = polyWidth * 2 - TRI_SIZE / 2;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       }
 
