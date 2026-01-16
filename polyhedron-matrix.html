@@ -128,6 +128,19 @@
         <option value="xbox add salad|777/666/111/99">xbox add salad (777/666/111/99)</option>
         <option value="hiawatha|1111/666/111/99">hiawatha (1111/666/111/99)</option>
         <option value="therapeutic|8888/6666/1111/1111">therapeutic (8888/6666/1111/1111)</option>
+        <option value="russeting poor bamoth buggery sculks aeons details nonsolubly fin psychology omoideum postmarital|5555/6666/1111/111">russeting poor bamoth... (5555/6666/1111/111)</option>
+        <option value="featurish constitution molybdosis gownsman models alkanal chaparajos hl inflation bidder foresails massagist|5555/6666/1111/111">featurish constitution... (5555/6666/1111/111)</option>
+        <option value="bloodless foot sections metroxylon subtle fluster thermostats propiolic erotesis dans rahanwin|5555/6666/1111/111">bloodless foot sections... (5555/6666/1111/111)</option>
+        <option value="hesperornis jurassic sensitizes polyoecy stanford silting monkeyishly physiology confidantes|6666/6666/1111/1111">hesperornis jurassic... (6666/6666/1111/1111)</option>
+        <option value="youthfullity denaturize consumption overgrossly kaphs autolysate smarting medal praesphenoid|6666/6666/1111/1111">youthfullity denaturize... (6666/6666/1111/1111)</option>
+        <option value="quaestiones makers interactions disavowedly errors spermatocyst addressed apteryxes outcrows|7777/6666/1111/1111">quaestiones makers... (7777/6666/1111/1111)</option>
+        <option value="outsearch deposit sanely erasions tarworks prefers adjustments shopping elvis power snubbishly|7777/6666/1111/1111">outsearch deposit... (7777/6666/1111/1111)</option>
+        <option value="pudsy caldera burns jiveass ponderous stereotyper isidium longest swotted inundatory doddypoll|7777/6666/1111/1111">pudsy caldera burns... (7777/6666/1111/1111)</option>
+        <option value="irreverences outborn throughout beanballs diary lignosity souush swoony obvious benamed exist|7777/6666/1111/1111">irreverences outborn... (7777/6666/1111/1111)</option>
+        <option value="sexoticalness eucre fumously harley aivers yokewood queal nitrosate yusdrum execrate honourless|7777/6666/1111/1111">sexoticalness eucre... (7777/6666/1111/1111)</option>
+        <option value="barway filched firlot sovereignize helicteres oversorrow state priggishness civie soldiers dansker glaciable|7777/6666/1111/111">barway filched firlot... (7777/6666/1111/111)</option>
+        <option value="rug raz had a ea|888/666/111/99">rug raz had a ea (888/666/111/99)</option>
+        <option value="www moneyflower receptary creature attention juked econometrist tight cany yertchuk simaba fellowman|9999/6666/1111/111">www moneyflower... (9999/6666/1111/111)</option>
       </select>
     </div>
 
@@ -138,7 +151,7 @@
         <option value="dual">Dual (6 rows)</option>
         <option value="quad">Quad (2 columns)</option>
         <option value="octa">Octa (8 forms)</option>
-        <option value="sex">Sex (16 forms)</option>
+        <option value="sexdeca">Sexdeca (16 forms)</option>
       </select>
     </div>
 
@@ -156,8 +169,6 @@
       <span class="control-label">Speed</span>
       <input type="number" id="frameSpeed" value="333.333" min="1" max="5000" step="0.001">
       <span class="control-label">ms</span>
-      <button id="bpmSync" class="secondary" title="Sync to audio BPM">BPM</button>
-      <span class="info-display" id="bpmDisplay" style="display: none;">--</span>
     </div>
 
     <div class="control-group">
@@ -705,11 +716,11 @@
       return allTriangles;
     }
 
-    // Build sex mode: 2x4 grid of 8 quads (16 poly forms total)
+    // Build sexdeca mode: 2x4 grid of 8 quads (16 poly forms total)
     // Top half: X-mirrored octa layout (4 quads in 2x2, with globalXFlip applied)
     // Bottom half: Original octa layout (4 quads in 2x2)
     // variation 0 = Normal, variation 1 = Inverted
-    function buildSex(variation) {
+    function buildSexdeca(variation) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
@@ -895,7 +906,7 @@
 
       // Variation name based on mode
       let varName = '-';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sex') {
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sexdeca') {
         varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       }
       document.getElementById('variationName').textContent = varName;
@@ -920,8 +931,8 @@
         triangles = buildDualStacked();
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
-      } else if (displayMode === 'sex') {
-        triangles = buildSex(currentVariation);
+      } else if (displayMode === 'sexdeca') {
+        triangles = buildSexdeca(currentVariation);
         const GAP = 8;
         const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
         const octaHeight = quadHeight * 2 + GAP;
@@ -985,7 +996,7 @@
 
     // Get number of variations for current mode
     function getVariationCount() {
-      if (displayMode === 'sex') return 2;
+      if (displayMode === 'sexdeca') return 2;
       if (displayMode === 'octa') return 2;
       if (displayMode === 'quad') return 2;
       return 1; // single and dual have no variations
@@ -1120,166 +1131,13 @@
       const a = document.createElement('a');
       a.href = url;
       let varName = 'stacked';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sex') {
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'sexdeca') {
         varName = currentVariation === 0 ? 'normal' : 'inverted';
       }
       a.download = `gematria-${displayMode}-${CONFIG_KEYS[currentConfigIndex]}-${varName}.svg`;
       a.click();
       URL.revokeObjectURL(url);
     });
-
-    // BPM Detection and Sync
-    let bpmAudioContext = null;
-    let bpmAnalyser = null;
-    let bpmStream = null;
-    let bpmDetectionActive = false;
-
-    async function startBpmDetection() {
-      const bpmBtn = document.getElementById('bpmSync');
-      const bpmDisplay = document.getElementById('bpmDisplay');
-
-      if (bpmDetectionActive) {
-        stopBpmDetection();
-        return;
-      }
-
-      try {
-        // Request screen/tab capture with audio
-        bpmStream = await navigator.mediaDevices.getDisplayMedia({
-          video: true, // Required, but we won't use it
-          audio: {
-            echoCancellation: false,
-            noiseSuppression: false,
-            autoGainControl: false
-          }
-        });
-
-        // Check if audio track exists
-        const audioTracks = bpmStream.getAudioTracks();
-        if (audioTracks.length === 0) {
-          alert('No audio track found. Make sure to share a tab with audio playing.');
-          bpmStream.getTracks().forEach(t => t.stop());
-          return;
-        }
-
-        bpmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
-        const source = bpmAudioContext.createMediaStreamSource(bpmStream);
-
-        bpmAnalyser = bpmAudioContext.createAnalyser();
-        bpmAnalyser.fftSize = 2048;
-        bpmAnalyser.smoothingTimeConstant = 0.3;
-        source.connect(bpmAnalyser);
-
-        bpmDetectionActive = true;
-        bpmBtn.textContent = 'STOP';
-        bpmBtn.style.background = '#c41e3a';
-        bpmDisplay.style.display = 'inline';
-
-        // Start BPM detection loop
-        detectBpm();
-
-      } catch (err) {
-        console.error('Error accessing audio:', err);
-        alert('Could not access audio. Please share a tab with music playing.');
-      }
-    }
-
-    function stopBpmDetection() {
-      const bpmBtn = document.getElementById('bpmSync');
-      const bpmDisplay = document.getElementById('bpmDisplay');
-
-      bpmDetectionActive = false;
-      bpmBtn.textContent = 'BPM';
-      bpmBtn.style.background = '';
-
-      if (bpmStream) {
-        bpmStream.getTracks().forEach(t => t.stop());
-        bpmStream = null;
-      }
-      if (bpmAudioContext) {
-        bpmAudioContext.close();
-        bpmAudioContext = null;
-      }
-      bpmAnalyser = null;
-    }
-
-    // Beat detection using energy-based algorithm
-    let beatHistory = [];
-    let lastBeatTime = 0;
-    let beatIntervals = [];
-
-    function detectBpm() {
-      if (!bpmDetectionActive || !bpmAnalyser) return;
-
-      const bufferLength = bpmAnalyser.frequencyBinCount;
-      const dataArray = new Uint8Array(bufferLength);
-      bpmAnalyser.getByteFrequencyData(dataArray);
-
-      // Calculate energy in bass frequencies (where beats usually are)
-      let bassEnergy = 0;
-      const bassRange = Math.floor(bufferLength * 0.1); // First 10% = bass
-      for (let i = 0; i < bassRange; i++) {
-        bassEnergy += dataArray[i];
-      }
-      bassEnergy /= bassRange;
-
-      // Keep history of energy levels
-      beatHistory.push(bassEnergy);
-      if (beatHistory.length > 50) beatHistory.shift();
-
-      // Calculate average and threshold
-      const avgEnergy = beatHistory.reduce((a, b) => a + b, 0) / beatHistory.length;
-      const threshold = avgEnergy * 1.3;
-
-      const now = performance.now();
-
-      // Detect beat (energy spike above threshold, with minimum interval)
-      if (bassEnergy > threshold && bassEnergy > 50 && (now - lastBeatTime) > 200) {
-        if (lastBeatTime > 0) {
-          const interval = now - lastBeatTime;
-          beatIntervals.push(interval);
-
-          // Keep last 16 intervals
-          if (beatIntervals.length > 16) beatIntervals.shift();
-
-          // Calculate BPM from intervals
-          if (beatIntervals.length >= 4) {
-            const avgInterval = beatIntervals.reduce((a, b) => a + b, 0) / beatIntervals.length;
-            const bpm = Math.round(60000 / avgInterval);
-
-            // Filter reasonable BPM range (60-200)
-            if (bpm >= 60 && bpm <= 200) {
-              updateBpmDisplay(bpm, avgInterval);
-            }
-          }
-        }
-        lastBeatTime = now;
-      }
-
-      requestAnimationFrame(detectBpm);
-    }
-
-    function updateBpmDisplay(bpm, interval) {
-      const bpmDisplay = document.getElementById('bpmDisplay');
-      const frameSpeedInput = document.getElementById('frameSpeed');
-
-      bpmDisplay.textContent = `${bpm}`;
-
-      // Update frame speed to match beat
-      frameSpeed = Math.round(interval * 1000) / 1000;
-      frameSpeedInput.value = frameSpeed.toFixed(3);
-
-      // Reset animation timer with new speed
-      if (isPlaying && animationTimer) {
-        clearTimeout(animationTimer);
-        animationTimer = setTimeout(animate, frameSpeed);
-      }
-    }
-
-    document.getElementById('bpmSync').addEventListener('click', startBpmDetection);
-
-    // Clean up on page unload
-    window.addEventListener('beforeunload', stopBpmDetection);
 
     // Render tiled background (static, uses first config)
     function renderBackground() {
