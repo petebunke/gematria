@@ -181,6 +181,13 @@
       <button id="playPause">⏸</button>
       <button id="prevVar" class="secondary">◀</button>
       <button id="nextVar" class="secondary">▶</button>
+      <button id="reverseBtn" class="secondary">REV</button>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Osc</span>
+      <input type="number" id="oscDigit" value="3" min="1" max="9" style="width: 35px;">
+      <button id="oscToggle" class="secondary">OFF</button>
     </div>
 
     <div class="control-group">
@@ -274,6 +281,15 @@
     let animationTimer = null;
     let frameSpeed = 333.333;
     let displayMode = 'single'; // 'single', 'dual', 'quad', or 'octa'
+    let configDirection = 1; // 1 = forward, -1 = reverse
+
+    // Self-oscillator state
+    let oscActive = false;
+    let oscTimer = null;
+    let oscDigit = 3;
+    let oscSequence = [];
+    let oscIndex = 0;
+    let oscAscending = true;
 
     // Zoom state
     let scale = 1;
@@ -1010,14 +1026,17 @@
       const varCount = getVariationCount();
       if (varCount > 1) {
         // Cycle through variation first, then config
-        currentVariation++;
+        currentVariation += configDirection;
         if (currentVariation >= varCount) {
           currentVariation = 0;
-          currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length;
+          currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+        } else if (currentVariation < 0) {
+          currentVariation = varCount - 1;
+          currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
         }
       } else {
         // Just cycle configs
-        currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length;
+        currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
       }
 
       render();
@@ -1100,6 +1119,94 @@
         currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length;
       }
       render();
+    });
+
+    // Reverse button - toggles config cycling direction
+    document.getElementById('reverseBtn').addEventListener('click', () => {
+      configDirection *= -1;
+      const btn = document.getElementById('reverseBtn');
+      btn.style.background = configDirection === -1 ? '#c41e3a' : '';
+    });
+
+    // Self-oscillator - cycles through repdigits of selected digit
+    function buildOscSequence(digit) {
+      const seq = [];
+      let val = digit;
+      // Build ascending: 1, 11, 111, 1111
+      while (val <= 9999) {
+        seq.push(val);
+        val = val * 10 + digit;
+      }
+      return seq;
+    }
+
+    function oscStep() {
+      if (!oscActive) return;
+
+      const seq = oscSequence;
+      const maxVal = seq[seq.length - 1];
+
+      // Update frame speed to current sequence value
+      frameSpeed = seq[oscIndex];
+      document.getElementById('frameSpeed').value = frameSpeed;
+
+      // Reset animation timer with new speed
+      if (isPlaying && animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(animate, frameSpeed);
+      }
+
+      // Move to next position in sequence
+      if (oscAscending) {
+        oscIndex++;
+        if (oscIndex >= seq.length) {
+          oscAscending = false;
+          oscIndex = seq.length - 2; // Skip the max value, go to second-to-last
+        }
+      } else {
+        oscIndex--;
+        if (oscIndex < 0) {
+          oscAscending = true;
+          oscIndex = 1; // Skip the min value, go to second
+        }
+      }
+
+      // Schedule next step - interval is the max repdigit value
+      oscTimer = setTimeout(oscStep, maxVal);
+    }
+
+    function startOsc() {
+      oscDigit = parseInt(document.getElementById('oscDigit').value) || 3;
+      oscSequence = buildOscSequence(oscDigit);
+      oscIndex = 0;
+      oscAscending = true;
+      oscActive = true;
+      document.getElementById('oscToggle').textContent = 'ON';
+      document.getElementById('oscToggle').style.background = '#2e8b57';
+      oscStep();
+    }
+
+    function stopOsc() {
+      oscActive = false;
+      if (oscTimer) clearTimeout(oscTimer);
+      oscTimer = null;
+      document.getElementById('oscToggle').textContent = 'OFF';
+      document.getElementById('oscToggle').style.background = '';
+    }
+
+    document.getElementById('oscToggle').addEventListener('click', () => {
+      if (oscActive) {
+        stopOsc();
+      } else {
+        startOsc();
+      }
+    });
+
+    document.getElementById('oscDigit').addEventListener('change', () => {
+      if (oscActive) {
+        stopOsc();
+        startOsc();
+      }
     });
 
     document.getElementById('phraseSelect').addEventListener('change', (e) => {
