@@ -181,7 +181,7 @@
       <button id="playPause">⏸</button>
       <button id="prevVar" class="secondary">◀</button>
       <button id="nextVar" class="secondary">▶</button>
-      <button id="reverseBtn" class="secondary">REV</button>
+      <button id="loopBtn" class="secondary">LOOP</button>
     </div>
 
     <div class="control-group">
@@ -282,6 +282,7 @@
     let frameSpeed = 333.333;
     let displayMode = 'single'; // 'single', 'dual', 'quad', or 'octa'
     let configDirection = 1; // 1 = forward, -1 = reverse
+    let loopMode = 0; // 0 = both (forward then backward), 1 = forward only, 2 = backward only
 
     // Self-oscillator state
     let oscActive = false;
@@ -1020,23 +1021,53 @@
     }
 
     // Animation - cycles through variations and configs
+    // loopMode 0: forward then backward, repeating
+    // loopMode 1: forward only
+    // loopMode 2: backward only
     function animate() {
       if (!isPlaying) return;
 
       const varCount = getVariationCount();
+      let configChanged = false;
+      let newConfigIndex = currentConfigIndex;
+
       if (varCount > 1) {
         // Cycle through variation first, then config
         currentVariation += configDirection;
         if (currentVariation >= varCount) {
           currentVariation = 0;
-          currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
         } else if (currentVariation < 0) {
           currentVariation = varCount - 1;
-          currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
         }
       } else {
         // Just cycle configs
-        currentConfigIndex = (currentConfigIndex + configDirection + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+        newConfigIndex = currentConfigIndex + configDirection;
+        configChanged = true;
+      }
+
+      if (configChanged) {
+        // Check if we've hit the boundary
+        if (newConfigIndex >= CONFIG_KEYS.length || newConfigIndex < 0) {
+          if (loopMode === 0) {
+            // Reverse direction at boundaries
+            configDirection *= -1;
+            newConfigIndex = currentConfigIndex + configDirection;
+            if (varCount > 1) {
+              // Also reverse variation direction
+              currentVariation += configDirection * 2; // Undo the overshoot and go the other way
+              if (currentVariation < 0) currentVariation = varCount - 1;
+              if (currentVariation >= varCount) currentVariation = 0;
+            }
+          } else {
+            // Wrap around for locked loop modes
+            newConfigIndex = (newConfigIndex + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+          }
+        }
+        currentConfigIndex = newConfigIndex;
       }
 
       render();
@@ -1121,16 +1152,27 @@
       render();
     });
 
-    // Reverse button - toggles config cycling direction
-    document.getElementById('reverseBtn').addEventListener('click', () => {
-      configDirection *= -1;
-      const btn = document.getElementById('reverseBtn');
-      if (configDirection === -1) {
-        btn.style.background = '#c41e3a';
-        btn.style.color = '#ffffff';
-      } else {
+    // Loop button - cycles through loop modes
+    // 0 = both (forward then backward), 1 = forward only (L1), 2 = backward only (L2)
+    document.getElementById('loopBtn').addEventListener('click', () => {
+      loopMode = (loopMode + 1) % 3;
+      const btn = document.getElementById('loopBtn');
+      if (loopMode === 0) {
+        btn.textContent = 'LOOP';
         btn.style.background = '';
         btn.style.color = '';
+        // Reset to forward direction when returning to default
+        configDirection = 1;
+      } else if (loopMode === 1) {
+        btn.textContent = 'L1';
+        btn.style.background = '#6b5b95';
+        btn.style.color = '#ffffff';
+        configDirection = 1; // Forward only
+      } else {
+        btn.textContent = 'L2';
+        btn.style.background = '#6b5b95';
+        btn.style.color = '#ffffff';
+        configDirection = -1; // Backward only
       }
     });
 
