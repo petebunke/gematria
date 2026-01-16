@@ -109,6 +109,7 @@
       overflow: hidden;
       touch-action: none;
       padding: 20px;
+      cursor: grab;
     }
 
     #tessellationSvg {
@@ -320,10 +321,17 @@
     let oscIndex = 0;
     let oscAscending = true;
 
-    // Zoom state
+    // Zoom and pan state
     let scale = 0.5;
+    let panX = 0;
+    let panY = 0;
     let initialDistance = 0;
     let initialScale = 1;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartPanX = 0;
+    let dragStartPanY = 0;
 
     // Check if a letter is in the phrase
     function isLetterInPhrase(symbol, letterData) {
@@ -1037,11 +1045,11 @@
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       }
 
-      // Apply zoom via viewBox only (SVG stays fixed size in container)
+      // Apply zoom and pan via viewBox (SVG stays fixed size in container)
       const viewWidth = totalWidth / scale;
       const viewHeight = totalHeight / scale;
-      const viewX = (totalWidth - viewWidth) / 2;
-      const viewY = (totalHeight - viewHeight) / 2;
+      const viewX = (totalWidth - viewWidth) / 2 + panX;
+      const viewY = (totalHeight - viewHeight) / 2 + panY;
 
       svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
 
@@ -1064,18 +1072,12 @@
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
 
-        // Mirror text for Y-mirrored sections
-        const textTransform = tri.yMirror
-          ? `translate(${textX * 2}, 0) scale(-1, 1)`
-          : '';
-
         // White text on colored bg, black text on white bg
         const textColor = isInPhrase ? '#ffffff' : '#000000';
 
         svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
                              font-family="Arial" font-size="9" font-weight="bold"
-                             fill="${textColor}" fill-opacity="${letterOpacity}"
-                             ${textTransform ? `transform="${textTransform}"` : ''}>${symbol}</text>`;
+                             fill="${textColor}" fill-opacity="${letterOpacity}">${symbol}</text>`;
       });
 
       svg.innerHTML = svgContent;
@@ -1235,6 +1237,67 @@
       scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
       render();
     }, { passive: false });
+
+    // Mouse drag for panning
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { // Left mouse button
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+        container.style.cursor = 'grabbing';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const svg = document.getElementById('tessellationSvg');
+        const rect = svg.getBoundingClientRect();
+        // Convert pixel movement to viewBox units
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const scaleX = viewBox[2] / rect.width;
+        const scaleY = viewBox[3] / rect.height;
+        panX = dragStartPanX - (e.clientX - dragStartX) * scaleX;
+        panY = dragStartPanY - (e.clientY - dragStartY) * scaleY;
+        render();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        container.style.cursor = '';
+      }
+    });
+
+    // Touch drag for panning (single finger)
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      if (isDragging && e.touches.length === 1) {
+        const svg = document.getElementById('tessellationSvg');
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const scaleX = viewBox[2] / rect.width;
+        const scaleY = viewBox[3] / rect.height;
+        panX = dragStartPanX - (e.touches[0].clientX - dragStartX) * scaleX;
+        panY = dragStartPanY - (e.touches[0].clientY - dragStartY) * scaleY;
+        render();
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchend', () => {
+      isDragging = false;
+    }, { passive: true });
 
     // Event handlers
     document.getElementById('playPause').addEventListener('click', () => {
@@ -1398,7 +1461,9 @@
     document.getElementById('displayMode').addEventListener('change', (e) => {
       displayMode = e.target.value;
       currentVariation = 0;
-      // Set appropriate default zoom for rectangle mode
+      // Reset pan and set appropriate default zoom for rectangle mode
+      panX = 0;
+      panY = 0;
       if (displayMode === 'rectangle') {
         scale = 0.75; // More zoomed in for rectangle
       }
@@ -1419,7 +1484,50 @@
       updateBackgroundSpeed();
     });
 
-    // GIF Export using canvas and improved encoder
+    // Generate SVG content for a specific config and variation (off-screen, doesn't affect main view)
+    function generateFrameSvg(configIdx, variation, width, height) {
+      const config = CONFIGS[CONFIG_KEYS[configIdx]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+
+      // Build triangles based on mode
+      let triangles;
+      if (displayMode === 'single') {
+        triangles = buildSingle();
+      } else if (displayMode === 'dual') {
+        triangles = buildDualStacked();
+      } else if (displayMode === 'rectangle') {
+        triangles = buildRectangle(variation);
+      } else if (displayMode === 'square') {
+        triangles = buildSquare(variation);
+      } else if (displayMode === 'octa') {
+        triangles = buildOcta(variation);
+      } else {
+        triangles = buildQuadMirrored(variation);
+      }
+
+      let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`;
+      svgContent += `<rect x="0" y="0" width="${width}" height="${height}" fill="#f8f8f4"/>`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="1"/>`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="${textColor}" fill-opacity="${letterOpacity}">${symbol}</text>`;
+      });
+
+      svgContent += '</svg>';
+      return svgContent;
+    }
+
+    // GIF Export - renders off-screen without affecting the main view
     document.getElementById('exportGif').addEventListener('click', async () => {
       const btn = document.getElementById('exportGif');
       const originalText = btn.textContent;
@@ -1427,29 +1535,10 @@
       btn.disabled = true;
 
       try {
-        // Save current state
-        const savedConfigIndex = currentConfigIndex;
-        const savedVariation = currentVariation;
-        const savedScale = scale;
-        const wasPlaying = isPlaying;
-        if (wasPlaying) {
-          isPlaying = false;
-          if (animationTimer) clearTimeout(animationTimer);
-        }
-
-        // Set scale to 1 for GIF export (full size)
-        scale = 1;
-
-        const svg = document.getElementById('tessellationSvg');
         const varCount = getVariationCount();
         const totalFrames = CONFIG_KEYS.length * varCount;
 
-        // First render to get proper dimensions at scale 1
-        currentConfigIndex = 0;
-        currentVariation = 0;
-        render();
-
-        // Calculate actual content dimensions (not scaled viewBox)
+        // Calculate actual content dimensions
         const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
         let width, height;
         const GAP = 8;
@@ -1487,20 +1576,14 @@
         canvas.height = height;
         const ctx = canvas.getContext('2d');
 
-        // Collect frames
+        // Collect frames (off-screen, doesn't affect main view)
         const frames = [];
         for (let i = 0; i < totalFrames; i++) {
-          currentConfigIndex = Math.floor(i / varCount);
-          currentVariation = i % varCount;
-          render();
+          const configIdx = Math.floor(i / varCount);
+          const variation = i % varCount;
 
-          // Get fresh SVG content with proper viewBox
-          const svgClone = svg.cloneNode(true);
-          svgClone.setAttribute('viewBox', `0 0 ${width} ${height}`);
-          svgClone.setAttribute('width', width);
-          svgClone.setAttribute('height', height);
-
-          const svgData = new XMLSerializer().serializeToString(svgClone);
+          // Generate SVG content off-screen
+          const svgData = generateFrameSvg(configIdx, variation, width, height);
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
 
@@ -1519,7 +1602,7 @@
           });
         }
 
-        // Encode GIF
+        // Encode GIF with current frame speed
         const gif = encodeGif(frames, width, height, Math.round(frameSpeed / 10));
 
         // Download
@@ -1530,16 +1613,6 @@
         a.download = `gematria-${displayMode}-${currentPhrase.split(' ')[0]}.gif`;
         a.click();
         URL.revokeObjectURL(url);
-
-        // Restore state
-        currentConfigIndex = savedConfigIndex;
-        currentVariation = savedVariation;
-        scale = savedScale;
-        render();
-        if (wasPlaying) {
-          isPlaying = true;
-          animate();
-        }
       } catch (err) {
         console.error('GIF export error:', err);
         alert('Error creating GIF: ' + err.message);
@@ -1843,9 +1916,8 @@
         content += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOp}" stroke="#333" stroke-width="1"/>\`;
         const tx = tri.x + TRI_SIZE / 2;
         const ty = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
-        const transform = tri.yMirror ? \`transform="translate(\${tx * 2}, 0) scale(-1, 1)"\` : '';
         const textColor = inPhrase ? '#ffffff' : '#000000';
-        content += \`<text x="\${tx}" y="\${ty}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${opacity}" \${transform}>\${symbol}</text>\`;
+        content += \`<text x="\${tx}" y="\${ty}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${opacity}">\${symbol}</text>\`;
       });
       svg.innerHTML = content;
     }
@@ -1912,17 +1984,12 @@
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
 
-        const textTransform = tri.yMirror
-          ? `translate(${textX * 2}, 0) scale(-1, 1)`
-          : '';
-
         // White text on colored bg, black text on white bg
         const textColor = isInPhrase ? '#ffffff' : '#000000';
 
         tileContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
                              font-family="Arial" font-size="9" font-weight="bold"
-                             fill="${textColor}" fill-opacity="${letterOpacity * 0.7}"
-                             ${textTransform ? `transform="${textTransform}"` : ''}>${symbol}</text>`;
+                             fill="${textColor}" fill-opacity="${letterOpacity * 0.7}">${symbol}</text>`;
       });
 
       let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${screenHeight}" fill="#f5f5f0"/>`;
