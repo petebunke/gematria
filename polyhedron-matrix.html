@@ -1024,6 +1024,10 @@
       return 1; // single and dual have no variations
     }
 
+    // Mode order for osc cycling
+    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'sexdeca'];
+    let oscModeDirection = 1; // 1 = forward through modes, -1 = backward
+
     // Animation - cycles through variations and configs
     // loopMode 0: forward then backward, repeating
     // loopMode 1: forward only
@@ -1058,6 +1062,7 @@
         if (newConfigIndex >= CONFIG_KEYS.length || newConfigIndex < 0) {
           if (loopMode === 0) {
             // Reverse direction at boundaries
+            const wasGoingBackward = configDirection === -1;
             configDirection *= -1;
             newConfigIndex = currentConfigIndex + configDirection;
             if (varCount > 1) {
@@ -1065,6 +1070,22 @@
               currentVariation += configDirection * 2; // Undo the overshoot and go the other way
               if (currentVariation < 0) currentVariation = varCount - 1;
               if (currentVariation >= varCount) currentVariation = 0;
+            }
+
+            // If osc is active and we just completed a backward pass (full cycle), advance mode
+            if (oscActive && wasGoingBackward) {
+              const currentModeIndex = MODE_ORDER.indexOf(displayMode);
+              let nextModeIndex = currentModeIndex + oscModeDirection;
+
+              // Reverse mode direction at boundaries
+              if (nextModeIndex >= MODE_ORDER.length || nextModeIndex < 0) {
+                oscModeDirection *= -1;
+                nextModeIndex = currentModeIndex + oscModeDirection;
+              }
+
+              displayMode = MODE_ORDER[nextModeIndex];
+              document.getElementById('displayMode').value = displayMode;
+              currentVariation = 0;
             }
           } else {
             // Wrap around for locked loop modes
@@ -1239,10 +1260,11 @@
     }
 
     function startOsc() {
-      oscDigit = parseInt(document.getElementById('oscDigit').value) || 3;
+      oscDigit = parseInt(document.getElementById('oscDigit').value) || 6;
       oscSequence = buildOscSequence(oscDigit);
       oscIndex = 0;
       oscAscending = true;
+      oscModeDirection = 1; // Reset mode direction
       oscActive = true;
       const btn = document.getElementById('oscToggle');
       btn.textContent = 'ON';
