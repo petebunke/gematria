@@ -104,12 +104,12 @@
     <div class="control-group">
       <span class="control-label">Phrase</span>
       <select id="phraseSelect">
-        <option value="555/666/111/111">stunner (555/666/111/111)</option>
-        <option value="111/666/111/99">which (111/666/111/99)</option>
-        <option value="333/666/111/99">act shah high (333/666/111/99)</option>
-        <option value="777/666/111/99">xbox add salad (777/666/111/99)</option>
-        <option value="1111/666/111/99">hiawatha (1111/666/111/99)</option>
-        <option value="8888/6666/1111/1111">therapeutic (8888/6666/1111/1111)</option>
+        <option value="stunner|555/666/111/111">stunner (555/666/111/111)</option>
+        <option value="which|111/666/111/99">which (111/666/111/99)</option>
+        <option value="act shah high|333/666/111/99">act shah high (333/666/111/99)</option>
+        <option value="xbox add salad|777/666/111/99">xbox add salad (777/666/111/99)</option>
+        <option value="hiawatha|1111/666/111/99">hiawatha (1111/666/111/99)</option>
+        <option value="therapeutic|8888/6666/1111/1111">therapeutic (8888/6666/1111/1111)</option>
       </select>
     </div>
 
@@ -212,6 +212,7 @@
     const CONFIG_KEYS = Object.keys(CONFIGS);
 
     // State
+    let currentPhrase = 'stunner';
     let currentCombo = [555, 666, 111, 111];
     let currentConfigIndex = 0;
     let currentVariation = 0; // 0 or 1
@@ -221,6 +222,39 @@
 
     // Highlighted positions (diagonal through middle - E, *, N, R-V)
     const HIGHLIGHT_POSITIONS = new Set([4, 13, 14, 18, 19, 20, 21, 22]);
+
+    // Calculate letter frequency in phrase
+    function getLetterFrequency(phrase) {
+      const freq = {};
+      const cleanPhrase = phrase.toUpperCase().replace(/[^A-Z]/g, '');
+
+      // Count each letter
+      for (const char of cleanPhrase) {
+        freq[char] = (freq[char] || 0) + 1;
+      }
+
+      // Find max frequency
+      const maxFreq = Math.max(...Object.values(freq), 1);
+
+      return { freq, maxFreq, totalLetters: cleanPhrase.length };
+    }
+
+    // Get opacity for a letter based on its frequency in the phrase
+    function getLetterOpacity(letter, letterData) {
+      const { freq, maxFreq } = letterData;
+      const count = freq[letter] || 0;
+
+      if (count === 0) {
+        // Letter not in phrase - very light
+        return 0.15;
+      }
+
+      // Scale opacity: more occurrences = darker
+      // Range from 0.3 (single occurrence) to 1.0 (max occurrences)
+      const baseOpacity = 0.3;
+      const normalized = count / maxFreq;
+      return baseOpacity + normalized * (1 - baseOpacity);
+    }
 
     // CMYK conversion
     function comboToCMYK(combo) {
@@ -361,6 +395,9 @@
       const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
       const color = getColor();
 
+      // Calculate letter frequency for opacity
+      const letterData = getLetterFrequency(currentPhrase);
+
       // Update UI
       document.getElementById('configName').textContent = config.name;
       document.getElementById('variationInfo').textContent = `${currentVariation + 1}/2`;
@@ -400,18 +437,24 @@
         const isHighlighted = HIGHLIGHT_POSITIONS.has(baseIndex % 27);
         const letterColor = getLetterColor(symbol, isHighlighted);
 
-        // Triangle fill
+        // Calculate opacity based on letter frequency in phrase
+        // Letters appearing more often in the phrase = darker (higher opacity)
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+
+        // Triangle fill - combine highlight color with letter frequency opacity
         const fill = isHighlighted ? color.hex : '#f8f8f4';
-        const fillOpacity = isHighlighted ? 0.6 : 1;
+        // Highlighted triangles use letter opacity; non-highlighted stay at base
+        const fillOpacity = isHighlighted ? letterOpacity : (letterData.freq[symbol] ? letterOpacity * 0.3 : 0.1);
 
         const path = getTrianglePath(x, y, tri.pointing);
         svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="1.5"/>`;
 
-        // Letter
+        // Letter - opacity also affects text visibility
+        const textOpacity = symbol === '*' ? 1 : letterOpacity;
         const textX = x + TRI_SIZE / 2;
         const textY = y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
         svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
-                             font-family="Arial" font-size="11" font-weight="bold" fill="${letterColor}">${symbol}</text>`;
+                             font-family="Arial" font-size="11" font-weight="bold" fill="${letterColor}" fill-opacity="${textOpacity}">${symbol}</text>`;
       });
 
       svg.innerHTML = svgContent;
@@ -464,7 +507,9 @@
     });
 
     document.getElementById('phraseSelect').addEventListener('change', (e) => {
-      currentCombo = e.target.value.split('/').map(Number);
+      const [phrase, combo] = e.target.value.split('|');
+      currentPhrase = phrase;
+      currentCombo = combo.split('/').map(Number);
       render();
     });
 
