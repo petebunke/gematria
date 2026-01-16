@@ -224,8 +224,10 @@
     let isPlaying = true;
     let animationTimer = null;
 
-    // Highlighted positions (diagonal through middle)
-    const HIGHLIGHT_POSITIONS = new Set([4, 13, 14, 18, 19, 20, 21, 22]);
+    // Check if a letter is in the phrase
+    function isLetterInPhrase(symbol, letterData) {
+      return symbol !== '*' && (letterData.freq[symbol] || 0) > 0;
+    }
 
     // Calculate letter frequency in phrase
     function getLetterFrequency(phrase) {
@@ -449,9 +451,10 @@
         const letterOpacity = getLetterOpacity(symbol, letterData);
         const letterColor = getLetterColor(tri.polyhedronRow);
 
-        const isHighlighted = HIGHLIGHT_POSITIONS.has(tri.index % 27);
-        const fill = isHighlighted ? color.hex : '#f8f8f4';
-        const fillOpacity = isHighlighted ? letterOpacity : (letterData.freq[symbol] ? letterOpacity * 0.3 : 0.08);
+        // Highlight triangles whose letter appears in the phrase
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
 
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
         svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="1"/>`;
