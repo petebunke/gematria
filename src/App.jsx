@@ -1685,7 +1685,7 @@ const GematriaCalculator = () => {
                 {/* Results decoration image */}
                 <div className="w-full">
                   <img
-                    src="/results-decoration.svg"
+                    src="/results-decoration.gif"
                     alt="Decorative Star of David pattern"
                     className="w-full h-auto object-contain rounded-lg"
                     style={{ maxHeight: '200px' }}
