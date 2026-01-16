@@ -187,6 +187,7 @@
         <option value="octa">Octa (8 forms)</option>
         <option value="square">Square (16 forms)</option>
         <option value="rectangle">Rectangle (64 forms)</option>
+        <option value="square256">Square (256 forms)</option>
       </select>
     </div>
 
@@ -968,6 +969,49 @@
       return allTriangles;
     }
 
+    // Build square256 mode: 4 rows of rectangle patterns stacked vertically
+    // Each row is x-mirrored relative to the one below it
+    // Bottom row: original rectangle, then alternating x-flip going up
+    // variation 0 = Normal, variation 1 = Inverted
+    function buildSquare256(variation) {
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 8;
+      const squareWidth = polyWidth * 4;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+      const squareHeight = octaHeight * 2 + GAP;
+      const rectangleHeight = squareHeight;
+
+      // Build 4 rows of rectangles with alternating x-flip
+      // Row 3 (bottom): original, Row 2: x-flip, Row 1: original, Row 0 (top): x-flip
+      for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+        const rectangleTriangles = buildRectangle(variation);
+        const yOffset = rowIndex * (rectangleHeight + GAP);
+        // Rows 0 and 2 are x-flipped (top and 3rd from top)
+        const shouldXFlip = rowIndex % 2 === 0;
+
+        rectangleTriangles.forEach(tri => {
+          let newPointing = tri.pointing;
+
+          // X-flip: flip the pointing direction
+          if (shouldXFlip) {
+            newPointing = tri.pointing === 'up' ? 'down' : 'up';
+          }
+
+          allTriangles.push({
+            ...tri,
+            x: tri.x,
+            y: tri.y + yOffset,
+            pointing: newPointing,
+            rowIndex: rowIndex
+          });
+        });
+      }
+
+      return allTriangles;
+    }
+
     // Get triangle path
     function getTrianglePath(x, y, pointing) {
       const halfWidth = TRI_SIZE / 2;
@@ -990,7 +1034,7 @@
 
       // Variation name based on mode
       let varName = '-';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'square' || displayMode === 'rectangle') {
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'square' || displayMode === 'rectangle' || displayMode === 'square256') {
         varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       }
       document.getElementById('variationName').textContent = varName;
@@ -1011,6 +1055,17 @@
         triangles = buildDualStacked();
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (displayMode === 'square256') {
+        triangles = buildSquare256(currentVariation);
+        const GAP = 8;
+        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        const octaHeight = quadHeight * 2 + GAP;
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        const rectangleWidth = squareWidth * 4 + GAP * 3;
+        const rectangleHeight = squareHeight;
+        totalWidth = rectangleWidth;  // Same width as rectangle
+        totalHeight = rectangleHeight * 4 + GAP * 3;  // 4 rows of rectangles
       } else if (displayMode === 'rectangle') {
         triangles = buildRectangle(currentVariation);
         const GAP = 8;
@@ -1079,6 +1134,7 @@
 
     // Get number of variations for current mode
     function getVariationCount() {
+      if (displayMode === 'square256') return 2;
       if (displayMode === 'rectangle') return 2;
       if (displayMode === 'square') return 2;
       if (displayMode === 'octa') return 2;
@@ -1087,7 +1143,7 @@
     }
 
     // Mode order for osc cycling
-    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle'];
+    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'square256'];
     let oscModeDirection = 1; // 1 = forward through modes, -1 = backward
 
     // Animation - cycles through variations and configs
@@ -1151,8 +1207,8 @@
               // Reset pan when mode changes during swing
               panX = 0;
               panY = 0;
-              // Set appropriate zoom for rectangle mode
-              if (displayMode === 'rectangle') {
+              // Set appropriate zoom for rectangle and square256 modes
+              if (displayMode === 'rectangle' || displayMode === 'square256') {
                 scale = 0.75;
               }
             }
@@ -1166,12 +1222,8 @@
 
       render();
 
-      // When swing is active, use 1111ms pause on single and rectangle modes
-      let delay = frameSpeed;
-      if (oscActive && (displayMode === 'single' || displayMode === 'rectangle')) {
-        delay = 1111;
-      }
-      animationTimer = setTimeout(animate, delay);
+      // Use frameSpeed for all modes (including during Auto)
+      animationTimer = setTimeout(animate, frameSpeed);
     }
 
     // Get total variation index
@@ -1212,7 +1264,7 @@
         const currentDistance = getDistance(e.touches);
         const newScale = initialScale * (currentDistance / initialDistance);
         // Rectangle mode: limit zoom out to 75%
-        const minZoom = displayMode === 'rectangle' ? 0.75 : 0.25;
+        const minZoom = (displayMode === 'rectangle' || displayMode === 'square256') ? 0.75 : 0.25;
         scale = Math.max(minZoom, Math.min(5, newScale));
         render();
       }
@@ -1223,7 +1275,7 @@
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
       // Rectangle mode: limit zoom out to 75%
-      const minZoom = displayMode === 'rectangle' ? 0.75 : 0.25;
+      const minZoom = (displayMode === 'rectangle' || displayMode === 'square256') ? 0.75 : 0.25;
       scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
       render();
     }, { passive: false });
@@ -1407,7 +1459,7 @@
       // Apply aik bekar formula to LAST combo value to set ms speed
       const aikBekarValue = currentCombo[currentCombo.length - 1];
       frameSpeed = aikBekarToMs(aikBekarValue);
-      document.getElementById('frameSpeed').value = frameSpeed.toFixed(2);
+      document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toFixed(2));
 
       render();
       renderBackground();
@@ -1417,11 +1469,11 @@
     document.getElementById('displayMode').addEventListener('change', (e) => {
       displayMode = e.target.value;
       currentVariation = 0;
-      // Reset pan and set appropriate default zoom for rectangle mode
+      // Reset pan and set appropriate default zoom for large modes
       panX = 0;
       panY = 0;
-      if (displayMode === 'rectangle') {
-        scale = 0.75; // More zoomed in for rectangle
+      if (displayMode === 'rectangle' || displayMode === 'square256') {
+        scale = 0.75; // More zoomed in for large modes
       }
       render();
       // Ensure animation continues after mode change (for oscillator)
@@ -1452,6 +1504,8 @@
         triangles = buildSingle();
       } else if (displayMode === 'dual') {
         triangles = buildDualStacked();
+      } else if (displayMode === 'square256') {
+        triangles = buildSquare256(variation);
       } else if (displayMode === 'rectangle') {
         triangles = buildRectangle(variation);
       } else if (displayMode === 'square') {
@@ -1516,6 +1570,13 @@
         } else if (displayMode === 'square') {
           width = polyWidth * 4;
           height = octaHeight * 2 + GAP;
+        } else if (displayMode === 'square256') {
+          const squareWidth = polyWidth * 4;
+          const squareHeight = octaHeight * 2 + GAP;
+          const rectangleWidth = squareWidth * 4 + GAP * 3;
+          const rectangleHeight = squareHeight;
+          width = rectangleWidth;
+          height = rectangleHeight * 4 + GAP * 3;
         } else { // rectangle
           const squareWidth = polyWidth * 4;
           const squareHeight = octaHeight * 2 + GAP;
