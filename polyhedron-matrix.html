@@ -151,11 +151,11 @@
     <div class="control-group">
       <span class="control-label">Mode</span>
       <select id="displayMode">
-        <option value="single">Single (3 rows)</option>
+        <option value="single" selected>Single (3 rows)</option>
         <option value="dual">Dual (6 rows)</option>
         <option value="quad">Quad (2 columns)</option>
         <option value="octa">Octa (8 forms)</option>
-        <option value="sexdeca" selected>Sexdeca (16 forms)</option>
+        <option value="sexdeca">Sexdeca (16 forms)</option>
       </select>
     </div>
 
@@ -171,7 +171,7 @@
 
     <div class="control-group">
       <span class="control-label">Speed</span>
-      <input type="number" id="frameSpeed" value="66.6" min="1" max="5000" step="0.001">
+      <input type="number" id="frameSpeed" value="666" min="1" max="5000" step="0.001">
       <span class="control-label">ms</span>
     </div>
 
@@ -283,8 +283,8 @@
     let currentVariation = 0; // 0 = normal, 1 = inverted
     let isPlaying = true;
     let animationTimer = null;
-    let frameSpeed = 66.6;
-    let displayMode = 'sexdeca'; // 'single', 'dual', 'quad', 'octa', or 'sexdeca'
+    let frameSpeed = 666;
+    let displayMode = 'single'; // 'single', 'dual', 'quad', 'octa', or 'sexdeca'
     let configDirection = 1; // 1 = forward, -1 = reverse
     let loopMode = 0; // 0 = both (forward then backward), 1 = forward only, 2 = backward only
 
@@ -1004,8 +1004,8 @@
           ? `translate(${textX * 2}, 0) scale(-1, 1)`
           : '';
 
-        // White text when selected, otherwise row color
-        const textColor = isInPhrase ? '#ffffff' : letterColor;
+        // White text on colored bg, black text on white bg
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
 
         svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
                              font-family="Arial" font-size="9" font-weight="bold"
@@ -1291,7 +1291,7 @@
     });
 
     document.getElementById('frameSpeed').addEventListener('input', (e) => {
-      frameSpeed = parseFloat(e.target.value) || 66.6;
+      frameSpeed = parseFloat(e.target.value) || 666;
       if (isPlaying && animationTimer) {
         clearTimeout(animationTimer);
         animationTimer = setTimeout(animate, frameSpeed);
@@ -1640,7 +1640,7 @@
         const tx = tri.x + TRI_SIZE / 2;
         const ty = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
         const transform = tri.yMirror ? \`transform="translate(\${tx * 2}, 0) scale(-1, 1)"\` : '';
-        const textColor = inPhrase ? '#ffffff' : ROW_COLORS[tri.polyhedronRow % 3];
+        const textColor = inPhrase ? '#ffffff' : '#000000';
         content += \`<text x="\${tx}" y="\${ty}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${opacity}" \${transform}>\${symbol}</text>\`;
       });
       svg.innerHTML = content;
@@ -1710,9 +1710,12 @@
           ? `translate(${textX * 2}, 0) scale(-1, 1)`
           : '';
 
+        // White text on colored bg, black text on white bg
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+
         tileContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
                              font-family="Arial" font-size="9" font-weight="bold"
-                             fill="${letterColor}" fill-opacity="${letterOpacity * 0.7}"
+                             fill="${textColor}" fill-opacity="${letterOpacity * 0.7}"
                              ${textTransform ? `transform="${textTransform}"` : ''}>${symbol}</text>`;
       });
 
