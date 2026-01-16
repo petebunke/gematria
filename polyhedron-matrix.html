@@ -1548,6 +1548,7 @@
     }
 
     // GIF Export - renders off-screen without affecting the main view
+    // Respects current loop mode: 0 = ping-pong, 1 = forward only, 2 = backward only
     document.getElementById('exportGif').addEventListener('click', async () => {
       const btn = document.getElementById('exportGif');
       const originalText = btn.textContent;
@@ -1556,7 +1557,29 @@
 
       try {
         const varCount = getVariationCount();
-        const totalFrames = CONFIG_KEYS.length * varCount;
+        const baseFrameCount = CONFIG_KEYS.length * varCount;
+
+        // Build frame sequence based on loop mode
+        const frameSequence = [];
+        if (loopMode === 2) {
+          // Backward only
+          for (let i = baseFrameCount - 1; i >= 0; i--) {
+            frameSequence.push(i);
+          }
+        } else if (loopMode === 1) {
+          // Forward only
+          for (let i = 0; i < baseFrameCount; i++) {
+            frameSequence.push(i);
+          }
+        } else {
+          // Ping-pong: forward then backward
+          for (let i = 0; i < baseFrameCount; i++) {
+            frameSequence.push(i);
+          }
+          for (let i = baseFrameCount - 2; i > 0; i--) {
+            frameSequence.push(i);
+          }
+        }
 
         // Calculate actual content dimensions
         const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -1605,9 +1628,10 @@
 
         // Collect frames (off-screen, doesn't affect main view)
         const frames = [];
-        for (let i = 0; i < totalFrames; i++) {
-          const configIdx = Math.floor(i / varCount);
-          const variation = i % varCount;
+        for (let i = 0; i < frameSequence.length; i++) {
+          const frameIdx = frameSequence[i];
+          const configIdx = Math.floor(frameIdx / varCount);
+          const variation = frameIdx % varCount;
 
           // Generate SVG content off-screen
           const svgData = generateFrameSvg(configIdx, variation, width, height);
@@ -1850,6 +1874,9 @@
     const combo = ${JSON.stringify(currentCombo)};
     const displayMode = ${JSON.stringify(displayMode)};
     const frameSpeed = ${frameSpeed};
+    const loopMode = ${loopMode}; // 0 = ping-pong, 1 = forward, 2 = backward
+    const oscActive = ${oscActive}; // Auto mode
+    const MODE_ORDER = ${JSON.stringify(MODE_ORDER)};
     const CONFIG_KEYS = ${JSON.stringify(CONFIG_KEYS)};
     const CONFIGS = {
       ${CONFIG_KEYS.map(key => `'${key}': { name: '${key}', getSymbol: ${CONFIGS[key].getSymbol.toString()} }`).join(',\n      ')}
@@ -1857,6 +1884,9 @@
 
     let currentConfigIndex = 0;
     let currentVariation = 0;
+    let configDirection = ${loopMode === 2 ? -1 : 1};
+    let currentDisplayMode = displayMode;
+    let oscModeDirection = 1;
 
     function getLetterFrequency(p) {
       const freq = {};
@@ -1903,6 +1933,8 @@
     ${buildQuadMirrored.toString()}
     ${buildOcta.toString()}
     ${buildSquare.toString()}
+    ${buildRectangle.toString()}
+    ${buildCube.toString()}
 
     function getTrianglePath(x, y, pointing) {
       const hw = TRI_SIZE / 2;
@@ -1911,7 +1943,7 @@
     }
 
     function getVariationCount() {
-      if (displayMode === 'square' || displayMode === 'octa' || displayMode === 'quad') return 2;
+      if (currentDisplayMode === 'cube' || currentDisplayMode === 'rectangle' || currentDisplayMode === 'square' || currentDisplayMode === 'octa' || currentDisplayMode === 'quad') return 2;
       return 1;
     }
 
@@ -1922,12 +1954,17 @@
       const hex = cmykToHex(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
       const ld = getLetterFrequency(phrase);
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 8;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
       let triangles, totalWidth, totalHeight;
 
-      if (displayMode === 'single') { triangles = buildSingle(); totalWidth = polyWidth; totalHeight = BASE_ROWS * TRI_HEIGHT; }
-      else if (displayMode === 'dual') { triangles = buildDualStacked(); totalWidth = polyWidth; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
-      else if (displayMode === 'square') { triangles = buildSquare(currentVariation); const GAP = 8; const qh = BASE_ROWS * 2 * TRI_HEIGHT; const oh = qh * 2 + GAP; totalWidth = polyWidth * 4; totalHeight = oh * 2 + GAP; }
-      else if (displayMode === 'octa') { triangles = buildOcta(currentVariation); totalWidth = polyWidth * 4; totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + 8; }
+      if (currentDisplayMode === 'single') { triangles = buildSingle(); totalWidth = polyWidth; totalHeight = BASE_ROWS * TRI_HEIGHT; }
+      else if (currentDisplayMode === 'dual') { triangles = buildDualStacked(); totalWidth = polyWidth; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
+      else if (currentDisplayMode === 'cube') { triangles = buildCube(currentVariation); const sw = polyWidth * 4; const sh = octaHeight * 2 + GAP; const rw = sw * 4 + GAP * 3; totalWidth = rw; totalHeight = sh * 4 + GAP * 3; }
+      else if (currentDisplayMode === 'rectangle') { triangles = buildRectangle(currentVariation); const sw = polyWidth * 4; const sh = octaHeight * 2 + GAP; totalWidth = sw * 4 + GAP * 3; totalHeight = sh; }
+      else if (currentDisplayMode === 'square') { triangles = buildSquare(currentVariation); totalWidth = polyWidth * 4; totalHeight = octaHeight * 2 + GAP; }
+      else if (currentDisplayMode === 'octa') { triangles = buildOcta(currentVariation); totalWidth = polyWidth * 4; totalHeight = quadHeight * 2 + GAP; }
       else { triangles = buildQuadMirrored(currentVariation); totalWidth = polyWidth * 2; totalHeight = BASE_ROWS * 2 * TRI_HEIGHT; }
 
       svg.setAttribute('viewBox', \`0 0 \${totalWidth} \${totalHeight}\`);
@@ -1951,10 +1988,53 @@
 
     function animate() {
       const varCount = getVariationCount();
+      let configChanged = false;
+      let newConfigIndex = currentConfigIndex;
+
       if (varCount > 1) {
-        currentVariation++;
-        if (currentVariation >= varCount) { currentVariation = 0; currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length; }
-      } else { currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length; }
+        currentVariation += configDirection;
+        if (currentVariation >= varCount) {
+          currentVariation = 0;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
+        } else if (currentVariation < 0) {
+          currentVariation = varCount - 1;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
+        }
+      } else {
+        newConfigIndex = currentConfigIndex + configDirection;
+        configChanged = true;
+      }
+
+      if (configChanged) {
+        if (newConfigIndex >= CONFIG_KEYS.length || newConfigIndex < 0) {
+          if (loopMode === 0) {
+            const wasGoingBackward = configDirection === -1;
+            configDirection *= -1;
+            newConfigIndex = currentConfigIndex + configDirection;
+            if (varCount > 1) {
+              currentVariation += configDirection * 2;
+              if (currentVariation < 0) currentVariation = varCount - 1;
+              if (currentVariation >= varCount) currentVariation = 0;
+            }
+            if (oscActive && wasGoingBackward) {
+              const currentModeIndex = MODE_ORDER.indexOf(currentDisplayMode);
+              let nextModeIndex = currentModeIndex + oscModeDirection;
+              if (nextModeIndex >= MODE_ORDER.length || nextModeIndex < 0) {
+                oscModeDirection *= -1;
+                nextModeIndex = currentModeIndex + oscModeDirection;
+              }
+              currentDisplayMode = MODE_ORDER[nextModeIndex];
+              currentVariation = 0;
+            }
+          } else {
+            newConfigIndex = (newConfigIndex + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+          }
+        }
+        currentConfigIndex = newConfigIndex;
+      }
+
       render();
       setTimeout(animate, frameSpeed);
     }
