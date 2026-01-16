@@ -156,6 +156,8 @@
       <span class="control-label">Speed</span>
       <input type="number" id="frameSpeed" value="333.333" min="1" max="5000" step="0.001">
       <span class="control-label">ms</span>
+      <button id="bpmSync" class="secondary" title="Sync to audio BPM">BPM</button>
+      <span class="info-display" id="bpmDisplay" style="display: none;">--</span>
     </div>
 
     <div class="control-group">
@@ -1125,6 +1127,159 @@
       a.click();
       URL.revokeObjectURL(url);
     });
+
+    // BPM Detection and Sync
+    let bpmAudioContext = null;
+    let bpmAnalyser = null;
+    let bpmStream = null;
+    let bpmDetectionActive = false;
+
+    async function startBpmDetection() {
+      const bpmBtn = document.getElementById('bpmSync');
+      const bpmDisplay = document.getElementById('bpmDisplay');
+
+      if (bpmDetectionActive) {
+        stopBpmDetection();
+        return;
+      }
+
+      try {
+        // Request screen/tab capture with audio
+        bpmStream = await navigator.mediaDevices.getDisplayMedia({
+          video: true, // Required, but we won't use it
+          audio: {
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          }
+        });
+
+        // Check if audio track exists
+        const audioTracks = bpmStream.getAudioTracks();
+        if (audioTracks.length === 0) {
+          alert('No audio track found. Make sure to share a tab with audio playing.');
+          bpmStream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        bpmAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+        const source = bpmAudioContext.createMediaStreamSource(bpmStream);
+
+        bpmAnalyser = bpmAudioContext.createAnalyser();
+        bpmAnalyser.fftSize = 2048;
+        bpmAnalyser.smoothingTimeConstant = 0.3;
+        source.connect(bpmAnalyser);
+
+        bpmDetectionActive = true;
+        bpmBtn.textContent = 'STOP';
+        bpmBtn.style.background = '#c41e3a';
+        bpmDisplay.style.display = 'inline';
+
+        // Start BPM detection loop
+        detectBpm();
+
+      } catch (err) {
+        console.error('Error accessing audio:', err);
+        alert('Could not access audio. Please share a tab with music playing.');
+      }
+    }
+
+    function stopBpmDetection() {
+      const bpmBtn = document.getElementById('bpmSync');
+      const bpmDisplay = document.getElementById('bpmDisplay');
+
+      bpmDetectionActive = false;
+      bpmBtn.textContent = 'BPM';
+      bpmBtn.style.background = '';
+
+      if (bpmStream) {
+        bpmStream.getTracks().forEach(t => t.stop());
+        bpmStream = null;
+      }
+      if (bpmAudioContext) {
+        bpmAudioContext.close();
+        bpmAudioContext = null;
+      }
+      bpmAnalyser = null;
+    }
+
+    // Beat detection using energy-based algorithm
+    let beatHistory = [];
+    let lastBeatTime = 0;
+    let beatIntervals = [];
+
+    function detectBpm() {
+      if (!bpmDetectionActive || !bpmAnalyser) return;
+
+      const bufferLength = bpmAnalyser.frequencyBinCount;
+      const dataArray = new Uint8Array(bufferLength);
+      bpmAnalyser.getByteFrequencyData(dataArray);
+
+      // Calculate energy in bass frequencies (where beats usually are)
+      let bassEnergy = 0;
+      const bassRange = Math.floor(bufferLength * 0.1); // First 10% = bass
+      for (let i = 0; i < bassRange; i++) {
+        bassEnergy += dataArray[i];
+      }
+      bassEnergy /= bassRange;
+
+      // Keep history of energy levels
+      beatHistory.push(bassEnergy);
+      if (beatHistory.length > 50) beatHistory.shift();
+
+      // Calculate average and threshold
+      const avgEnergy = beatHistory.reduce((a, b) => a + b, 0) / beatHistory.length;
+      const threshold = avgEnergy * 1.3;
+
+      const now = performance.now();
+
+      // Detect beat (energy spike above threshold, with minimum interval)
+      if (bassEnergy > threshold && bassEnergy > 50 && (now - lastBeatTime) > 200) {
+        if (lastBeatTime > 0) {
+          const interval = now - lastBeatTime;
+          beatIntervals.push(interval);
+
+          // Keep last 16 intervals
+          if (beatIntervals.length > 16) beatIntervals.shift();
+
+          // Calculate BPM from intervals
+          if (beatIntervals.length >= 4) {
+            const avgInterval = beatIntervals.reduce((a, b) => a + b, 0) / beatIntervals.length;
+            const bpm = Math.round(60000 / avgInterval);
+
+            // Filter reasonable BPM range (60-200)
+            if (bpm >= 60 && bpm <= 200) {
+              updateBpmDisplay(bpm, avgInterval);
+            }
+          }
+        }
+        lastBeatTime = now;
+      }
+
+      requestAnimationFrame(detectBpm);
+    }
+
+    function updateBpmDisplay(bpm, interval) {
+      const bpmDisplay = document.getElementById('bpmDisplay');
+      const frameSpeedInput = document.getElementById('frameSpeed');
+
+      bpmDisplay.textContent = `${bpm}`;
+
+      // Update frame speed to match beat
+      frameSpeed = Math.round(interval * 1000) / 1000;
+      frameSpeedInput.value = frameSpeed.toFixed(3);
+
+      // Reset animation timer with new speed
+      if (isPlaying && animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(animate, frameSpeed);
+      }
+    }
+
+    document.getElementById('bpmSync').addEventListener('click', startBpmDetection);
+
+    // Clean up on page unload
+    window.addEventListener('beforeunload', stopBpmDetection);
 
     // Render tiled background (static, uses first config)
     function renderBackground() {
