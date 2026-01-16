@@ -181,13 +181,13 @@
     <div class="control-group">
       <span class="control-label">Mode</span>
       <select id="displayMode">
-        <option value="single" selected>Single (3 rows)</option>
-        <option value="dual">Dual (6 rows)</option>
-        <option value="quad">Quad (2 columns)</option>
-        <option value="octa">Octa (8 forms)</option>
-        <option value="square">Square (16 forms)</option>
-        <option value="rectangle">Rectangle (64 forms)</option>
-        <option value="square256">Square (256 forms)</option>
+        <option value="single" selected>Single</option>
+        <option value="dual">Duo</option>
+        <option value="quad">Quad</option>
+        <option value="octa">Octa</option>
+        <option value="square">Square</option>
+        <option value="rectangle">Rectangle</option>
+        <option value="cube">Cube</option>
       </select>
     </div>
 
@@ -969,11 +969,11 @@
       return allTriangles;
     }
 
-    // Build square256 mode: 4 rows of rectangle patterns stacked vertically
+    // Build Cube mode: 4 rows of rectangle patterns stacked vertically
     // Each row is x-mirrored relative to the one below it
     // Bottom row: original rectangle, then alternating x-flip going up
     // variation 0 = Normal, variation 1 = Inverted
-    function buildSquare256(variation) {
+    function buildCube(variation) {
       const allTriangles = [];
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
       const GAP = 8;
@@ -1034,7 +1034,7 @@
 
       // Variation name based on mode
       let varName = '-';
-      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'square' || displayMode === 'rectangle' || displayMode === 'square256') {
+      if (displayMode === 'quad' || displayMode === 'octa' || displayMode === 'square' || displayMode === 'rectangle' || displayMode === 'cube') {
         varName = currentVariation === 0 ? 'Normal' : 'Inverted';
       }
       document.getElementById('variationName').textContent = varName;
@@ -1055,8 +1055,8 @@
         triangles = buildDualStacked();
         totalWidth = polyWidth;
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
-      } else if (displayMode === 'square256') {
-        triangles = buildSquare256(currentVariation);
+      } else if (displayMode === 'cube') {
+        triangles = buildCube(currentVariation);
         const GAP = 8;
         const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
         const octaHeight = quadHeight * 2 + GAP;
@@ -1134,7 +1134,7 @@
 
     // Get number of variations for current mode
     function getVariationCount() {
-      if (displayMode === 'square256') return 2;
+      if (displayMode === 'cube') return 2;
       if (displayMode === 'rectangle') return 2;
       if (displayMode === 'square') return 2;
       if (displayMode === 'octa') return 2;
@@ -1143,7 +1143,7 @@
     }
 
     // Mode order for osc cycling
-    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'square256'];
+    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'cube'];
     let oscModeDirection = 1; // 1 = forward through modes, -1 = backward
 
     // Animation - cycles through variations and configs
@@ -1207,8 +1207,8 @@
               // Reset pan when mode changes during swing
               panX = 0;
               panY = 0;
-              // Set appropriate zoom for rectangle and square256 modes
-              if (displayMode === 'rectangle' || displayMode === 'square256') {
+              // Set appropriate zoom for rectangle and cube modes
+              if (displayMode === 'rectangle' || displayMode === 'cube') {
                 scale = 0.75;
               }
             }
@@ -1264,7 +1264,7 @@
         const currentDistance = getDistance(e.touches);
         const newScale = initialScale * (currentDistance / initialDistance);
         // Rectangle mode: limit zoom out to 75%
-        const minZoom = (displayMode === 'rectangle' || displayMode === 'square256') ? 0.75 : 0.25;
+        const minZoom = (displayMode === 'rectangle' || displayMode === 'cube') ? 0.75 : 0.25;
         scale = Math.max(minZoom, Math.min(5, newScale));
         render();
       }
@@ -1275,7 +1275,7 @@
       e.preventDefault();
       const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
       // Rectangle mode: limit zoom out to 75%
-      const minZoom = (displayMode === 'rectangle' || displayMode === 'square256') ? 0.75 : 0.25;
+      const minZoom = (displayMode === 'rectangle' || displayMode === 'cube') ? 0.75 : 0.25;
       scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
       render();
     }, { passive: false });
@@ -1472,7 +1472,7 @@
       // Reset pan and set appropriate default zoom for large modes
       panX = 0;
       panY = 0;
-      if (displayMode === 'rectangle' || displayMode === 'square256') {
+      if (displayMode === 'rectangle' || displayMode === 'cube') {
         scale = 0.75; // More zoomed in for large modes
       }
       render();
@@ -1504,8 +1504,8 @@
         triangles = buildSingle();
       } else if (displayMode === 'dual') {
         triangles = buildDualStacked();
-      } else if (displayMode === 'square256') {
-        triangles = buildSquare256(variation);
+      } else if (displayMode === 'cube') {
+        triangles = buildCube(variation);
       } else if (displayMode === 'rectangle') {
         triangles = buildRectangle(variation);
       } else if (displayMode === 'square') {
@@ -1570,7 +1570,7 @@
         } else if (displayMode === 'square') {
           width = polyWidth * 4;
           height = octaHeight * 2 + GAP;
-        } else if (displayMode === 'square256') {
+        } else if (displayMode === 'cube') {
           const squareWidth = polyWidth * 4;
           const squareHeight = octaHeight * 2 + GAP;
           const rectangleWidth = squareWidth * 4 + GAP * 3;
