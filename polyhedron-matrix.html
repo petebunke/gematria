@@ -97,8 +97,8 @@
     }
 
     #tessellationSvg {
-      max-width: 100%;
-      max-height: 100%;
+      width: 400px;
+      height: 300px;
       touch-action: none;
       border: 2px solid #333;
       background: #f8f8f4;
@@ -339,32 +339,47 @@
       return triangles;
     }
 
-    // Build dual mode: simple vertical stacking (no mirroring)
+    // Build dual mode: top original, bottom X-mirrored (vertical flip)
     function buildDualStacked() {
       const base = generateBasePolyhedron();
       const allTriangles = [];
 
       const polyWidth = COLS * (TRI_SIZE / 2);
 
-      // Stack 2 copies vertically (no mirroring)
-      for (let stack = 0; stack < 2; stack++) {
-        base.forEach(t => {
-          const x = t.col * (TRI_SIZE / 2);
-          const y = (stack * BASE_ROWS + t.row) * TRI_HEIGHT;
+      // Top half: original
+      base.forEach(t => {
+        const x = t.col * (TRI_SIZE / 2);
+        const y = t.row * TRI_HEIGHT;
 
-          allTriangles.push({
-            ...t,
-            x,
-            y,
-            yMirror: false
-          });
+        allTriangles.push({
+          ...t,
+          x,
+          y,
+          yMirror: false
         });
-      }
+      });
+
+      // Bottom half: X-mirrored (vertical flip - rows reversed)
+      base.forEach(t => {
+        const xMirroredRow = BASE_ROWS - 1 - t.row;
+        const x = t.col * (TRI_SIZE / 2);
+        const y = (BASE_ROWS + xMirroredRow) * TRI_HEIGHT;
+
+        allTriangles.push({
+          ...t,
+          polyhedronRow: BASE_ROWS - 1 - t.polyhedronRow,
+          x,
+          y,
+          yMirror: false
+        });
+      });
 
       return allTriangles;
     }
 
     // Build quad mode: mirrored polycolumn pairs
+    // Top half: left Y-mirrored, right original
+    // Bottom half: left Y-mirrored + Y-flipped, right Y-flipped (horizontal flip for bottom)
     // variation 0 = Normal: [base on top, X-mirror below]
     // variation 1 = Inverted: [X-mirror on top, base below]
     function buildQuadMirrored(variation) {
@@ -421,7 +436,7 @@
           });
         });
 
-        // Bottom half
+        // Bottom half: also Y-mirrored (horizontal flip)
         base.forEach(t => {
           let col = t.col;
           let pointing = t.pointing;
@@ -437,7 +452,11 @@
             polyRow = t.polyhedronRow;
           }
 
-          if (yMirror) {
+          // Bottom half is Y-mirrored (horizontal flip)
+          // If column was already Y-mirrored, this un-mirrors it
+          // If column was not Y-mirrored, this mirrors it
+          const bottomYMirror = !yMirror;
+          if (bottomYMirror) {
             col = COLS - 1 - col;
             pointing = pointing === 'up' ? 'down' : 'up';
           }
@@ -452,7 +471,7 @@
             polyhedronRow: polyRow,
             x,
             y,
-            yMirror,
+            yMirror: bottomYMirror,
             section: 'bottom'
           });
         });
@@ -503,15 +522,13 @@
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       }
 
-      // Apply zoom via viewBox
+      // Apply zoom via viewBox only (SVG stays fixed size in container)
       const viewWidth = totalWidth / scale;
       const viewHeight = totalHeight / scale;
       const viewX = (totalWidth - viewWidth) / 2;
       const viewY = (totalHeight - viewHeight) / 2;
 
       svg.setAttribute('viewBox', `${viewX} ${viewY} ${viewWidth} ${viewHeight}`);
-      svg.setAttribute('width', totalWidth * scale * 0.8);
-      svg.setAttribute('height', totalHeight * scale * 0.8);
 
       let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="#f8f8f4"/>`;
 
