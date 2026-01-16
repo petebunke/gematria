@@ -1197,7 +1197,7 @@
       oscActive = true;
       const btn = document.getElementById('oscToggle');
       btn.textContent = 'ON';
-      btn.style.background = '#03ffcb';
+      btn.style.background = '#6b5b95';
       btn.style.color = '#ffffff';
       oscStep();
     }
@@ -1613,7 +1613,7 @@
 </html>`;
     }
 
-    // Render tiled background (static, uses first config)
+    // Render tiled background with animated columns
     function renderBackground() {
       const bgSvg = document.getElementById('backgroundSvg');
       const config = CONFIGS[CONFIG_KEYS[0]]; // Use first config (a-*-z)
@@ -1629,19 +1629,17 @@
       // Calculate how many tiles needed to cover screen
       const screenWidth = window.innerWidth;
       const screenHeight = window.innerHeight;
-      const tilesX = Math.ceil(screenWidth / tileWidth) + 1;
-      const tilesY = Math.ceil(screenHeight / tileHeight) + 1;
+      const tilesX = Math.ceil(screenWidth / tileWidth) + 2;
+      const tilesY = Math.ceil(screenHeight / tileHeight) + 3;
 
       const totalWidth = tilesX * tileWidth;
-      const totalHeight = tilesY * tileHeight;
+      const totalHeight = (tilesY + 1) * tileHeight;
+      const animDuration = 60; // seconds for full cycle
 
-      bgSvg.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
+      bgSvg.setAttribute('viewBox', `0 0 ${totalWidth} ${screenHeight}`);
 
-      let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="#f5f5f0"/>`;
-
-      // Create pattern definition for one quad tile
-      svgContent += `<defs><pattern id="quadPattern" width="${tileWidth}" height="${tileHeight}" patternUnits="userSpaceOnUse">`;
-
+      // Build tile content
+      let tileContent = '';
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
@@ -1652,7 +1650,7 @@
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
 
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-        svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#999" stroke-width="0.5"/>`;
+        tileContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#999" stroke-width="0.5"/>`;
 
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
@@ -1661,14 +1659,43 @@
           ? `translate(${textX * 2}, 0) scale(-1, 1)`
           : '';
 
-        svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
+        tileContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle"
                              font-family="Arial" font-size="9" font-weight="bold"
                              fill="${letterColor}" fill-opacity="${letterOpacity * 0.7}"
                              ${textTransform ? `transform="${textTransform}"` : ''}>${symbol}</text>`;
       });
 
-      svgContent += `</pattern></defs>`;
-      svgContent += `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="url(#quadPattern)"/>`;
+      let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${screenHeight}" fill="#f5f5f0"/>`;
+
+      // CSS animations for columns
+      svgContent += `<style>
+        @keyframes scrollUp {
+          0% { transform: translateY(0); }
+          100% { transform: translateY(-${tileHeight}px); }
+        }
+        @keyframes scrollDown {
+          0% { transform: translateY(-${tileHeight}px); }
+          100% { transform: translateY(0); }
+        }
+        .col-up { animation: scrollUp ${animDuration}s linear infinite; }
+        .col-down { animation: scrollDown ${animDuration}s linear infinite; }
+      </style>`;
+
+      // Create pattern for reuse
+      svgContent += `<defs><g id="tile">${tileContent}</g></defs>`;
+
+      // Create columns with alternating animations
+      for (let col = 0; col < tilesX; col++) {
+        const direction = col % 2 === 0 ? 'col-up' : 'col-down';
+        const xPos = col * tileWidth;
+
+        svgContent += `<g class="${direction}">`;
+        for (let row = -1; row < tilesY; row++) {
+          const yPos = row * tileHeight;
+          svgContent += `<use href="#tile" x="${xPos}" y="${yPos}"/>`;
+        }
+        svgContent += `</g>`;
+      }
 
       bgSvg.innerHTML = svgContent;
     }
