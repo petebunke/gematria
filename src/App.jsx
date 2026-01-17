@@ -1897,7 +1897,7 @@ const GematriaCalculator = () => {
             {results && (
               <div className="space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                 <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-700 overflow-hidden">
-                  <h2 className="text-xl md:text-2xl font-bold text-white text-center break-all">
+                  <h2 className="text-xl md:text-2xl font-bold text-white text-center [overflow-wrap:break-word] [word-break:keep-all]">
                     Results for "{results.input}"
                   </h2>
                   <button
@@ -1921,7 +1921,7 @@ const GematriaCalculator = () => {
                       <span className="text-sm">Loading definitions...</span>
                     </div>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => {
                         const def = wordDefinitions[word];
                         const pos = def?.partOfSpeech ? (() => {
