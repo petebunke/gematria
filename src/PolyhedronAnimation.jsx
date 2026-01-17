@@ -125,14 +125,28 @@ function getColor(combo) {
 
 function aikBekarToMs(value) {
   if (value <= 0) return 666;
-  const numDigits = Math.floor(Math.log10(value)) + 1;
-  const digit = Math.floor(value / Math.pow(10, numDigits - 1));
-  const mirroredDigit = 10 - digit;
-  const mirroredValue = mirroredDigit * value / digit;
-  if (numDigits >= 4) return mirroredValue / Math.pow(10, numDigits - 1);
-  if (numDigits === 3) return mirroredValue / 10;
-  if (numDigits === 2) return mirroredValue * 10 + mirroredDigit;
-  return mirroredValue * 1111;
+
+  // Mirror each digit (digit → 10 - digit)
+  const str = value.toString();
+  const mirroredDigits = str.split('').map(d => 10 - parseInt(d));
+  const mirroredNum = parseInt(mirroredDigits.join(''));
+  const numDigits = str.length;
+
+  if (numDigits === 1) {
+    // Single digit: mirror and multiply by 1111
+    return mirroredNum * 1111;
+  } else if (numDigits === 2) {
+    // 2 digits: mirroredNum * 10 + lastMirroredDigit
+    // 55 → 55 * 10 + 5 = 555
+    // 99 → 11 * 10 + 1 = 111
+    return mirroredNum * 10 + mirroredDigits[mirroredDigits.length - 1];
+  } else {
+    // 3+ digits: divide by 10^(numDigits-2)
+    // 111 → 999 / 10 = 99.9
+    // 285 → 825 / 10 = 82.5
+    // 1111 → 9999 / 1000 = 9.999
+    return mirroredNum / Math.pow(10, numDigits - 2);
+  }
 }
 
 // Triangle generation functions

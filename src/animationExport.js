@@ -117,14 +117,28 @@ function getColor(combo) {
 
 function aikBekarToMs(value) {
   if (value <= 0) return 666;
-  const numDigits = Math.floor(Math.log10(value)) + 1;
-  const digit = Math.floor(value / Math.pow(10, numDigits - 1));
-  const mirroredDigit = 10 - digit;
-  const mirroredValue = mirroredDigit * value / digit;
-  if (numDigits >= 4) return mirroredValue / Math.pow(10, numDigits - 1);
-  if (numDigits === 3) return mirroredValue / 10;
-  if (numDigits === 2) return mirroredValue * 10 + mirroredDigit;
-  return mirroredValue * 1111;
+
+  // Mirror each digit (digit → 10 - digit)
+  const str = value.toString();
+  const mirroredDigits = str.split('').map(d => 10 - parseInt(d));
+  const mirroredNum = parseInt(mirroredDigits.join(''));
+  const numDigits = str.length;
+
+  if (numDigits === 1) {
+    // Single digit: mirror and multiply by 1111
+    return mirroredNum * 1111;
+  } else if (numDigits === 2) {
+    // 2 digits: mirroredNum * 10 + lastMirroredDigit
+    // 55 → 55 * 10 + 5 = 555
+    // 99 → 11 * 10 + 1 = 111
+    return mirroredNum * 10 + mirroredDigits[mirroredDigits.length - 1];
+  } else {
+    // 3+ digits: divide by 10^(numDigits-2)
+    // 111 → 999 / 10 = 99.9
+    // 285 → 825 / 10 = 82.5
+    // 1111 → 9999 / 1000 = 9.999
+    return mirroredNum / Math.pow(10, numDigits - 2);
+  }
 }
 
 // Triangle building functions
@@ -502,61 +516,94 @@ export async function generateGifBlob(phrase, combo, progressCallback) {
   });
 }
 
-// Simpler GIF generation using canvas and manual encoding
+// Generate animated GIF using gifenc
 export async function generateSimpleGif(phrase, combo, progressCallback) {
+  const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
+
   const { width, height } = getRectangleDimensions();
-  const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 100);
+  const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 20); // Min 20ms for GIF
+  const delay = Math.round(frameSpeed / 10); // GIF delay is in centiseconds
+
+  // Scale down for reasonable file size
+  const maxWidth = 800;
+  const scale = Math.min(1, maxWidth / width);
+  const scaledWidth = Math.round(width * scale);
+  const scaledHeight = Math.round(height * scale);
 
   const canvas = document.createElement('canvas');
-  canvas.width = Math.min(width, 800); // Limit size for performance
-  canvas.height = Math.min(height, 400);
+  canvas.width = scaledWidth;
+  canvas.height = scaledHeight;
   const ctx = canvas.getContext('2d');
-  const scale = canvas.width / width;
 
-  // Generate only key frames (reduce to 6 for performance)
-  const frames = [];
+  // Generate frames (6 configs × 2 variations = 12 frames, then reverse for ping-pong)
+  const svgFrames = [];
   for (let ci = 0; ci < CONFIG_KEYS.length; ci++) {
-    const svgContent = generateSvgFrame(phrase, combo, ci, 0);
-    frames.push(svgContent);
-    if (progressCallback) progressCallback(ci / CONFIG_KEYS.length * 0.3);
+    for (let v = 0; v < 2; v++) {
+      svgFrames.push(generateSvgFrame(phrase, combo, ci, v));
+    }
   }
+  // Add reverse frames for ping-pong (excluding first and last to avoid duplicates)
+  const allSvgFrames = [...svgFrames, ...svgFrames.slice(1, -1).reverse()];
 
-  // Convert to images
-  const imageDataArray = [];
-  for (let i = 0; i < frames.length; i++) {
+  if (progressCallback) progressCallback(0.1);
+
+  // Convert SVG frames to image data
+  const frameDataList = [];
+  for (let i = 0; i < allSvgFrames.length; i++) {
     const img = new Image();
-    const svgBlob = new Blob([frames[i]], { type: 'image/svg+xml' });
+    const svgBlob = new Blob([allSvgFrames[i]], { type: 'image/svg+xml' });
     const url = URL.createObjectURL(svgBlob);
 
     await new Promise((resolve) => {
       img.onload = () => {
         ctx.fillStyle = '#f8f8f4';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
         URL.revokeObjectURL(url);
         resolve();
       };
       img.onerror = () => {
         ctx.fillStyle = '#f8f8f4';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, scaledWidth, scaledHeight);
         resolve();
       };
       img.src = url;
     });
 
-    imageDataArray.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
-    if (progressCallback) progressCallback(0.3 + (i / frames.length) * 0.4);
+    const imageData = ctx.getImageData(0, 0, scaledWidth, scaledHeight);
+    frameDataList.push(imageData.data);
+
+    if (progressCallback) progressCallback(0.1 + (i / allSvgFrames.length) * 0.6);
   }
 
-  // For now, return first frame as PNG (GIF encoding is complex without library)
-  ctx.putImageData(imageDataArray[0], 0, 0);
+  // Create GIF encoder
+  const gif = GIFEncoder();
 
-  return new Promise((resolve) => {
-    canvas.toBlob((blob) => {
-      if (progressCallback) progressCallback(1);
-      resolve(blob);
-    }, 'image/png');
-  });
+  // Add each frame
+  for (let i = 0; i < frameDataList.length; i++) {
+    const rgba = frameDataList[i];
+
+    // Quantize to 256 color palette
+    const palette = quantize(rgba, 256);
+    const index = applyPalette(rgba, palette);
+
+    gif.writeFrame(index, scaledWidth, scaledHeight, {
+      palette,
+      delay,
+      dispose: 1 // Clear frame before drawing next
+    });
+
+    if (progressCallback) progressCallback(0.7 + (i / frameDataList.length) * 0.3);
+  }
+
+  gif.finish();
+
+  const bytes = gif.bytes();
+  const blob = new Blob([bytes], { type: 'image/gif' });
+
+  if (progressCallback) progressCallback(1);
+
+  return blob;
 }
 
 export { CONFIG_KEYS, getRectangleDimensions, aikBekarToMs };

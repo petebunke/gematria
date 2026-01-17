@@ -376,9 +376,9 @@ const GematriaCalculator = () => {
         const meanings = [];
         for (const word of words) {
           if (wordDefinitions[word]) {
-            meanings.push(`${word}: ${wordDefinitions[word].definition}`);
+            meanings.push(`<b>${word}</b>: ${wordDefinitions[word].definition}`);
           } else {
-            meanings.push(`${word}: -`);
+            meanings.push(`<b>${word}</b>: -`);
           }
         }
         phraseMeanings[p.phrase] = meanings.join('; ');
@@ -458,10 +458,10 @@ const GematriaCalculator = () => {
         const htmlFile = generateStandaloneHtml(p.phrase, combo);
         zip.file(`${folderName}/animation.html`, htmlFile);
 
-        // Generate GIF/PNG
+        // Generate animated GIF
         try {
           const gifBlob = await generateSimpleGif(p.phrase, combo);
-          zip.file(`${folderName}/animation.png`, gifBlob);
+          zip.file(`${folderName}/animation.gif`, gifBlob);
         } catch (err) {
           console.error(`Failed to generate GIF for "${p.phrase}":`, err);
         }
