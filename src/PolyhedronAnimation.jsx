@@ -476,7 +476,7 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
     const padding = STROKE_WIDTH / 2;
     svgRef.current.setAttribute('viewBox', `${-padding} ${-padding} ${totalWidth + STROKE_WIDTH} ${totalHeight + STROKE_WIDTH}`);
 
-    let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="#f8f8f4"/>`;
+    let svgContent = `<rect x="${-padding}" y="${-padding}" width="${totalWidth + STROKE_WIDTH}" height="${totalHeight + STROKE_WIDTH}" fill="#f8f8f4"/>`;
 
     triangles.forEach(tri => {
       const symbol = config.getSymbol(tri.index % 27);
