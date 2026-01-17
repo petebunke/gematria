@@ -384,7 +384,7 @@ const GematriaCalculator = () => {
         phraseMeanings[p.phrase] = meanings.join('; ');
       }
 
-      // Create HTML content for PDF with Phrase Meaning column
+      // Create HTML content for PDF with Definitions column
       setDownloadProgress('Generating PDF...');
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto;">
@@ -399,7 +399,7 @@ const GematriaCalculator = () => {
             <thead>
               <tr>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 300px;">Meaning</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 300px;">Definitions</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
@@ -456,12 +456,12 @@ const GematriaCalculator = () => {
 
         // Generate standalone HTML
         const htmlFile = generateStandaloneHtml(p.phrase, combo);
-        zip.file(`${folderName}/animation.html`, htmlFile);
+        zip.file(`${folderName}/${folderName}.html`, htmlFile);
 
         // Generate animated GIF
         try {
           const gifBlob = await generateSimpleGif(p.phrase, combo);
-          zip.file(`${folderName}/animation.gif`, gifBlob);
+          zip.file(`${folderName}/${folderName}.gif`, gifBlob);
         } catch (err) {
           console.error(`Failed to generate GIF for "${p.phrase}":`, err);
         }
@@ -1896,10 +1896,10 @@ const GematriaCalculator = () => {
                   </button>
                 </div>
 
-                {/* Phrase Meaning */}
+                {/* Definitions */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <h3 className="text-lg md:text-xl font-bold text-red-500 mb-4">
-                    Phrase Meaning
+                    Definitions
                   </h3>
                   {loadingDefinitions ? (
                     <div className="flex items-center gap-2 text-gray-400">
