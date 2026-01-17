@@ -712,7 +712,7 @@ const GematriaCalculator = () => {
 
     // Helper to fetch definition for a single word
     const fetchSingleDefinition = async (word, depth = 0) => {
-      if (depth > 2) return { partOfSpeech: '', definition: '' };
+      if (depth > 2) return { partOfSpeech: '', definition: '', phonetic: '' };
 
       // Try Free Dictionary API first
       try {
@@ -723,13 +723,14 @@ const GematriaCalculator = () => {
             const meaning = data[0].meanings[0];
             const partOfSpeech = meaning.partOfSpeech || '';
             const definition = meaning.definitions[0]?.definition || '';
+            const phonetic = data[0].phonetic || data[0].phonetics?.[0]?.text || '';
 
             const synonymWord = extractSynonym(definition);
             if (synonymWord && synonymWord !== word) {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition };
+            return { partOfSpeech, definition, phonetic };
           }
         }
       } catch (error) {
@@ -751,7 +752,7 @@ const GematriaCalculator = () => {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition };
+            return { partOfSpeech, definition, phonetic: '' };
           }
         }
       } catch (error) {
@@ -777,14 +778,14 @@ const GematriaCalculator = () => {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition };
+            return { partOfSpeech, definition, phonetic: '' };
           }
         }
       } catch (error) {
         console.log(`Wiktionary API failed for "${word}"`);
       }
 
-      return { partOfSpeech: '', definition: '' };
+      return { partOfSpeech: '', definition: '', phonetic: '' };
     };
 
     const fetchDefinitions = async () => {
@@ -1909,7 +1910,7 @@ const GematriaCalculator = () => {
                       <span className="text-sm">Loading definitions...</span>
                     </div>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => {
                         const def = wordDefinitions[word];
                         const pos = def?.partOfSpeech ? (() => {
@@ -1919,12 +1920,13 @@ const GematriaCalculator = () => {
                         })() : null;
                         return (
                           <div key={index} className="border-l-2 border-red-500 pl-3">
-                            <div className="flex items-baseline gap-2 flex-wrap">
-                              <span className="text-white font-semibold capitalize">{word}</span>
-                              {pos && (
-                                <span className="text-xs text-red-400 italic">({pos})</span>
-                              )}
-                            </div>
+                            <span className="text-white font-semibold capitalize">{word}</span>
+                            {pos && (
+                              <p className="text-xs text-red-400 italic mt-1">{pos}</p>
+                            )}
+                            {def?.phonetic && (
+                              <p className="text-xs text-gray-500 font-mono">{def.phonetic}</p>
+                            )}
                             <p className="text-sm text-gray-400 mt-1">
                               {def?.definition || 'Loading...'}
                             </p>
