@@ -449,6 +449,13 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
   const [variation, setVariation] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const [showIndicator, setShowIndicator] = useState(null); // 'play' or 'pause'
+
+  // Zoom and pan state
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState({ x: 0, y: 0 });
+  const containerRef = useRef(null);
   const configDirection = useRef(1);
 
   // Parse gematria values from props (format: [hebrew, english, simple, aikbekar])
@@ -552,19 +559,96 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
     });
   };
 
+  // Handle wheel zoom within container
+  const handleWheel = useCallback((e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    setZoom(prevZoom => {
+      const newZoom = Math.min(Math.max(prevZoom + delta, 1), 5);
+      // Reset pan when zooming back to 1
+      if (newZoom === 1) {
+        setPan({ x: 0, y: 0 });
+      }
+      return newZoom;
+    });
+  }, []);
+
+  // Handle pan start
+  const handleMouseDown = useCallback((e) => {
+    if (zoom > 1) {
+      e.preventDefault();
+      setIsPanning(true);
+      setPanStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+    }
+  }, [zoom, pan]);
+
+  // Handle pan move
+  const handleMouseMove = useCallback((e) => {
+    if (isPanning && zoom > 1 && containerRef.current) {
+      const container = containerRef.current;
+      const rect = container.getBoundingClientRect();
+      const maxPanX = (rect.width * (zoom - 1)) / 2;
+      const maxPanY = (rect.height * (zoom - 1)) / 2;
+
+      const newX = Math.min(Math.max(e.clientX - panStart.x, -maxPanX), maxPanX);
+      const newY = Math.min(Math.max(e.clientY - panStart.y, -maxPanY), maxPanY);
+
+      setPan({ x: newX, y: newY });
+    }
+  }, [isPanning, zoom, panStart]);
+
+  // Handle pan end
+  const handleMouseUp = useCallback(() => {
+    setIsPanning(false);
+  }, []);
+
+  // Add/remove global mouse listeners for panning
+  useEffect(() => {
+    if (isPanning) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isPanning, handleMouseMove, handleMouseUp]);
+
+  // Reset zoom when phrase changes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, [phrase]);
+
   return (
     <div
-      onClick={togglePlay}
+      ref={containerRef}
+      onClick={(e) => { if (!isPanning) togglePlay(); }}
       onKeyDown={(e) => e.key === ' ' && togglePlay()}
+      onWheel={handleWheel}
+      onMouseDown={handleMouseDown}
       role="button"
       tabIndex={0}
-      style={{ cursor: 'pointer', position: 'relative' }}
+      style={{
+        cursor: isPanning ? 'grabbing' : (zoom > 1 ? 'grab' : 'pointer'),
+        position: 'relative',
+        overflow: 'hidden'
+      }}
     >
       <svg
         ref={svgRef}
         preserveAspectRatio="xMidYMid meet"
         className="w-full h-auto"
-        style={{ background: '#f8f8f4', display: 'block', pointerEvents: 'none' }}
+        style={{
+          background: '#f8f8f4',
+          display: 'block',
+          pointerEvents: 'none',
+          transform: `scale(${zoom}) translate(${pan.x / zoom}px, ${pan.y / zoom}px)`,
+          transformOrigin: 'center center',
+          transition: isPanning ? 'none' : 'transform 0.1s ease-out'
+        }}
       />
       {showIndicator && (
         <div style={{

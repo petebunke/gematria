@@ -27,8 +27,9 @@ const GematriaCalculator = () => {
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
-  const [phraseInterpretation, setPhraseInterpretation] = useState('');
-  const [loadingInterpretation, setLoadingInterpretation] = useState(false);
+  const [wordDefinitions, setWordDefinitions] = useState({});
+  const [phraseSummary, setPhraseSummary] = useState('');
+  const [loadingDefinitions, setLoadingDefinitions] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -368,34 +369,25 @@ const GematriaCalculator = () => {
         return (a.aiqBekar || 0) - (b.aiqBekar || 0);
       });
 
-      // Fetch AI interpretations for all phrases for PDF
-      setDownloadProgress('Generating interpretations...');
-      const phraseInterpretations = {};
-      for (let i = 0; i < sorted.length; i++) {
-        const p = sorted[i];
-        setDownloadProgress(`Generating interpretations (${i + 1}/${sorted.length})...`);
-        try {
-          const response = await fetch('/api/interpret', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              phrase: p.phrase,
-              hebrew: p.hebrew,
-              english: p.english,
-              simple: p.simple,
-              aiqBekar: p.aiqBekar
-            })
-          });
-          if (response.ok) {
-            const data = await response.json();
-            phraseInterpretations[p.phrase] = data.interpretation;
-          }
-        } catch (err) {
-          console.log(`Failed to get interpretation for "${p.phrase}"`);
-        }
+      // Build word meanings for each phrase using cached definitions
+      setDownloadProgress('Building word meanings...');
+      const phraseMeanings = {};
+      for (const p of sorted) {
+        const words = p.phrase.toLowerCase().split(/\s+/).filter(w => w.length > 0 && /^[a-z]+$/.test(w));
+        const meanings = words
+          .map(w => {
+            const def = wordDefinitions[w];
+            if (def && def.definition) {
+              const shortDef = def.definition.length > 60 ? def.definition.slice(0, 60) + '...' : def.definition;
+              return `<b>${w}</b>: ${shortDef}`;
+            }
+            return `<b>${w}</b>: -`;
+          })
+          .join('; ');
+        phraseMeanings[p.phrase] = meanings;
       }
 
-      // Create HTML content for PDF with Interpretation column
+      // Create HTML content for PDF with Meanings column
       setDownloadProgress('Generating PDF...');
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto;">
@@ -410,7 +402,7 @@ const GematriaCalculator = () => {
             <thead>
               <tr>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 350px;">Interpretation</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 350px;">Meanings</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
@@ -423,7 +415,7 @@ const GematriaCalculator = () => {
               ${sorted.map((p, i) => `
                 <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap;">${p.phrase}</td>
-                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; font-style: italic; max-width: 350px; word-wrap: break-word;">${phraseInterpretations[p.phrase] || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; max-width: 350px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
@@ -699,44 +691,159 @@ const GematriaCalculator = () => {
     }
   }, [generatedPhrases]);
 
-  // Fetch AI interpretation when results change
+  // Fetch word definitions and generate summary when results change
   useEffect(() => {
-    const fetchInterpretation = async () => {
+    // Helper to check if definition is a synonym reference and extract the synonym word
+    const extractSynonym = (definition) => {
+      if (!definition) return null;
+      const synonymPatterns = [
+        /^synonym of\s+["']?(\w+)["']?/i,
+        /^alternative form of\s+["']?(\w+)["']?/i,
+        /^variant of\s+["']?(\w+)["']?/i,
+        /^same as\s+["']?(\w+)["']?/i,
+        /^see\s+["']?(\w+)["']?/i,
+      ];
+      for (const pattern of synonymPatterns) {
+        const match = definition.match(pattern);
+        if (match) return match[1].toLowerCase();
+      }
+      return null;
+    };
+
+    // Helper to fetch definition for a single word
+    const fetchSingleDefinition = async (word, depth = 0) => {
+      if (depth > 2) return { partOfSpeech: '', definition: '' };
+
+      // Try Free Dictionary API first
+      try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
+            const meaning = data[0].meanings[0];
+            const partOfSpeech = meaning.partOfSpeech || '';
+            const definition = meaning.definitions[0]?.definition || '';
+
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Free Dictionary API failed for "${word}"`);
+      }
+
+      // Try Datamuse API as fallback
+      try {
+        const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
+            const defParts = data[0].defs[0].split('\t');
+            const partOfSpeech = defParts[0] || '';
+            const definition = defParts[1] || '';
+
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Datamuse API failed for "${word}"`);
+      }
+
+      // Try Wiktionary API as second fallback
+      try {
+        const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.en && data.en.length > 0) {
+            const entry = data.en[0];
+            const partOfSpeech = entry.partOfSpeech || '';
+            let definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || '';
+
+            // Filter out garbled wiki markup
+            const isGarbled = /^\w+\s+\d+px\|/.test(definition) || (/\|/.test(definition) && definition.length < 50);
+            if (isGarbled) definition = '';
+
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Wiktionary API failed for "${word}"`);
+      }
+
+      return { partOfSpeech: '', definition: '' };
+    };
+
+    // Generate a natural summary from definitions
+    const generateSummary = (definitions, words) => {
+      const validDefs = words
+        .map(w => ({ word: w, ...definitions[w] }))
+        .filter(d => d.definition && d.definition.length > 0);
+
+      if (validDefs.length === 0) {
+        return 'No definitions available for the words in this phrase.';
+      }
+
+      // Build summary prose
+      const parts = validDefs.map(d => {
+        const pos = d.partOfSpeech ? ` (${d.partOfSpeech})` : '';
+        // Truncate long definitions
+        const def = d.definition.length > 100 ? d.definition.slice(0, 100) + '...' : d.definition;
+        return `**${d.word}**${pos}: ${def}`;
+      });
+
+      return parts.join(' • ');
+    };
+
+    const fetchDefinitions = async () => {
       if (!results || !results.input) {
-        setPhraseInterpretation('');
+        setWordDefinitions({});
+        setPhraseSummary('');
         return;
       }
 
-      setLoadingInterpretation(true);
+      const words = results.input
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 0 && /^[a-z]+$/.test(word));
 
-      try {
-        const response = await fetch('/api/interpret', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            phrase: results.input,
-            hebrew: results.hebrew.total,
-            english: results.english.total,
-            simple: results.simple.total,
-            aiqBekar: results.aiqBekar?.total
-          })
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setPhraseInterpretation(data.interpretation);
-        } else {
-          setPhraseInterpretation('Unable to generate interpretation at this time.');
-        }
-      } catch (error) {
-        console.error('Interpretation fetch failed:', error);
-        setPhraseInterpretation('Unable to generate interpretation at this time.');
-      } finally {
-        setLoadingInterpretation(false);
+      if (words.length === 0) {
+        setWordDefinitions({});
+        setPhraseSummary('');
+        return;
       }
+
+      setLoadingDefinitions(true);
+      const definitions = {};
+
+      for (const word of words) {
+        // Use cached definition if available
+        if (wordDefinitions[word]) {
+          definitions[word] = wordDefinitions[word];
+          continue;
+        }
+        definitions[word] = await fetchSingleDefinition(word);
+      }
+
+      setWordDefinitions(definitions);
+      setPhraseSummary(generateSummary(definitions, words));
+      setLoadingDefinitions(false);
     };
 
-    fetchInterpretation();
+    fetchDefinitions();
   }, [results?.input]);
 
   // Pre-calculate word data and indexes ONCE when wordList changes
@@ -1815,20 +1922,23 @@ const GematriaCalculator = () => {
                   </button>
                 </div>
 
-                {/* AI Interpretation */}
+                {/* Word Meanings */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <h3 className="text-lg md:text-xl font-bold text-red-500 mb-4">
-                    Interpretation
+                    Phrase Meaning
                   </h3>
-                  {loadingInterpretation ? (
+                  {loadingDefinitions ? (
                     <div className="flex items-center gap-2 text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Generating interpretation...</span>
+                      <span className="text-sm">Looking up definitions...</span>
                     </div>
                   ) : (
-                    <p className="text-sm md:text-base text-gray-300 leading-relaxed italic">
-                      {phraseInterpretation || 'Interpretation unavailable.'}
-                    </p>
+                    <p className="text-sm md:text-base text-gray-300 leading-relaxed"
+                       dangerouslySetInnerHTML={{
+                         __html: (phraseSummary || 'No definitions available.')
+                           .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
+                       }}
+                    />
                   )}
                 </div>
 
