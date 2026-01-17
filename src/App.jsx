@@ -3,6 +3,7 @@ import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'luc
 import html2pdf from 'html2pdf.js';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
+import nlp from 'compromise';
 import PolyhedronAnimation from './PolyhedronAnimation';
 import { generateStandaloneHtml, generateSimpleGif } from './animationExport';
 
@@ -787,104 +788,87 @@ const GematriaCalculator = () => {
       return { partOfSpeech: '', definition: '' };
     };
 
-    // Generate an interpretive summary from definitions and gematria values
+    // Generate an analytical interpretation using NLP and definitions
     const generateSummary = (definitions, words, gematriaValues) => {
-      const { hebrew, english, simple } = gematriaValues;
+      const phrase = results.input;
+      const doc = nlp(phrase);
 
-      // Numerological symbolism for repdigits
-      const numerologyMeanings = {
-        11: 'intuition and spiritual insight',
-        22: 'master builder energy',
-        33: 'spiritual teacher vibrations',
-        44: 'foundational stability',
-        55: 'transformative change',
-        66: 'harmony and responsibility',
-        77: 'inner wisdom and mysticism',
-        88: 'abundance and karmic balance',
-        99: 'completion and humanitarianism',
-        111: 'new beginnings and manifestation',
-        222: 'balance and divine partnership',
-        333: 'ascended master presence',
-        444: 'angelic protection and guidance',
-        555: 'major life transformation',
-        666: 'material and spiritual balance',
-        777: 'divine luck and spiritual awakening',
-        888: 'infinite abundance flowing',
-        999: 'completion of a cycle',
-        1111: 'awakening and alignment'
-      };
+      // Get grammatical analysis
+      const nouns = doc.nouns().out('array');
+      const verbs = doc.verbs().out('array');
+      const adjectives = doc.adjectives().out('array');
 
-      // Get numerological themes from the values
-      const numThemes = [];
-      [hebrew, english, simple].forEach(val => {
-        if (numerologyMeanings[val]) {
-          numThemes.push(numerologyMeanings[val]);
-        }
-      });
+      // Determine phrase type
+      const isQuestion = doc.questions().found;
+      const isImperative = verbs.length > 0 && nouns.length === 0;
+      const hasVerb = verbs.length > 0;
 
-      // Extract key concepts from definitions
+      // Get definitions with valid content
       const validDefs = words
         .map(w => ({ word: w, ...definitions[w] }))
         .filter(d => d.definition && d.definition.length > 0);
 
-      // Theme extraction - find meaningful words in definitions
-      const themeWords = new Set();
-      const abstractConcepts = ['power', 'love', 'death', 'life', 'spirit', 'soul', 'divine', 'sacred', 'truth', 'wisdom', 'knowledge', 'light', 'dark', 'force', 'energy', 'nature', 'mind', 'heart', 'god', 'heaven', 'earth', 'fire', 'water', 'time', 'space', 'creation', 'destruction', 'transformation', 'rebirth', 'eternal', 'infinite', 'unity', 'duality', 'balance', 'chaos', 'order', 'fate', 'destiny', 'freedom', 'will', 'desire', 'fear', 'hope', 'faith', 'mystery', 'secret', 'hidden', 'revealed', 'ancient', 'primal', 'cosmic', 'universal'];
+      // Extract key terms from definitions using NLP
+      const allDefText = validDefs.map(d => d.definition).join(' ');
+      const defDoc = nlp(allDefText);
+      const keyNouns = defDoc.nouns().out('array').slice(0, 5);
+      const keyVerbs = defDoc.verbs().toInfinitive().out('array').slice(0, 3);
 
-      validDefs.forEach(d => {
-        const defLower = d.definition.toLowerCase();
-        abstractConcepts.forEach(concept => {
-          if (defLower.includes(concept)) {
-            themeWords.add(concept);
-          }
-        });
-      });
+      // Build interpretation based on what we found
+      const parts = [];
 
-      // Build the interpretation
-      let interpretation = '';
-
+      // Grammatical structure analysis
       if (validDefs.length === 0) {
-        // No definitions - use the words themselves and numerology
-        const wordList = words.slice(0, 3).join(', ');
-        if (numThemes.length > 0) {
-          interpretation = `The phrase "${results.input}" vibrates with ${numThemes[0]}. Though the individual words remain cryptic, their combined numeric resonance (${hebrew}/${english}/${simple}) suggests hidden significance waiting to be unlocked.`;
+        // No definitions - analyze the words themselves
+        if (words.length === 1) {
+          parts.push(`**${words[0]}** appears to be a proper noun, technical term, or neologism not found in standard dictionaries.`);
         } else {
-          interpretation = `The phrase "${results.input}" forms an enigmatic cipher. Its meaning transcends conventional definition, existing in the liminal space between sound and symbol.`;
-        }
-      } else if (validDefs.length === 1) {
-        // Single definition
-        const d = validDefs[0];
-        const themes = themeWords.size > 0 ? Array.from(themeWords).slice(0, 2).join(' and ') : '';
-        interpretation = `Centered on **${d.word}** — ${d.definition.slice(0, 120)}${d.definition.length > 120 ? '...' : ''}`;
-        if (themes) {
-          interpretation += ` This invokes themes of ${themes}.`;
-        }
-        if (numThemes.length > 0) {
-          interpretation += ` The numeric value ${hebrew}/${english}/${simple} amplifies this with ${numThemes[0]}.`;
+          const recognized = words.filter(w => doc.match(w).found);
+          if (recognized.length > 0) {
+            parts.push(`This phrase combines recognizable elements (${recognized.map(w => `**${w}**`).join(', ')}) with undefined terms.`);
+          } else {
+            parts.push(`The component words are not found in standard dictionaries — possibly proper nouns, technical jargon, or invented terms.`);
+          }
         }
       } else {
-        // Multiple definitions - weave them together
-        const mainWords = validDefs.slice(0, 3).map(d => `**${d.word}**`).join(', ');
-        const shortDefs = validDefs.slice(0, 2).map(d => {
-          const short = d.definition.length > 80 ? d.definition.slice(0, 80) + '...' : d.definition;
-          return `${d.word} (${short})`;
-        });
-
-        interpretation = `A confluence of ${mainWords}. `;
-
-        if (themeWords.size > 0) {
-          const themes = Array.from(themeWords).slice(0, 3);
-          interpretation += `Threads of ${themes.join(', ')} weave through: ${shortDefs.join('; ')}. `;
-        } else {
-          interpretation += `${shortDefs.join('; ')}. `;
+        // Build meaning from definitions
+        if (isImperative && validDefs.length > 0) {
+          const verbDef = validDefs.find(d => d.partOfSpeech === 'verb');
+          if (verbDef) {
+            parts.push(`As a command: to **${verbDef.word}** — ${verbDef.definition}`);
+          }
         }
 
-        if (numThemes.length > 0) {
-          interpretation += `Numerically resonating with ${numThemes.slice(0, 2).join(' and ')}.`;
+        // Combine definitions into coherent meaning
+        if (validDefs.length === 1) {
+          const d = validDefs[0];
+          const pos = d.partOfSpeech ? ` (${d.partOfSpeech})` : '';
+          parts.push(`**${d.word}**${pos}: ${d.definition}`);
+        } else {
+          // Multiple words - show relationship
+          const defList = validDefs.map(d => {
+            const shortDef = d.definition.length > 100 ? d.definition.slice(0, 100) + '...' : d.definition;
+            return `**${d.word}**: ${shortDef}`;
+          });
+          parts.push(defList.join(' '));
+        }
+
+        // Add semantic analysis if we found patterns
+        if (keyNouns.length > 2 || keyVerbs.length > 1) {
+          const themes = [...new Set([...keyNouns.slice(0, 3), ...keyVerbs.slice(0, 2)])];
+          if (themes.length > 0) {
+            parts.push(`Key concepts: ${themes.join(', ')}.`);
+          }
         }
       }
 
-      return interpretation;
+      // Note undefined words if some were missing
+      const undefinedWords = words.filter(w => !definitions[w]?.definition);
+      if (undefinedWords.length > 0 && validDefs.length > 0) {
+        parts.push(`(No definitions found for: ${undefinedWords.join(', ')})`);
+      }
+
+      return parts.join(' ');
     };
 
     const fetchDefinitions = async () => {
@@ -2035,7 +2019,7 @@ const GematriaCalculator = () => {
                       {results.hebrew.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
                     {results.input} = {formatBreakdown(results.hebrew.breakdown)} = {results.hebrew.total}
                   </p>
                 </div>
@@ -2050,7 +2034,7 @@ const GematriaCalculator = () => {
                       {results.english.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
                     {results.input} = {formatBreakdown(results.english.breakdown)} = {results.english.total}
                   </p>
                 </div>
@@ -2065,7 +2049,7 @@ const GematriaCalculator = () => {
                       {results.simple.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
@@ -2081,7 +2065,7 @@ const GematriaCalculator = () => {
                         {results.aiqBekar.total}
                       </span>
                     </div>
-                    <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
+                    <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
                       {results.input} = {formatBreakdown(results.aiqBekar.breakdown)} = {results.aiqBekar.total}
                     </p>
                   </div>

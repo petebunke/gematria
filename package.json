@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "compromise": "^14.14.5",
     "file-saver": "^2.0.5",
     "gif.js": "^0.2.0",
     "gifenc": "^1.0.3",
