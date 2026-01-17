@@ -1926,7 +1926,7 @@ const GematriaCalculator = () => {
                               )}
                             </div>
                             <p className="text-sm text-gray-400 mt-1">
-                              {def?.definition || 'Definition not available'}
+                              {def?.definition || 'Loading...'}
                             </p>
                           </div>
                         );
