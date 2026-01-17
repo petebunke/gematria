@@ -564,7 +564,7 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
         ref={svgRef}
         preserveAspectRatio="xMidYMid meet"
         className="w-full h-auto"
-        style={{ background: '#f8f8f4', display: 'block' }}
+        style={{ background: '#f8f8f4', display: 'block', pointerEvents: 'none' }}
       />
       {showIndicator && (
         <div style={{
