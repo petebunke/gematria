@@ -541,14 +541,45 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
 
   if (!phrase) return null;
 
+  const togglePlay = () => {
+    setIsPlaying(prev => !prev);
+  };
+
   return (
-    <svg
-      ref={svgRef}
-      preserveAspectRatio="xMidYMid meet"
-      className="w-full h-auto"
-      style={{ background: '#f8f8f4', cursor: 'pointer' }}
-      onClick={() => setIsPlaying(!isPlaying)}
-    />
+    <div
+      onClick={togglePlay}
+      onKeyDown={(e) => e.key === ' ' && togglePlay()}
+      role="button"
+      tabIndex={0}
+      style={{ cursor: 'pointer', position: 'relative' }}
+    >
+      <svg
+        ref={svgRef}
+        preserveAspectRatio="xMidYMid meet"
+        className="w-full h-auto"
+        style={{ background: '#f8f8f4', display: 'block' }}
+      />
+      {!isPlaying && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          background: 'rgba(0,0,0,0.5)',
+          borderRadius: '50%',
+          width: '60px',
+          height: '60px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          pointerEvents: 'none'
+        }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+            <polygon points="8,5 19,12 8,19" />
+          </svg>
+        </div>
+      )}
+    </div>
   );
 };
 
