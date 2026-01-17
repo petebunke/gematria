@@ -1944,20 +1944,17 @@ const GematriaCalculator = () => {
                                   {pos && (
                                     <p className="text-xs text-red-400 italic mt-1">{pos}</p>
                                   )}
-                                  {def?.phonetic && (
-                                    <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
-                                      {def.phonetic}
-                                      {def?.audio && (
-                                        <button
-                                          onClick={() => new Audio(def.audio).play()}
-                                          className="text-gray-400 hover:text-red-400 transition-colors"
-                                          title="Listen to pronunciation"
-                                        >
-                                          <Volume2 className="w-3 h-3" />
-                                        </button>
-                                      )}
-                                    </p>
-                                  )}
+                                  <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
+                                    {def?.phonetic || ''}
+                                    <button
+                                      onClick={() => speakPhrase(word)}
+                                      disabled={isSpeaking}
+                                      className="text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors"
+                                      title="Listen to pronunciation"
+                                    >
+                                      <Volume2 className={`w-3 h-3 ${isSpeaking ? 'text-red-400 animate-pulse' : ''}`} />
+                                    </button>
+                                  </p>
                                   <p className="text-sm text-gray-400 mt-1">
                                     {def?.definition || 'No definition available'}
                                   </p>
