@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import PolyhedronAnimation from './PolyhedronAnimation';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -1765,20 +1766,19 @@ const GematriaCalculator = () => {
               </div>
             </div>
 
-            {/* Decorative image between white card and results */}
+            {/* Polyhedron Animation between white card and results */}
             {results && (
-              <div className="mt-8">
-                <img
-                  src="/results-decoration.gif"
-                  alt="Decorative Star of David pattern"
-                  className="w-full h-auto rounded-lg border border-zinc-700"
+              <div className="mt-8 mb-8 rounded-lg border border-zinc-300 overflow-hidden">
+                <PolyhedronAnimation
+                  phrase={results.input}
+                  gematriaValues={[results.hebrew.total, results.english.total, results.simple.total, results.aiqBekar?.total || 111]}
                 />
               </div>
             )}
 
             {/* Results Section */}
             {results && (
-              <div className="mt-4 mb-8 space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
+              <div className="space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                 <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-700">
                   <h2 className="text-xl md:text-2xl font-bold text-white text-center">
                     Results for "{results.input}"
