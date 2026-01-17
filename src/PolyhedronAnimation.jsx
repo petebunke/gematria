@@ -448,6 +448,7 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
   const [configIndex, setConfigIndex] = useState(0);
   const [variation, setVariation] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
+  const [showIndicator, setShowIndicator] = useState(null); // 'play' or 'pause'
   const configDirection = useRef(1);
 
   // Parse gematria values from props (format: [hebrew, english, simple, aikbekar])
@@ -542,7 +543,13 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
   if (!phrase) return null;
 
   const togglePlay = () => {
-    setIsPlaying(prev => !prev);
+    setIsPlaying(prev => {
+      const newState = !prev;
+      // Show indicator briefly
+      setShowIndicator(newState ? 'play' : 'pause');
+      setTimeout(() => setShowIndicator(null), 600);
+      return newState;
+    });
   };
 
   return (
@@ -559,23 +566,38 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
         className="w-full h-auto"
         style={{ background: '#f8f8f4', display: 'block' }}
       />
-      {!isPlaying && (
+      {showIndicator && (
         <div style={{
           position: 'absolute',
           top: '50%',
           left: '50%',
           transform: 'translate(-50%, -50%)',
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(0,0,0,0.6)',
           borderRadius: '50%',
-          width: '60px',
-          height: '60px',
+          width: '70px',
+          height: '70px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          pointerEvents: 'none'
+          pointerEvents: 'none',
+          animation: 'fadeInOut 0.6s ease-out forwards'
         }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-            <polygon points="8,5 19,12 8,19" />
+          <style>{`
+            @keyframes fadeInOut {
+              0% { opacity: 0; transform: translate(-50%, -50%) scale(0.8); }
+              20% { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+              100% { opacity: 0; transform: translate(-50%, -50%) scale(1.1); }
+            }
+          `}</style>
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="white">
+            {showIndicator === 'play' ? (
+              <polygon points="8,5 19,12 8,19" />
+            ) : (
+              <>
+                <rect x="6" y="5" width="4" height="14" />
+                <rect x="14" y="5" width="4" height="14" />
+              </>
+            )}
           </svg>
         </div>
       )}
