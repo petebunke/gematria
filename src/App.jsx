@@ -19,6 +19,8 @@ const GematriaCalculator = () => {
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [wordDefinitions, setWordDefinitions] = useState({});
+  const [loadingDefinitions, setLoadingDefinitions] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -485,6 +487,63 @@ const GematriaCalculator = () => {
       console.error('Failed to save phrases to localStorage:', e);
     }
   }, [generatedPhrases]);
+
+  // Fetch word definitions when results change
+  useEffect(() => {
+    const fetchDefinitions = async () => {
+      if (!results || !results.input) {
+        setWordDefinitions({});
+        return;
+      }
+
+      const words = results.input
+        .toLowerCase()
+        .split(/\s+/)
+        .filter(word => word.length > 0 && /^[a-z]+$/.test(word));
+
+      if (words.length === 0) {
+        setWordDefinitions({});
+        return;
+      }
+
+      setLoadingDefinitions(true);
+      const definitions = {};
+
+      for (const word of words) {
+        // Skip if we already have this definition cached
+        if (wordDefinitions[word]) {
+          definitions[word] = wordDefinitions[word];
+          continue;
+        }
+
+        try {
+          const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
+              // Get the first definition from the first meaning
+              const meaning = data[0].meanings[0];
+              const partOfSpeech = meaning.partOfSpeech || '';
+              const definition = meaning.definitions[0]?.definition || 'No definition found';
+              definitions[word] = { partOfSpeech, definition };
+            } else {
+              definitions[word] = { partOfSpeech: '', definition: 'No definition found' };
+            }
+          } else {
+            definitions[word] = { partOfSpeech: '', definition: 'Definition not available' };
+          }
+        } catch (error) {
+          console.error(`Failed to fetch definition for "${word}":`, error);
+          definitions[word] = { partOfSpeech: '', definition: 'Failed to load definition' };
+        }
+      }
+
+      setWordDefinitions(definitions);
+      setLoadingDefinitions(false);
+    };
+
+    fetchDefinitions();
+  }, [results?.input]);
 
   // Pre-calculate word data and indexes ONCE when wordList changes
   // This dramatically speeds up phrase generation by avoiding repeated calculations
@@ -1502,10 +1561,39 @@ const GematriaCalculator = () => {
 
             {/* Results Section */}
             {results && (
-              <div className="mt-8 mb-8 space-y-6">
+              <div className="mt-8 mb-8 space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                 <h2 className="text-xl md:text-2xl font-bold text-white text-center pb-4 border-b border-zinc-800">
                   Results for "{results.input}"
                 </h2>
+
+                {/* Phrase Meaning */}
+                <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
+                  <h3 className="text-lg md:text-xl font-bold text-white mb-4">
+                    Phrase Meaning
+                  </h3>
+                  {loadingDefinitions ? (
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span className="text-sm">Loading definitions...</span>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => (
+                        <div key={index} className="border-l-2 border-red-500 pl-3">
+                          <div className="flex items-baseline gap-2 flex-wrap">
+                            <span className="text-white font-semibold capitalize">{word}</span>
+                            {wordDefinitions[word]?.partOfSpeech && (
+                              <span className="text-xs text-red-400 italic">({wordDefinitions[word].partOfSpeech})</span>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-400 mt-1">
+                            {wordDefinitions[word]?.definition || 'Loading...'}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
                 {/* Hebrew */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
