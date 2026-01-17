@@ -354,10 +354,11 @@ export function generateStandaloneHtml(phrase, combo) {
       margin-bottom: 10px;
       font-size: 24px;
     }
-    .info {
-      color: #666;
+    .combo {
+      color: #000;
       margin-bottom: 20px;
-      font-size: 14px;
+      font-size: 18px;
+      font-weight: 700;
     }
     .container {
       border: none;
@@ -395,7 +396,7 @@ export function generateStandaloneHtml(phrase, combo) {
 </head>
 <body>
   <h1>${phrase}</h1>
-  <div class="info">Gematria: ${combo[0]}/${combo[1]}/${combo[2]}/${combo[3]} | Frame Speed: ${frameSpeed}ms</div>
+  <div class="combo">${combo[0]}/${combo[1]}/${combo[2]}/${combo[3]}</div>
   <div class="container">
     <div id="animation"></div>
   </div>

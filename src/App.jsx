@@ -3,7 +3,6 @@ import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'luc
 import html2pdf from 'html2pdf.js';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
-import nlp from 'compromise';
 import PolyhedronAnimation from './PolyhedronAnimation';
 import { generateStandaloneHtml, generateSimpleGif } from './animationExport';
 
@@ -486,7 +485,8 @@ const GematriaCalculator = () => {
   };
 
   const formatBreakdown = (breakdown) => {
-    return breakdown.map(({ char, value }) => `${char}${value}`).join(' + ');
+    // Use non-breaking characters to prevent line breaks within char+value pairs
+    return breakdown.map(({ char, value }) => `${char}\u2060${value}`).join(' + ');
   };
 
 
@@ -788,87 +788,21 @@ const GematriaCalculator = () => {
       return { partOfSpeech: '', definition: '' };
     };
 
-    // Generate an analytical interpretation using NLP and definitions
-    const generateSummary = (definitions, words, gematriaValues) => {
-      const phrase = results.input;
-      const doc = nlp(phrase);
+    // Generate a simple list of word definitions
+    const generateSummary = (definitions, words) => {
+      const lines = [];
 
-      // Get grammatical analysis
-      const nouns = doc.nouns().out('array');
-      const verbs = doc.verbs().out('array');
-      const adjectives = doc.adjectives().out('array');
-
-      // Determine phrase type
-      const isQuestion = doc.questions().found;
-      const isImperative = verbs.length > 0 && nouns.length === 0;
-      const hasVerb = verbs.length > 0;
-
-      // Get definitions with valid content
-      const validDefs = words
-        .map(w => ({ word: w, ...definitions[w] }))
-        .filter(d => d.definition && d.definition.length > 0);
-
-      // Extract key terms from definitions using NLP
-      const allDefText = validDefs.map(d => d.definition).join(' ');
-      const defDoc = nlp(allDefText);
-      const keyNouns = defDoc.nouns().out('array').slice(0, 5);
-      const keyVerbs = defDoc.verbs().toInfinitive().out('array').slice(0, 3);
-
-      // Build interpretation based on what we found
-      const parts = [];
-
-      // Grammatical structure analysis
-      if (validDefs.length === 0) {
-        // No definitions - analyze the words themselves
-        if (words.length === 1) {
-          parts.push(`**${words[0]}** appears to be a proper noun, technical term, or neologism not found in standard dictionaries.`);
+      for (const word of words) {
+        const def = definitions[word];
+        if (def && def.definition) {
+          const pos = def.partOfSpeech ? ` (${def.partOfSpeech})` : '';
+          lines.push(`**${word}**${pos}: ${def.definition}`);
         } else {
-          const recognized = words.filter(w => doc.match(w).found);
-          if (recognized.length > 0) {
-            parts.push(`This phrase combines recognizable elements (${recognized.map(w => `**${w}**`).join(', ')}) with undefined terms.`);
-          } else {
-            parts.push(`The component words are not found in standard dictionaries — possibly proper nouns, technical jargon, or invented terms.`);
-          }
-        }
-      } else {
-        // Build meaning from definitions
-        if (isImperative && validDefs.length > 0) {
-          const verbDef = validDefs.find(d => d.partOfSpeech === 'verb');
-          if (verbDef) {
-            parts.push(`As a command: to **${verbDef.word}** — ${verbDef.definition}`);
-          }
-        }
-
-        // Combine definitions into coherent meaning
-        if (validDefs.length === 1) {
-          const d = validDefs[0];
-          const pos = d.partOfSpeech ? ` (${d.partOfSpeech})` : '';
-          parts.push(`**${d.word}**${pos}: ${d.definition}`);
-        } else {
-          // Multiple words - show relationship
-          const defList = validDefs.map(d => {
-            const shortDef = d.definition.length > 100 ? d.definition.slice(0, 100) + '...' : d.definition;
-            return `**${d.word}**: ${shortDef}`;
-          });
-          parts.push(defList.join(' '));
-        }
-
-        // Add semantic analysis if we found patterns
-        if (keyNouns.length > 2 || keyVerbs.length > 1) {
-          const themes = [...new Set([...keyNouns.slice(0, 3), ...keyVerbs.slice(0, 2)])];
-          if (themes.length > 0) {
-            parts.push(`Key concepts: ${themes.join(', ')}.`);
-          }
+          lines.push(`**${word}**: No definition found`);
         }
       }
 
-      // Note undefined words if some were missing
-      const undefinedWords = words.filter(w => !definitions[w]?.definition);
-      if (undefinedWords.length > 0 && validDefs.length > 0) {
-        parts.push(`(No definitions found for: ${undefinedWords.join(', ')})`);
-      }
-
-      return parts.join(' ');
+      return lines.join('\n\n');
     };
 
     const fetchDefinitions = async () => {
@@ -902,11 +836,7 @@ const GematriaCalculator = () => {
       }
 
       setWordDefinitions(definitions);
-      setPhraseSummary(generateSummary(definitions, words, {
-        hebrew: results.hebrew.total,
-        english: results.english.total,
-        simple: results.simple.total
-      }));
+      setPhraseSummary(generateSummary(definitions, words));
       setLoadingDefinitions(false);
     };
 
@@ -2000,10 +1930,13 @@ const GematriaCalculator = () => {
                       <span className="text-sm">Looking up definitions...</span>
                     </div>
                   ) : (
-                    <p className="text-sm md:text-base text-gray-300 leading-relaxed"
+                    <div className="text-sm md:text-base text-gray-300 leading-relaxed space-y-3"
                        dangerouslySetInnerHTML={{
                          __html: (phraseSummary || 'No definitions available.')
                            .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
+                           .split('\n\n')
+                           .map(p => `<p>${p}</p>`)
+                           .join('')
                        }}
                     />
                   )}
@@ -2019,7 +1952,7 @@ const GematriaCalculator = () => {
                       {results.hebrew.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono break-words">
                     {results.input} = {formatBreakdown(results.hebrew.breakdown)} = {results.hebrew.total}
                   </p>
                 </div>
@@ -2034,7 +1967,7 @@ const GematriaCalculator = () => {
                       {results.english.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono break-words">
                     {results.input} = {formatBreakdown(results.english.breakdown)} = {results.english.total}
                   </p>
                 </div>
@@ -2049,7 +1982,7 @@ const GematriaCalculator = () => {
                       {results.simple.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono break-words">
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
@@ -2065,7 +1998,7 @@ const GematriaCalculator = () => {
                         {results.aiqBekar.total}
                       </span>
                     </div>
-                    <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono [overflow-wrap:anywhere] [word-break:keep-all]">
+                    <p className="text-xs md:text-sm text-gray-400 mt-2 font-mono break-words">
                       {results.input} = {formatBreakdown(results.aiqBekar.breakdown)} = {results.aiqBekar.total}
                     </p>
                   </div>
