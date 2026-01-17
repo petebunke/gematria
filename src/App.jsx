@@ -1959,7 +1959,7 @@ const GematriaCalculator = () => {
                                     </p>
                                   )}
                                   <p className="text-sm text-gray-400 mt-1">
-                                    {def?.definition || 'Loading...'}
+                                    {def?.definition || 'No definition available'}
                                   </p>
                                 </div>
                               );
