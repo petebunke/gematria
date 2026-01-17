@@ -27,8 +27,8 @@ const GematriaCalculator = () => {
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
-  const [wordDefinitions, setWordDefinitions] = useState({});
-  const [loadingDefinitions, setLoadingDefinitions] = useState(false);
+  const [phraseInterpretation, setPhraseInterpretation] = useState('');
+  const [loadingInterpretation, setLoadingInterpretation] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -368,23 +368,34 @@ const GematriaCalculator = () => {
         return (a.aiqBekar || 0) - (b.aiqBekar || 0);
       });
 
-      // Fetch definitions for all phrases for PDF
-      setDownloadProgress('Fetching word definitions...');
-      const phraseMeanings = {};
-      for (const p of sorted) {
-        const words = p.phrase.toLowerCase().split(/\s+/).filter(w => w.length > 0 && /^[a-z]+$/.test(w));
-        const meanings = [];
-        for (const word of words) {
-          if (wordDefinitions[word]) {
-            meanings.push(`<b>${word}</b>: ${wordDefinitions[word].definition}`);
-          } else {
-            meanings.push(`<b>${word}</b>: -`);
+      // Fetch AI interpretations for all phrases for PDF
+      setDownloadProgress('Generating interpretations...');
+      const phraseInterpretations = {};
+      for (let i = 0; i < sorted.length; i++) {
+        const p = sorted[i];
+        setDownloadProgress(`Generating interpretations (${i + 1}/${sorted.length})...`);
+        try {
+          const response = await fetch('/api/interpret', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              phrase: p.phrase,
+              hebrew: p.hebrew,
+              english: p.english,
+              simple: p.simple,
+              aiqBekar: p.aiqBekar
+            })
+          });
+          if (response.ok) {
+            const data = await response.json();
+            phraseInterpretations[p.phrase] = data.interpretation;
           }
+        } catch (err) {
+          console.log(`Failed to get interpretation for "${p.phrase}"`);
         }
-        phraseMeanings[p.phrase] = meanings.join('; ');
       }
 
-      // Create HTML content for PDF with Definitions column
+      // Create HTML content for PDF with Interpretation column
       setDownloadProgress('Generating PDF...');
       const htmlContent = `
         <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto;">
@@ -399,7 +410,7 @@ const GematriaCalculator = () => {
             <thead>
               <tr>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 300px;">Definitions</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 350px;">Interpretation</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
@@ -412,7 +423,7 @@ const GematriaCalculator = () => {
               ${sorted.map((p, i) => `
                 <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap;">${p.phrase}</td>
-                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; max-width: 300px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; font-style: italic; max-width: 350px; word-wrap: break-word;">${phraseInterpretations[p.phrase] || '-'}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
@@ -688,143 +699,44 @@ const GematriaCalculator = () => {
     }
   }, [generatedPhrases]);
 
-  // Fetch word definitions when results change
+  // Fetch AI interpretation when results change
   useEffect(() => {
-    // Helper to check if definition is a synonym reference and extract the synonym word
-    const extractSynonym = (definition) => {
-      if (!definition) return null;
-      const synonymPatterns = [
-        /^synonym of\s+["']?(\w+)["']?/i,
-        /^alternative form of\s+["']?(\w+)["']?/i,
-        /^variant of\s+["']?(\w+)["']?/i,
-        /^same as\s+["']?(\w+)["']?/i,
-        /^see\s+["']?(\w+)["']?/i,
-      ];
-      for (const pattern of synonymPatterns) {
-        const match = definition.match(pattern);
-        if (match) return match[1].toLowerCase();
-      }
-      return null;
-    };
-
-    // Helper to fetch definition for a single word (used for synonym resolution)
-    const fetchSingleDefinition = async (word, depth = 0) => {
-      if (depth > 2) return { partOfSpeech: '', definition: 'Definition not available' };
-
-      // Try Free Dictionary API first
-      try {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
-            const meaning = data[0].meanings[0];
-            const partOfSpeech = meaning.partOfSpeech || '';
-            const definition = meaning.definitions[0]?.definition || 'No definition found';
-
-            // Check if this is a synonym reference
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition };
-          }
-        }
-      } catch (error) {
-        console.log(`Free Dictionary API failed for "${word}":`, error.message);
-      }
-
-      // Try Datamuse API as fallback
-      try {
-        const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
-            const defParts = data[0].defs[0].split('\t');
-            const partOfSpeech = defParts[0] || '';
-            const definition = defParts[1] || 'No definition found';
-
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition };
-          }
-        }
-      } catch (error) {
-        console.log(`Datamuse API failed for "${word}":`, error.message);
-      }
-
-      // Try Wiktionary API as second fallback
-      try {
-        const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.en && data.en.length > 0) {
-            const entry = data.en[0];
-            const partOfSpeech = entry.partOfSpeech || '';
-            let definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
-
-            // Filter out garbled wiki markup (e.g., "AncientNikon 250px|.")
-            const isGarbledDefinition = /^\w+\s+\d+px\|/.test(definition) ||
-                                        /\|/.test(definition) && definition.length < 50;
-            if (isGarbledDefinition) {
-              definition = 'Definition not available';
-            }
-
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition };
-          }
-        }
-      } catch (error) {
-        console.log(`Wiktionary API failed for "${word}":`, error.message);
-      }
-
-      return { partOfSpeech: '', definition: 'Definition not available' };
-    };
-
-    const fetchDefinitions = async () => {
+    const fetchInterpretation = async () => {
       if (!results || !results.input) {
-        setWordDefinitions({});
+        setPhraseInterpretation('');
         return;
       }
 
-      const words = results.input
-        .toLowerCase()
-        .split(/\s+/)
-        .filter(word => word.length > 0 && /^[a-z]+$/.test(word));
+      setLoadingInterpretation(true);
 
-      if (words.length === 0) {
-        setWordDefinitions({});
-        return;
-      }
+      try {
+        const response = await fetch('/api/interpret', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            phrase: results.input,
+            hebrew: results.hebrew.total,
+            english: results.english.total,
+            simple: results.simple.total,
+            aiqBekar: results.aiqBekar?.total
+          })
+        });
 
-      setLoadingDefinitions(true);
-      const definitions = {};
-
-      for (const word of words) {
-        // Skip if we already have this definition cached
-        if (wordDefinitions[word]) {
-          definitions[word] = wordDefinitions[word];
-          continue;
+        if (response.ok) {
+          const data = await response.json();
+          setPhraseInterpretation(data.interpretation);
+        } else {
+          setPhraseInterpretation('Unable to generate interpretation at this time.');
         }
-
-        definitions[word] = await fetchSingleDefinition(word);
+      } catch (error) {
+        console.error('Interpretation fetch failed:', error);
+        setPhraseInterpretation('Unable to generate interpretation at this time.');
+      } finally {
+        setLoadingInterpretation(false);
       }
-
-      setWordDefinitions(definitions);
-      setLoadingDefinitions(false);
     };
 
-    fetchDefinitions();
+    fetchInterpretation();
   }, [results?.input]);
 
   // Pre-calculate word data and indexes ONCE when wordList changes
@@ -1878,7 +1790,7 @@ const GematriaCalculator = () => {
 
             {/* Polyhedron Animation between white card and results */}
             {results && (
-              <div className="mt-8 mb-8 rounded-lg border border-zinc-300 overflow-hidden">
+              <div className="mt-8 mb-8 rounded-lg overflow-hidden">
                 <PolyhedronAnimation
                   phrase={results.input}
                   gematriaValues={[results.hebrew.total, results.english.total, results.simple.total, results.aiqBekar?.total || 111]}
@@ -1889,8 +1801,8 @@ const GematriaCalculator = () => {
             {/* Results Section */}
             {results && (
               <div className="space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
-                <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-700">
-                  <h2 className="text-xl md:text-2xl font-bold text-white text-center">
+                <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-700 overflow-hidden">
+                  <h2 className="text-xl md:text-2xl font-bold text-white text-center break-all">
                     Results for "{results.input}"
                   </h2>
                   <button
@@ -1903,32 +1815,20 @@ const GematriaCalculator = () => {
                   </button>
                 </div>
 
-                {/* Definitions */}
+                {/* AI Interpretation */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <h3 className="text-lg md:text-xl font-bold text-red-500 mb-4">
-                    Definitions
+                    Interpretation
                   </h3>
-                  {loadingDefinitions ? (
+                  {loadingInterpretation ? (
                     <div className="flex items-center gap-2 text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Loading definitions...</span>
+                      <span className="text-sm">Generating interpretation...</span>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => (
-                        <div key={index} className="border-l-2 border-red-500 pl-3">
-                          <div className="flex items-baseline gap-2 flex-wrap">
-                            <span className="text-white font-semibold capitalize">{word}</span>
-                            {wordDefinitions[word]?.partOfSpeech && (
-                              <span className="text-xs text-red-400 italic">({wordDefinitions[word].partOfSpeech})</span>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-400 mt-1">
-                            {wordDefinitions[word]?.definition || 'Loading...'}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
+                    <p className="text-sm md:text-base text-gray-300 leading-relaxed italic">
+                      {phraseInterpretation || 'Interpretation unavailable.'}
+                    </p>
                   )}
                 </div>
 
@@ -1942,7 +1842,7 @@ const GematriaCalculator = () => {
                       {results.hebrew.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
                     {results.input} = {formatBreakdown(results.hebrew.breakdown)} = {results.hebrew.total}
                   </p>
                 </div>
@@ -1957,7 +1857,7 @@ const GematriaCalculator = () => {
                       {results.english.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
                     {results.input} = {formatBreakdown(results.english.breakdown)} = {results.english.total}
                   </p>
                 </div>
@@ -1972,7 +1872,7 @@ const GematriaCalculator = () => {
                       {results.simple.total}
                     </span>
                   </div>
-                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                  <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
                     {results.input} = {formatBreakdown(results.simple.breakdown)} = {results.simple.total}
                   </p>
                 </div>
@@ -1988,7 +1888,7 @@ const GematriaCalculator = () => {
                         {results.aiqBekar.total}
                       </span>
                     </div>
-                    <p className="text-xs md:text-sm text-gray-400 mt-2 break-words font-mono">
+                    <p className="text-xs md:text-sm text-gray-400 mt-2 break-all font-mono overflow-hidden">
                       {results.input} = {formatBreakdown(results.aiqBekar.breakdown)} = {results.aiqBekar.total}
                     </p>
                   </div>

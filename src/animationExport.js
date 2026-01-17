@@ -382,12 +382,14 @@ export function generateStandaloneHtml(phrase, combo) {
       padding: 10px 20px;
       font-size: 14px;
       cursor: pointer;
-      border: 1px solid #333;
+      border: none;
       border-radius: 4px;
-      background: #fff;
+      background: #dc2626;
+      color: white;
+      font-weight: 600;
     }
     button:hover {
-      background: #f0f0f0;
+      background: #b91c1c;
     }
   </style>
 </head>
