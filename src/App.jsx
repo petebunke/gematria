@@ -1920,43 +1920,55 @@ const GematriaCalculator = () => {
                       <Loader2 className="w-4 h-4 animate-spin" />
                       <span className="text-sm">Loading definitions...</span>
                     </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => {
-                        const def = wordDefinitions[word];
-                        const pos = def?.partOfSpeech ? (() => {
-                          const normalized = def.partOfSpeech.toLowerCase().trim();
-                          const map = { 'n': 'noun', 'v': 'verb', 'adj': 'adjective', 'adv': 'adverb', 'prep': 'preposition', 'conj': 'conjunction', 'pron': 'pronoun', 'int': 'interjection', 'interj': 'interjection', 'det': 'determiner', 'art': 'article' };
-                          return map[normalized] || def.partOfSpeech;
-                        })() : null;
-                        return (
-                          <div key={index} className="border-l-2 border-red-500 pl-3">
-                            <span className="text-white font-semibold capitalize">{word}</span>
-                            {pos && (
-                              <p className="text-xs text-red-400 italic mt-1">{pos}</p>
-                            )}
-                            {def?.phonetic && (
-                              <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
-                                {def.phonetic}
-                                {def?.audio && (
-                                  <button
-                                    onClick={() => new Audio(def.audio).play()}
-                                    className="text-gray-400 hover:text-red-400 transition-colors"
-                                    title="Listen to pronunciation"
-                                  >
-                                    <Volume2 className="w-3 h-3" />
-                                  </button>
-                                )}
-                              </p>
-                            )}
-                            <p className="text-sm text-gray-400 mt-1">
-                              {def?.definition || 'Loading...'}
-                            </p>
+                  ) : (() => {
+                    const words = results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word));
+                    // Group words into pairs for rows
+                    const rows = [];
+                    for (let i = 0; i < words.length; i += 2) {
+                      rows.push(words.slice(i, i + 2));
+                    }
+                    return (
+                      <div className="divide-y divide-red-500">
+                        {rows.map((rowWords, rowIndex) => (
+                          <div key={rowIndex} className="grid grid-cols-1 md:grid-cols-2 gap-4 py-4 first:pt-0 last:pb-0">
+                            {rowWords.map((word, colIndex) => {
+                              const def = wordDefinitions[word];
+                              const pos = def?.partOfSpeech ? (() => {
+                                const normalized = def.partOfSpeech.toLowerCase().trim();
+                                const map = { 'n': 'noun', 'v': 'verb', 'adj': 'adjective', 'adv': 'adverb', 'prep': 'preposition', 'conj': 'conjunction', 'pron': 'pronoun', 'int': 'interjection', 'interj': 'interjection', 'det': 'determiner', 'art': 'article' };
+                                return map[normalized] || def.partOfSpeech;
+                              })() : null;
+                              return (
+                                <div key={colIndex}>
+                                  <span className="text-white font-semibold capitalize">{word}</span>
+                                  {pos && (
+                                    <p className="text-xs text-red-400 italic mt-1">{pos}</p>
+                                  )}
+                                  {def?.phonetic && (
+                                    <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
+                                      {def.phonetic}
+                                      {def?.audio && (
+                                        <button
+                                          onClick={() => new Audio(def.audio).play()}
+                                          className="text-gray-400 hover:text-red-400 transition-colors"
+                                          title="Listen to pronunciation"
+                                        >
+                                          <Volume2 className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </p>
+                                  )}
+                                  <p className="text-sm text-gray-400 mt-1">
+                                    {def?.definition || 'Loading...'}
+                                  </p>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Hebrew */}
