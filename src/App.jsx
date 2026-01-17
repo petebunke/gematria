@@ -787,25 +787,104 @@ const GematriaCalculator = () => {
       return { partOfSpeech: '', definition: '' };
     };
 
-    // Generate a natural summary from definitions
-    const generateSummary = (definitions, words) => {
+    // Generate an interpretive summary from definitions and gematria values
+    const generateSummary = (definitions, words, gematriaValues) => {
+      const { hebrew, english, simple } = gematriaValues;
+
+      // Numerological symbolism for repdigits
+      const numerologyMeanings = {
+        11: 'intuition and spiritual insight',
+        22: 'master builder energy',
+        33: 'spiritual teacher vibrations',
+        44: 'foundational stability',
+        55: 'transformative change',
+        66: 'harmony and responsibility',
+        77: 'inner wisdom and mysticism',
+        88: 'abundance and karmic balance',
+        99: 'completion and humanitarianism',
+        111: 'new beginnings and manifestation',
+        222: 'balance and divine partnership',
+        333: 'ascended master presence',
+        444: 'angelic protection and guidance',
+        555: 'major life transformation',
+        666: 'material and spiritual balance',
+        777: 'divine luck and spiritual awakening',
+        888: 'infinite abundance flowing',
+        999: 'completion of a cycle',
+        1111: 'awakening and alignment'
+      };
+
+      // Get numerological themes from the values
+      const numThemes = [];
+      [hebrew, english, simple].forEach(val => {
+        if (numerologyMeanings[val]) {
+          numThemes.push(numerologyMeanings[val]);
+        }
+      });
+
+      // Extract key concepts from definitions
       const validDefs = words
         .map(w => ({ word: w, ...definitions[w] }))
         .filter(d => d.definition && d.definition.length > 0);
 
-      if (validDefs.length === 0) {
-        return 'No definitions available for the words in this phrase.';
-      }
+      // Theme extraction - find meaningful words in definitions
+      const themeWords = new Set();
+      const abstractConcepts = ['power', 'love', 'death', 'life', 'spirit', 'soul', 'divine', 'sacred', 'truth', 'wisdom', 'knowledge', 'light', 'dark', 'force', 'energy', 'nature', 'mind', 'heart', 'god', 'heaven', 'earth', 'fire', 'water', 'time', 'space', 'creation', 'destruction', 'transformation', 'rebirth', 'eternal', 'infinite', 'unity', 'duality', 'balance', 'chaos', 'order', 'fate', 'destiny', 'freedom', 'will', 'desire', 'fear', 'hope', 'faith', 'mystery', 'secret', 'hidden', 'revealed', 'ancient', 'primal', 'cosmic', 'universal'];
 
-      // Build summary prose
-      const parts = validDefs.map(d => {
-        const pos = d.partOfSpeech ? ` (${d.partOfSpeech})` : '';
-        // Truncate long definitions
-        const def = d.definition.length > 100 ? d.definition.slice(0, 100) + '...' : d.definition;
-        return `**${d.word}**${pos}: ${def}`;
+      validDefs.forEach(d => {
+        const defLower = d.definition.toLowerCase();
+        abstractConcepts.forEach(concept => {
+          if (defLower.includes(concept)) {
+            themeWords.add(concept);
+          }
+        });
       });
 
-      return parts.join(' • ');
+      // Build the interpretation
+      let interpretation = '';
+
+      if (validDefs.length === 0) {
+        // No definitions - use the words themselves and numerology
+        const wordList = words.slice(0, 3).join(', ');
+        if (numThemes.length > 0) {
+          interpretation = `The phrase "${results.input}" vibrates with ${numThemes[0]}. Though the individual words remain cryptic, their combined numeric resonance (${hebrew}/${english}/${simple}) suggests hidden significance waiting to be unlocked.`;
+        } else {
+          interpretation = `The phrase "${results.input}" forms an enigmatic cipher. Its meaning transcends conventional definition, existing in the liminal space between sound and symbol.`;
+        }
+      } else if (validDefs.length === 1) {
+        // Single definition
+        const d = validDefs[0];
+        const themes = themeWords.size > 0 ? Array.from(themeWords).slice(0, 2).join(' and ') : '';
+        interpretation = `Centered on **${d.word}** — ${d.definition.slice(0, 120)}${d.definition.length > 120 ? '...' : ''}`;
+        if (themes) {
+          interpretation += ` This invokes themes of ${themes}.`;
+        }
+        if (numThemes.length > 0) {
+          interpretation += ` The numeric value ${hebrew}/${english}/${simple} amplifies this with ${numThemes[0]}.`;
+        }
+      } else {
+        // Multiple definitions - weave them together
+        const mainWords = validDefs.slice(0, 3).map(d => `**${d.word}**`).join(', ');
+        const shortDefs = validDefs.slice(0, 2).map(d => {
+          const short = d.definition.length > 80 ? d.definition.slice(0, 80) + '...' : d.definition;
+          return `${d.word} (${short})`;
+        });
+
+        interpretation = `A confluence of ${mainWords}. `;
+
+        if (themeWords.size > 0) {
+          const themes = Array.from(themeWords).slice(0, 3);
+          interpretation += `Threads of ${themes.join(', ')} weave through: ${shortDefs.join('; ')}. `;
+        } else {
+          interpretation += `${shortDefs.join('; ')}. `;
+        }
+
+        if (numThemes.length > 0) {
+          interpretation += `Numerically resonating with ${numThemes.slice(0, 2).join(' and ')}.`;
+        }
+      }
+
+      return interpretation;
     };
 
     const fetchDefinitions = async () => {
@@ -839,7 +918,11 @@ const GematriaCalculator = () => {
       }
 
       setWordDefinitions(definitions);
-      setPhraseSummary(generateSummary(definitions, words));
+      setPhraseSummary(generateSummary(definitions, words, {
+        hebrew: results.hebrew.total,
+        english: results.english.total,
+        simple: results.simple.total
+      }));
       setLoadingDefinitions(false);
     };
 
