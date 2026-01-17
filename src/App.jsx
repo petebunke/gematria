@@ -1,7 +1,10 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
 import html2pdf from 'html2pdf.js';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 import PolyhedronAnimation from './PolyhedronAnimation';
+import { generateStandaloneHtml, generateSimpleGif } from './animationExport';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -341,81 +344,141 @@ const GematriaCalculator = () => {
     window.speechSynthesis.speak(utterance);
   };
 
-  const downloadPhraseTable = () => {
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState('');
+
+  const downloadPhraseTable = async () => {
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple, Aik Bekar)
-    const sorted = [...generatedPhrases].sort((a, b) => {
-      if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
-      if (a.english !== b.english) return a.english - b.english;
-      if (a.simple !== b.simple) return a.simple - b.simple;
-      return (a.aiqBekar || 0) - (b.aiqBekar || 0);
-    });
+    setIsDownloading(true);
+    setDownloadProgress('Preparing download...');
 
-    // Create HTML content for PDF
-    const htmlContent = `
-      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1100px; margin: 0 auto;">
-        <h1 style="color: #dc2626; border-bottom: 3px solid #dc2626; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px;">
-          Gematria Generated Phrases
-        </h1>
-        <div style="color: #666; margin-bottom: 20px; font-size: 12px;">
-          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-          <p><strong>Total Phrases:</strong> ${sorted.length}</p>
-        </div>
-        <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
-          <thead>
-            <tr>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: left; font-weight: bold;">Phrase</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Hebrew</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">English</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Simple</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold; white-space: nowrap;">Aik Bekar⁹</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Combination</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Source</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Gen Time</th>
-              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Timestamp</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${sorted.map((p, i) => `
-              <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937;">${p.phrase}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.aiqBekar || '-'}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; text-transform: capitalize; color: #4b5563;">${p.source}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
-                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; vertical-align: middle; color: #4b5563;">${new Date(p.timestamp).toLocaleDateString()},<br>${new Date(p.timestamp).toLocaleTimeString()}</td>
+    try {
+      const zip = new JSZip();
+      const timestamp = new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-');
+
+      // Sort by combination (Hebrew, English, Simple, Aik Bekar)
+      const sorted = [...generatedPhrases].sort((a, b) => {
+        if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
+        if (a.english !== b.english) return a.english - b.english;
+        if (a.simple !== b.simple) return a.simple - b.simple;
+        return (a.aiqBekar || 0) - (b.aiqBekar || 0);
+      });
+
+      // Fetch definitions for all phrases for PDF
+      setDownloadProgress('Fetching word definitions...');
+      const phraseMeanings = {};
+      for (const p of sorted) {
+        const words = p.phrase.toLowerCase().split(/\s+/).filter(w => w.length > 0 && /^[a-z]+$/.test(w));
+        const meanings = [];
+        for (const word of words) {
+          if (wordDefinitions[word]) {
+            meanings.push(`${word}: ${wordDefinitions[word].definition}`);
+          } else {
+            meanings.push(`${word}: -`);
+          }
+        }
+        phraseMeanings[p.phrase] = meanings.join('; ');
+      }
+
+      // Create HTML content for PDF with Phrase Meaning column
+      setDownloadProgress('Generating PDF...');
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1400px; margin: 0 auto;">
+          <h1 style="color: #dc2626; border-bottom: 3px solid #dc2626; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px;">
+            Gematria Generated Phrases
+          </h1>
+          <div style="color: #666; margin-bottom: 20px; font-size: 12px;">
+            <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+            <p><strong>Total Phrases:</strong> ${sorted.length}</p>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+            <thead>
+              <tr>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 300px;">Meaning</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; white-space: nowrap;">Aik Bekar⁹</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Combo</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Source</th>
               </tr>
-            `).join('')}
-          </tbody>
-        </table>
-      </div>
-    `;
+            </thead>
+            <tbody>
+              ${sorted.map((p, i) => `
+                <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap;">${p.phrase}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; max-width: 300px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.aiqBekar || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626; white-space: nowrap;">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; text-transform: capitalize; color: #4b5563;">${p.source}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
 
-    // Create a temporary container
-    const container = document.createElement('div');
-    container.innerHTML = htmlContent;
-    document.body.appendChild(container);
+      // Generate PDF blob
+      const container = document.createElement('div');
+      container.innerHTML = htmlContent;
+      document.body.appendChild(container);
 
-    // PDF options
-    const opt = {
-      margin: 10,
-      filename: `gematria-generator-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
-    };
+      const pdfBlob = await html2pdf()
+        .set({
+          margin: 10,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: { scale: 2, useCORS: true },
+          jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+        })
+        .from(container)
+        .outputPdf('blob');
 
-    // Generate and download PDF
-    html2pdf().set(opt).from(container).save().then(() => {
       document.body.removeChild(container);
-    });
+
+      // Add PDF to zip
+      zip.file(`gemgen-${timestamp}.pdf`, pdfBlob);
+
+      // Generate animation files for each phrase
+      for (let i = 0; i < sorted.length; i++) {
+        const p = sorted[i];
+        const folderName = p.phrase.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase();
+        const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 111];
+
+        setDownloadProgress(`Generating animations (${i + 1}/${sorted.length}): ${p.phrase}`);
+
+        // Generate standalone HTML
+        const htmlFile = generateStandaloneHtml(p.phrase, combo);
+        zip.file(`${folderName}/animation.html`, htmlFile);
+
+        // Generate GIF/PNG
+        try {
+          const gifBlob = await generateSimpleGif(p.phrase, combo);
+          zip.file(`${folderName}/animation.png`, gifBlob);
+        } catch (err) {
+          console.error(`Failed to generate GIF for "${p.phrase}":`, err);
+        }
+      }
+
+      // Generate and download zip
+      setDownloadProgress('Creating zip file...');
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      saveAs(zipBlob, `gemgen-${timestamp}.zip`);
+
+      setDownloadProgress('');
+    } catch (error) {
+      console.error('Download failed:', error);
+      alert('Download failed: ' + error.message);
+    } finally {
+      setIsDownloading(false);
+    }
   };
 
   const formatBreakdown = (breakdown) => {
@@ -627,6 +690,100 @@ const GematriaCalculator = () => {
 
   // Fetch word definitions when results change
   useEffect(() => {
+    // Helper to check if definition is a synonym reference and extract the synonym word
+    const extractSynonym = (definition) => {
+      if (!definition) return null;
+      const synonymPatterns = [
+        /^synonym of\s+["']?(\w+)["']?/i,
+        /^alternative form of\s+["']?(\w+)["']?/i,
+        /^variant of\s+["']?(\w+)["']?/i,
+        /^same as\s+["']?(\w+)["']?/i,
+        /^see\s+["']?(\w+)["']?/i,
+      ];
+      for (const pattern of synonymPatterns) {
+        const match = definition.match(pattern);
+        if (match) return match[1].toLowerCase();
+      }
+      return null;
+    };
+
+    // Helper to fetch definition for a single word (used for synonym resolution)
+    const fetchSingleDefinition = async (word, depth = 0) => {
+      if (depth > 2) return { partOfSpeech: '', definition: 'Definition not available' };
+
+      // Try Free Dictionary API first
+      try {
+        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
+            const meaning = data[0].meanings[0];
+            const partOfSpeech = meaning.partOfSpeech || '';
+            const definition = meaning.definitions[0]?.definition || 'No definition found';
+
+            // Check if this is a synonym reference
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Free Dictionary API failed for "${word}":`, error.message);
+      }
+
+      // Try Datamuse API as fallback
+      try {
+        const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
+            const defParts = data[0].defs[0].split('\t');
+            const partOfSpeech = defParts[0] || '';
+            const definition = defParts[1] || 'No definition found';
+
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Datamuse API failed for "${word}":`, error.message);
+      }
+
+      // Try Wiktionary API as second fallback
+      try {
+        const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data && data.en && data.en.length > 0) {
+            const entry = data.en[0];
+            const partOfSpeech = entry.partOfSpeech || '';
+            const definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
+
+            const synonymWord = extractSynonym(definition);
+            if (synonymWord && synonymWord !== word) {
+              console.log(`"${word}" is synonym of "${synonymWord}", fetching...`);
+              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+              return { ...resolved, originalWord: word, synonymOf: synonymWord };
+            }
+            return { partOfSpeech, definition };
+          }
+        }
+      } catch (error) {
+        console.log(`Wiktionary API failed for "${word}":`, error.message);
+      }
+
+      return { partOfSpeech: '', definition: 'Definition not available' };
+    };
+
     const fetchDefinitions = async () => {
       if (!results || !results.input) {
         setWordDefinitions({});
@@ -653,67 +810,7 @@ const GematriaCalculator = () => {
           continue;
         }
 
-        let found = false;
-
-        // Try Free Dictionary API first
-        try {
-          const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
-              const meaning = data[0].meanings[0];
-              const partOfSpeech = meaning.partOfSpeech || '';
-              const definition = meaning.definitions[0]?.definition || 'No definition found';
-              definitions[word] = { partOfSpeech, definition };
-              found = true;
-            }
-          }
-        } catch (error) {
-          console.log(`Free Dictionary API failed for "${word}":`, error.message);
-        }
-
-        // Try Datamuse API as fallback (provides related words/meanings)
-        if (!found) {
-          try {
-            const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
-            if (response.ok) {
-              const data = await response.json();
-              if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
-                // Datamuse format: "pos\tdefinition"
-                const defParts = data[0].defs[0].split('\t');
-                const partOfSpeech = defParts[0] || '';
-                const definition = defParts[1] || 'No definition found';
-                definitions[word] = { partOfSpeech, definition };
-                found = true;
-              }
-            }
-          } catch (error) {
-            console.log(`Datamuse API failed for "${word}":`, error.message);
-          }
-        }
-
-        // Try Wiktionary API as second fallback
-        if (!found) {
-          try {
-            const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
-            if (response.ok) {
-              const data = await response.json();
-              if (data && data.en && data.en.length > 0) {
-                const entry = data.en[0];
-                const partOfSpeech = entry.partOfSpeech || '';
-                const definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
-                definitions[word] = { partOfSpeech, definition };
-                found = true;
-              }
-            }
-          } catch (error) {
-            console.log(`Wiktionary API failed for "${word}":`, error.message);
-          }
-        }
-
-        if (!found) {
-          definitions[word] = { partOfSpeech: '', definition: 'Definition not available' };
-        }
+        definitions[word] = await fetchSingleDefinition(word);
       }
 
       setWordDefinitions(definitions);
@@ -1741,15 +1838,25 @@ const GematriaCalculator = () => {
               </div>
 
               {/* Download and Clear Buttons */}
+              {downloadProgress && (
+                <div className="mt-4 p-3 bg-zinc-100 rounded-lg text-sm text-zinc-600 text-center">
+                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
+                  {downloadProgress}
+                </div>
+              )}
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
-                  disabled={clearing}
+                  disabled={clearing || isDownloading}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                  title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
+                  title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''} as ZIP` : 'No phrases to download'}
                 >
-                  <Download className="w-5 h-5" />
-                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  {isDownloading ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Download className="w-5 h-5" />
+                  )}
+                  {isDownloading ? 'Downloading...' : `Download ZIP ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
                 </button>
                 <button
                   onClick={handleClearPhrases}
@@ -1795,7 +1902,7 @@ const GematriaCalculator = () => {
 
                 {/* Phrase Meaning */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
-                  <h3 className="text-lg md:text-xl font-bold text-white mb-4">
+                  <h3 className="text-lg md:text-xl font-bold text-red-500 mb-4">
                     Phrase Meaning
                   </h3>
                   {loadingDefinitions ? (
