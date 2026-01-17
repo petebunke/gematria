@@ -528,11 +528,9 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 20); // Min 20ms for GIF
   const delay = Math.round(frameSpeed / 10); // GIF delay is in centiseconds
 
-  // Scale down for reasonable file size
-  const maxWidth = 800;
-  const scale = Math.min(1, maxWidth / width);
-  const scaledWidth = Math.round(width * scale);
-  const scaledHeight = Math.round(height * scale);
+  // Use full resolution for highest fidelity
+  const scaledWidth = width;
+  const scaledHeight = height;
 
   const canvas = document.createElement('canvas');
   canvas.width = scaledWidth;
@@ -587,9 +585,9 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
 
-    // Quantize to 256 color palette
-    const palette = quantize(rgba, 256);
-    const index = applyPalette(rgba, palette);
+    // Quantize to 256 color palette with high quality settings
+    const palette = quantize(rgba, 256, { format: 'rgb444' });
+    const index = applyPalette(rgba, palette, { format: 'rgb444' });
 
     gif.writeFrame(index, scaledWidth, scaledHeight, {
       palette,
