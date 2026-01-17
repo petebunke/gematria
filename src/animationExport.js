@@ -118,9 +118,13 @@ function getColor(combo) {
 function aikBekarToMs(value) {
   if (value <= 0) return 666;
 
-  // Mirror each digit (digit → 10 - digit)
+  // Mirror each digit (1↔9, 2↔8, 3↔7, 4↔6, 5→5, 0→0)
   const str = value.toString();
-  const mirroredDigits = str.split('').map(d => 10 - parseInt(d));
+  const mirroredDigits = str.split('').map(d => {
+    const digit = parseInt(d);
+    if (digit === 0 || digit === 5) return digit;
+    return 10 - digit;
+  });
   const mirroredNum = parseInt(mirroredDigits.join(''));
   const numDigits = str.length;
 

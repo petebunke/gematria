@@ -766,7 +766,14 @@ const GematriaCalculator = () => {
           if (data && data.en && data.en.length > 0) {
             const entry = data.en[0];
             const partOfSpeech = entry.partOfSpeech || '';
-            const definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
+            let definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
+
+            // Filter out garbled wiki markup (e.g., "AncientNikon 250px|.")
+            const isGarbledDefinition = /^\w+\s+\d+px\|/.test(definition) ||
+                                        /\|/.test(definition) && definition.length < 50;
+            if (isGarbledDefinition) {
+              definition = 'Definition not available';
+            }
 
             const synonymWord = extractSynonym(definition);
             if (synonymWord && synonymWord !== word) {
