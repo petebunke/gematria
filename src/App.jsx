@@ -26,6 +26,7 @@ const GematriaCalculator = () => {
   const [clearing, setClearing] = useState(false);
   const [voiceIndex, setVoiceIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [speakingWord, setSpeakingWord] = useState(null);
   const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
   const [wordDefinitions, setWordDefinitions] = useState({});
   const [loadingDefinitions, setLoadingDefinitions] = useState(false);
@@ -259,11 +260,12 @@ const GematriaCalculator = () => {
     };
   }, []);
 
-  const speakPhrase = (text) => {
+  const speakPhrase = (text, wordId = null) => {
     if (!text || !window.speechSynthesis) return;
 
     // Cancel any ongoing speech
     window.speechSynthesis.cancel();
+    setSpeakingWord(wordId);
 
     // Phonetic replacements for words that TTS engines mispronounce or expand
     // Month abbreviations get expanded to full names, so use phonetic spellings
@@ -336,10 +338,14 @@ const GematriaCalculator = () => {
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => {
       setIsSpeaking(false);
+      setSpeakingWord(null);
       // Advance to next voice index (strictly alternates gender)
       setVoiceIndex(prev => prev + 1);
     };
-    utterance.onerror = () => setIsSpeaking(false);
+    utterance.onerror = () => {
+      setIsSpeaking(false);
+      setSpeakingWord(null);
+    };
 
     window.speechSynthesis.speak(utterance);
   };
@@ -1947,12 +1953,12 @@ const GematriaCalculator = () => {
                                   <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
                                     {def?.phonetic || ''}
                                     <button
-                                      onClick={() => speakPhrase(word)}
+                                      onClick={() => speakPhrase(word, word)}
                                       disabled={isSpeaking}
                                       className="text-gray-400 hover:text-red-400 disabled:opacity-50 transition-colors"
                                       title="Listen to pronunciation"
                                     >
-                                      <Volume2 className={`w-3 h-3 ${isSpeaking ? 'text-red-400 animate-pulse' : ''}`} />
+                                      <Volume2 className={`w-3 h-3 ${speakingWord === word ? 'text-red-400 animate-pulse' : ''}`} />
                                     </button>
                                   </p>
                                   <p className="text-sm text-gray-400 mt-1">
