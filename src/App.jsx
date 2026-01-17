@@ -1838,25 +1838,21 @@ const GematriaCalculator = () => {
               </div>
 
               {/* Download and Clear Buttons */}
-              {downloadProgress && (
-                <div className="mt-4 p-3 bg-zinc-100 rounded-lg text-sm text-zinc-600 text-center">
-                  <Loader2 className="w-4 h-4 animate-spin inline mr-2" />
-                  {downloadProgress}
-                </div>
-              )}
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
                   disabled={clearing || isDownloading}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   {isDownloading ? (
-                    <Loader2 className="w-5 h-5 animate-spin" />
+                    <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
                   ) : (
-                    <Download className="w-5 h-5" />
+                    <Download className="w-5 h-5 flex-shrink-0" />
                   )}
-                  {isDownloading ? 'Downloading...' : `Download Phrases ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
+                  <span className="truncate">
+                    {isDownloading ? (downloadProgress || 'Downloading...') : `Download Phrases ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
+                  </span>
                 </button>
                 <button
                   onClick={handleClearPhrases}
