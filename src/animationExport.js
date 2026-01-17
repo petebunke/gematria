@@ -292,7 +292,11 @@ export function generateSvgFrame(phrase, combo, configIndex, variation) {
   const triangles = buildRectangle(variation);
   const { width, height } = getRectangleDimensions();
 
-  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}">`;
+  // Add padding for stroke width to prevent clipping at edges
+  const padding = STROKE_WIDTH / 2;
+  const viewBox = `${-padding} ${-padding} ${width + STROKE_WIDTH} ${height + STROKE_WIDTH}`;
+
+  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}">`;
   svgContent += `<rect x="0" y="0" width="${width}" height="${height}" fill="#f8f8f4"/>`;
 
   triangles.forEach(tri => {
@@ -320,6 +324,7 @@ export function generateSvgFrame(phrase, combo, configIndex, variation) {
 export function generateStandaloneHtml(phrase, combo) {
   const { width, height } = getRectangleDimensions();
   const frameSpeed = aikBekarToMs(combo[3] || 111);
+  const colorHex = getColor(combo); // Get the Hebrew-derived color for border
 
   // Generate all frames (6 configs × 2 variations = 12 frames per cycle)
   const frames = [];
@@ -356,7 +361,7 @@ export function generateStandaloneHtml(phrase, combo) {
       font-size: 14px;
     }
     .container {
-      border: 2px solid #333;
+      border: 2px solid ${colorHex};
       border-radius: 8px;
       overflow: hidden;
       background: #f8f8f4;
@@ -528,9 +533,9 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 20); // Min 20ms for GIF
   const delay = Math.round(frameSpeed / 10); // GIF delay is in centiseconds
 
-  // Use full resolution for highest fidelity
-  const scaledWidth = width;
-  const scaledHeight = height;
+  // Use full resolution with stroke padding for highest fidelity
+  const scaledWidth = width + STROKE_WIDTH;
+  const scaledHeight = height + STROKE_WIDTH;
 
   const canvas = document.createElement('canvas');
   canvas.width = scaledWidth;

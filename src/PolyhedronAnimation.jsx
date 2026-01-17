@@ -472,8 +472,9 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
     const totalWidth = squareWidth * 4 + GAP * 3;
     const totalHeight = squareHeight;
 
-    // Set viewBox
-    svgRef.current.setAttribute('viewBox', `0 0 ${totalWidth} ${totalHeight}`);
+    // Set viewBox with padding for stroke width to prevent clipping at edges
+    const padding = STROKE_WIDTH / 2;
+    svgRef.current.setAttribute('viewBox', `${-padding} ${-padding} ${totalWidth + STROKE_WIDTH} ${totalHeight + STROKE_WIDTH}`);
 
     let svgContent = `<rect x="0" y="0" width="${totalWidth}" height="${totalHeight}" fill="#f8f8f4"/>`;
 
