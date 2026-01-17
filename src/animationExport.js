@@ -360,7 +360,7 @@ export function generateStandaloneHtml(phrase, combo) {
       font-size: 14px;
     }
     .container {
-      border: 2px solid #333;
+      border: none;
       border-radius: 8px;
       overflow: hidden;
       background: #f8f8f4;
