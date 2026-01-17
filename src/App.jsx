@@ -28,7 +28,6 @@ const GematriaCalculator = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
   const [wordDefinitions, setWordDefinitions] = useState({});
-  const [phraseSummary, setPhraseSummary] = useState('');
   const [loadingDefinitions, setLoadingDefinitions] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
@@ -788,28 +787,10 @@ const GematriaCalculator = () => {
       return { partOfSpeech: '', definition: '' };
     };
 
-    // Generate a simple list of word definitions
-    const generateSummary = (definitions, words) => {
-      const lines = [];
-
-      for (const word of words) {
-        const def = definitions[word];
-        if (def && def.definition) {
-          const pos = def.partOfSpeech ? ` (${def.partOfSpeech})` : '';
-          lines.push(`**${word}**${pos}: ${def.definition}`);
-        } else {
-          lines.push(`**${word}**: No definition found`);
-        }
-      }
-
-      return lines.join('\n\n');
-    };
-
     const fetchDefinitions = async () => {
       if (!results || !results.input) {
         setWordDefinitions({});
-        setPhraseSummary('');
-        return;
+                return;
       }
 
       const words = results.input
@@ -819,8 +800,7 @@ const GematriaCalculator = () => {
 
       if (words.length === 0) {
         setWordDefinitions({});
-        setPhraseSummary('');
-        return;
+                return;
       }
 
       setLoadingDefinitions(true);
@@ -836,7 +816,6 @@ const GematriaCalculator = () => {
       }
 
       setWordDefinitions(definitions);
-      setPhraseSummary(generateSummary(definitions, words));
       setLoadingDefinitions(false);
     };
 
@@ -1919,26 +1898,40 @@ const GematriaCalculator = () => {
                   </button>
                 </div>
 
-                {/* Word Meanings */}
+                {/* Definitions */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <h3 className="text-lg md:text-xl font-bold text-red-500 mb-4">
-                    Phrase Meaning
+                    Definitions
                   </h3>
                   {loadingDefinitions ? (
                     <div className="flex items-center gap-2 text-gray-400">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      <span className="text-sm">Looking up definitions...</span>
+                      <span className="text-sm">Loading definitions...</span>
                     </div>
                   ) : (
-                    <div className="text-sm md:text-base text-gray-300 leading-relaxed space-y-3"
-                       dangerouslySetInnerHTML={{
-                         __html: (phraseSummary || 'No definitions available.')
-                           .replace(/\*\*([^*]+)\*\*/g, '<strong class="text-white">$1</strong>')
-                           .split('\n\n')
-                           .map(p => `<p>${p}</p>`)
-                           .join('')
-                       }}
-                    />
+                    <div className="space-y-3">
+                      {results.input.toLowerCase().split(/\s+/).filter(word => word.length > 0 && /^[a-z]+$/.test(word)).map((word, index) => {
+                        const def = wordDefinitions[word];
+                        const pos = def?.partOfSpeech ? (() => {
+                          const normalized = def.partOfSpeech.toLowerCase().trim();
+                          const map = { 'n': 'noun', 'v': 'verb', 'adj': 'adjective', 'adv': 'adverb', 'prep': 'preposition', 'conj': 'conjunction', 'pron': 'pronoun', 'int': 'interjection', 'interj': 'interjection', 'det': 'determiner', 'art': 'article' };
+                          return map[normalized] || def.partOfSpeech;
+                        })() : null;
+                        return (
+                          <div key={index} className="border-l-2 border-red-500 pl-3">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="text-white font-semibold capitalize">{word}</span>
+                              {pos && (
+                                <span className="text-xs text-red-400 italic">({pos})</span>
+                              )}
+                            </div>
+                            <p className="text-sm text-gray-400 mt-1">
+                              {def?.definition || 'Definition not available'}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
                   )}
                 </div>
 

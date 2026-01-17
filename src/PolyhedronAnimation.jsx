@@ -559,12 +559,18 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
     });
   };
 
-  // Handle wheel zoom within container
+  // Handle wheel zoom within container (including pinch-to-zoom)
   const handleWheel = useCallback((e) => {
+    // Prevent browser zoom (pinch-to-zoom comes as wheel + ctrlKey)
     e.preventDefault();
     e.stopPropagation();
 
-    const delta = e.deltaY > 0 ? -0.1 : 0.1;
+    // Pinch-to-zoom on trackpads uses ctrlKey modifier with smaller deltas
+    const isPinch = e.ctrlKey;
+    const delta = isPinch
+      ? (e.deltaY > 0 ? -0.05 : 0.05)  // Finer control for pinch
+      : (e.deltaY > 0 ? -0.1 : 0.1);   // Regular scroll zoom
+
     setZoom(prevZoom => {
       const newZoom = Math.min(Math.max(prevZoom + delta, 1), 5);
       // Reset pan when zooming back to 1
@@ -622,12 +628,52 @@ const PolyhedronAnimation = ({ phrase, gematriaValues }) => {
     setPan({ x: 0, y: 0 });
   }, [phrase]);
 
+  // Attach wheel listener with passive: false to allow preventDefault
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const wheelHandler = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const isPinch = e.ctrlKey;
+      const delta = isPinch
+        ? (e.deltaY > 0 ? -0.05 : 0.05)
+        : (e.deltaY > 0 ? -0.1 : 0.1);
+
+      setZoom(prevZoom => {
+        const newZoom = Math.min(Math.max(prevZoom + delta, 1), 5);
+        if (newZoom === 1) {
+          setPan({ x: 0, y: 0 });
+        }
+        return newZoom;
+      });
+    };
+
+    // Safari gesture events for pinch-to-zoom
+    const gestureHandler = (e) => {
+      e.preventDefault();
+    };
+
+    container.addEventListener('wheel', wheelHandler, { passive: false });
+    container.addEventListener('gesturestart', gestureHandler, { passive: false });
+    container.addEventListener('gesturechange', gestureHandler, { passive: false });
+    container.addEventListener('gestureend', gestureHandler, { passive: false });
+
+    return () => {
+      container.removeEventListener('wheel', wheelHandler);
+      container.removeEventListener('gesturestart', gestureHandler);
+      container.removeEventListener('gesturechange', gestureHandler);
+      container.removeEventListener('gestureend', gestureHandler);
+    };
+  }, []);
+
   return (
     <div
       ref={containerRef}
       onClick={(e) => { if (!isPanning) togglePlay(); }}
       onKeyDown={(e) => e.key === ' ' && togglePlay()}
-      onWheel={handleWheel}
       onMouseDown={handleMouseDown}
       role="button"
       tabIndex={0}
