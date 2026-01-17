@@ -712,7 +712,7 @@ const GematriaCalculator = () => {
 
     // Helper to fetch definition for a single word
     const fetchSingleDefinition = async (word, depth = 0) => {
-      if (depth > 2) return { partOfSpeech: '', definition: '', phonetic: '' };
+      if (depth > 2) return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
 
       // Try Free Dictionary API first
       try {
@@ -723,14 +723,25 @@ const GematriaCalculator = () => {
             const meaning = data[0].meanings[0];
             const partOfSpeech = meaning.partOfSpeech || '';
             const definition = meaning.definitions[0]?.definition || '';
-            const phonetic = data[0].phonetic || data[0].phonetics?.[0]?.text || '';
+
+            // Find phonetic text and audio from phonetics array
+            const phonetics = data[0].phonetics || [];
+            let phonetic = data[0].phonetic || '';
+            let audio = '';
+
+            // Look through phonetics for text and audio
+            for (const p of phonetics) {
+              if (!phonetic && p.text) phonetic = p.text;
+              if (!audio && p.audio) audio = p.audio;
+              if (phonetic && audio) break;
+            }
 
             const synonymWord = extractSynonym(definition);
             if (synonymWord && synonymWord !== word) {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition, phonetic };
+            return { partOfSpeech, definition, phonetic, audio };
           }
         }
       } catch (error) {
@@ -752,7 +763,7 @@ const GematriaCalculator = () => {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition, phonetic: '' };
+            return { partOfSpeech, definition, phonetic: '', audio: '' };
           }
         }
       } catch (error) {
@@ -778,14 +789,14 @@ const GematriaCalculator = () => {
               const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
               return { ...resolved, originalWord: word, synonymOf: synonymWord };
             }
-            return { partOfSpeech, definition, phonetic: '' };
+            return { partOfSpeech, definition, phonetic: '', audio: '' };
           }
         }
       } catch (error) {
         console.log(`Wiktionary API failed for "${word}"`);
       }
 
-      return { partOfSpeech: '', definition: '', phonetic: '' };
+      return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
     };
 
     const fetchDefinitions = async () => {
@@ -1925,7 +1936,18 @@ const GematriaCalculator = () => {
                               <p className="text-xs text-red-400 italic mt-1">{pos}</p>
                             )}
                             {def?.phonetic && (
-                              <p className="text-xs text-gray-500 font-mono">{def.phonetic}</p>
+                              <p className="text-xs text-gray-500 font-mono flex items-center gap-2">
+                                {def.phonetic}
+                                {def?.audio && (
+                                  <button
+                                    onClick={() => new Audio(def.audio).play()}
+                                    className="text-gray-400 hover:text-red-400 transition-colors"
+                                    title="Listen to pronunciation"
+                                  >
+                                    <Volume2 className="w-3 h-3" />
+                                  </button>
+                                )}
+                              </p>
                             )}
                             <p className="text-sm text-gray-400 mt-1">
                               {def?.definition || 'Loading...'}
