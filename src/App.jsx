@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
+import { Calculator, Copy, Check, Download, Loader2, Trash2, Volume2 } from 'lucide-react';
+import html2pdf from 'html2pdf.js';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -19,6 +20,9 @@ const GematriaCalculator = () => {
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [voiceIndex, setVoiceIndex] = useState(0);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [selectedVoices, setSelectedVoices] = useState({ male: null, female: null });
   const [wordDefinitions, setWordDefinitions] = useState({});
   const [loadingDefinitions, setLoadingDefinitions] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
@@ -89,6 +93,24 @@ const GematriaCalculator = () => {
     return repdigits.includes(num);
   };
 
+  // Input sanitization to prevent injection attacks
+  const sanitizeInput = (text) => {
+    if (!text) return '';
+
+    // Limit length to prevent DoS
+    const maxLength = 500;
+    let sanitized = text.slice(0, maxLength);
+
+    // Remove HTML tags
+    sanitized = sanitized.replace(/<[^>]*>/g, '');
+
+    // Only allow letters, numbers, spaces, and basic punctuation
+    // This blocks regex metacharacters like ^$.*+?{}[]|\()
+    sanitized = sanitized.replace(/[^a-zA-Z0-9\s',.\-!?]/g, '');
+
+    return sanitized;
+  };
+
   const handleCalculate = () => {
     if (!input.trim()) return;
 
@@ -150,13 +172,181 @@ const GematriaCalculator = () => {
     }
   };
 
+  // Initialize voices once they're available
+  useEffect(() => {
+    // Guard against environments without speechSynthesis (e.g., Vercel preview)
+    if (typeof window === 'undefined' || !window.speechSynthesis) return;
+
+    const initVoices = () => {
+      const allVoices = window.speechSynthesis.getVoices();
+      if (allVoices.length === 0) return;
+
+      // Voices to avoid - they expand abbreviations or sound weird
+      const avoidIndicators = ['enhanced', 'siri', 'premium'];
+      const noveltyNames = ['novelty', 'spell', 'hysterical', 'giggle', 'laugh', 'jester', 'bad news', 'good news', 'bells', 'bubbles', 'cellos', 'zarvox', 'trinoids', 'whisper', 'deranged', 'boing', 'albert', 'bahh', 'fred', 'junior', 'kathy', 'princess', 'ralph', 'superstar', 'organ', 'pipe'];
+
+      // Filter to usable English voices
+      const usableVoices = allVoices.filter(v => {
+        if (!v.lang.startsWith('en')) return false;
+        const nameLower = v.name.toLowerCase();
+        if (avoidIndicators.some(a => nameLower.includes(a))) return false;
+        if (noveltyNames.some(n => nameLower.includes(n))) return false;
+        return true;
+      });
+
+      if (usableVoices.length === 0) return;
+
+      // Female voice patterns (prioritized - first match wins)
+      const femalePatterns = [
+        'samantha', 'allison', 'ava', 'susan', 'victoria', 'nicky', 'joelle',
+        'zoe', 'karen', 'moira', 'tessa', 'fiona', 'kate', 'serena', 'veena',
+        'zira', 'hazel', 'linda', 'amy', 'emma', 'jenny', 'aria', 'sara',
+        'female', 'woman'
+      ];
+
+      // Male voice patterns (prioritized - first match wins)
+      const malePatterns = [
+        'alex', 'tom', 'aaron', 'evan', 'daniel', 'david', 'james', 'oliver',
+        'thomas', 'rishi', 'mark', 'guy', 'lee', 'roger', 'gordon', 'george',
+        'male', 'man'
+      ];
+
+      // Find best female voice
+      let femaleVoice = null;
+      for (const pattern of femalePatterns) {
+        femaleVoice = usableVoices.find(v => v.name.toLowerCase().includes(pattern));
+        if (femaleVoice) break;
+      }
+
+      // Find best male voice
+      let maleVoice = null;
+      for (const pattern of malePatterns) {
+        maleVoice = usableVoices.find(v => v.name.toLowerCase().includes(pattern));
+        if (maleVoice) break;
+      }
+
+      // If we couldn't identify gendered voices, try to pick two different ones
+      if (!femaleVoice && !maleVoice && usableVoices.length >= 2) {
+        femaleVoice = usableVoices[0];
+        maleVoice = usableVoices[1];
+      } else if (!femaleVoice && !maleVoice && usableVoices.length === 1) {
+        femaleVoice = usableVoices[0];
+        maleVoice = usableVoices[0];
+      }
+
+      // Use first available if only one gender found
+      if (!femaleVoice) femaleVoice = maleVoice || usableVoices[0];
+      if (!maleVoice) maleVoice = femaleVoice || usableVoices[0];
+
+      console.log('Selected voices - Female:', femaleVoice?.name, 'Male:', maleVoice?.name);
+      setSelectedVoices({ male: maleVoice, female: femaleVoice });
+    };
+
+    // Try to init immediately
+    initVoices();
+
+    // Also listen for voices to load (needed in some browsers)
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    return () => {
+      if (window.speechSynthesis) {
+        window.speechSynthesis.onvoiceschanged = null;
+      }
+    };
+  }, []);
+
+  const speakPhrase = (text) => {
+    if (!text || !window.speechSynthesis) return;
+
+    // Cancel any ongoing speech
+    window.speechSynthesis.cancel();
+
+    // Phonetic replacements for words that TTS engines mispronounce or expand
+    // Month abbreviations get expanded to full names, so use phonetic spellings
+    const phoneticMap = {
+      'seq': 'seek',
+      'misc': 'misk',
+      'govt': 'guvt',
+      'dept': 'deppt',
+      'inc': 'ink',
+      'co': 'koh',
+      'bunke': 'bun-key',
+      // Month abbreviations - use phonetic spellings to prevent expansion
+      'jan': 'jann',
+      'feb': 'febb',
+      'mar': 'marr',
+      'apr': 'ape-er',
+      'jun': 'junn',
+      'jul': 'jool',
+      'aug': 'awg',
+      'sep': 'sepp',
+      'sept': 'seppt',
+      'oct': 'ock-t',
+      'nov': 'novv',
+      'dec': 'deck'
+    };
+
+    let processedText = text;
+
+    // Apply phonetic replacements first
+    Object.entries(phoneticMap).forEach(([word, phonetic]) => {
+      const regex = new RegExp(`\\b${word}\\b`, 'gi');
+      processedText = processedText.replace(regex, phonetic);
+    });
+
+    // Abbreviations to spell out (only technical/unit abbreviations, not real words)
+    const abbreviations = ['km', 'cm', 'mm', 'kg', 'lb', 'lbs', 'oz', 'hr', 'hrs', 'approx', 'cgi', 'cpu', 'gpu', 'rom', 'usb', 'url', 'html', 'css', 'api', 'sql', 'php', 'xml', 'pdf', 'jpg', 'png', 'gif', 'mp3', 'mp4', 'ch', 'st', 'ltd', 'dr'];
+
+    // Replace known abbreviations with spaced letters
+    abbreviations.forEach(abbr => {
+      const regex = new RegExp(`\\b${abbr}\\b`, 'gi');
+      processedText = processedText.replace(regex, (match) => match.split('').join(' '));
+    });
+
+    // Match 2-4 letter sequences that are all consonants (but not words in phoneticMap)
+    const phoneticWords = new Set(Object.keys(phoneticMap));
+    processedText = processedText.replace(/\b([bcdfghjklmnpqrstvwxyz]{2,4})\b/gi, (match) => {
+      // Don't spell out words we've already handled with phonetic replacements
+      if (phoneticWords.has(match.toLowerCase())) return match;
+      return match.split('').join(' ');
+    });
+
+    // If voices aren't loaded yet, wait for them
+    if (!selectedVoices.male && !selectedVoices.female) {
+      console.log('Voices not ready yet, waiting...');
+      return;
+    }
+
+    // Strictly alternate: even index = male, odd index = female
+    const useMale = voiceIndex % 2 === 0;
+    const voice = useMale ? selectedVoices.male : selectedVoices.female;
+
+    console.log(`Speaking with ${useMale ? 'MALE' : 'FEMALE'} voice:`, voice?.name);
+
+    const utterance = new SpeechSynthesisUtterance(processedText);
+    utterance.lang = 'en-US';
+    utterance.voice = voice;
+    utterance.rate = 0.9;
+    utterance.pitch = 1;
+
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Advance to next voice index (strictly alternates gender)
+      setVoiceIndex(prev => prev + 1);
+    };
+    utterance.onerror = () => setIsSpeaking(false);
+
+    window.speechSynthesis.speak(utterance);
+  };
+
   const downloadPhraseTable = () => {
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple, Aik Bekar⁹)
+    // Sort by combination (Hebrew, English, Simple, Aik Bekar)
     const sorted = [...generatedPhrases].sort((a, b) => {
       if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
       if (a.english !== b.english) return a.english - b.english;
@@ -166,119 +356,65 @@ const GematriaCalculator = () => {
 
     // Create HTML content for PDF
     const htmlContent = `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="UTF-8">
-  <title>Gematria Generated Phrases - ${new Date().toLocaleDateString()}</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-    h1 {
-      color: #dc2626;
-      border-bottom: 3px solid #dc2626;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
-    }
-    .meta {
-      color: #666;
-      margin-bottom: 30px;
-      font-size: 14px;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th {
-      background-color: #dc2626;
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-    }
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #ddd;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    tr:hover {
-      background-color: #f5f5f5;
-    }
-    .phrase {
-      font-weight: 600;
-      color: #1f2937;
-    }
-    .numbers {
-      font-family: monospace;
-      color: #dc2626;
-    }
-    .source {
-      text-transform: capitalize;
-      color: #4b5563;
-    }
-    @media print {
-      body { padding: 10px; }
-      tr { page-break-inside: avoid; }
-    }
-  </style>
-</head>
-<body>
-  <h1>Gematria Generated Phrases</h1>
-  <div class="meta">
-    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-    <p><strong>Total Phrases:</strong> ${sorted.length}</p>
-  </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Phrase</th>
-        <th>Hebrew</th>
-        <th>English</th>
-        <th>Simple</th>
-        <th>Aik Bekar⁹</th>
-        <th>Combination</th>
-        <th>Source</th>
-        <th>Gen Time</th>
-        <th>Timestamp</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${sorted.map(p => `
-        <tr>
-          <td class="phrase">${p.phrase}</td>
-          <td class="numbers">${p.hebrew}</td>
-          <td class="numbers">${p.english}</td>
-          <td class="numbers">${p.simple}</td>
-          <td class="numbers">${p.aiqBekar || '-'}</td>
-          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
-          <td class="source">${p.source}</td>
-          <td class="numbers">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
-          <td>${new Date(p.timestamp).toLocaleString()}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-</body>
-</html>
+      <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 1100px; margin: 0 auto;">
+        <h1 style="color: #dc2626; border-bottom: 3px solid #dc2626; padding-bottom: 10px; margin-bottom: 20px; font-size: 24px;">
+          Gematria Generated Phrases
+        </h1>
+        <div style="color: #666; margin-bottom: 20px; font-size: 12px;">
+          <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
+          <p><strong>Total Phrases:</strong> ${sorted.length}</p>
+        </div>
+        <table style="width: 100%; border-collapse: collapse; font-size: 10px;">
+          <thead>
+            <tr>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: left; font-weight: bold;">Phrase</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Hebrew</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">English</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Simple</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold; white-space: nowrap;">Aik Bekar⁹</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Combination</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Source</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Gen Time</th>
+              <th style="background-color: #dc2626; color: white; padding: 8px; text-align: center; font-weight: bold;">Timestamp</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sorted.map((p, i) => `
+              <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937;">${p.phrase}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.aiqBekar || '-'}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; text-transform: capitalize; color: #4b5563;">${p.source}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
+                <td style="padding: 6px 8px; border-bottom: 1px solid #ddd; text-align: center; vertical-align: middle; color: #4b5563;">${new Date(p.timestamp).toLocaleDateString()},<br>${new Date(p.timestamp).toLocaleTimeString()}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
     `;
 
-    // Open in new window for printing/saving as PDF
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    // Create a temporary container
+    const container = document.createElement('div');
+    container.innerHTML = htmlContent;
+    document.body.appendChild(container);
 
-    // Trigger print dialog after content loads
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
+    // PDF options
+    const opt = {
+      margin: 10,
+      filename: `gematria-generator-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, '-')}.pdf`,
+      image: { type: 'jpeg', quality: 0.98 },
+      html2canvas: { scale: 2, useCORS: true },
+      jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
     };
+
+    // Generate and download PDF
+    html2pdf().set(opt).from(container).save().then(() => {
+      document.body.removeChild(container);
+    });
   };
 
   const formatBreakdown = (breakdown) => {
@@ -516,25 +652,66 @@ const GematriaCalculator = () => {
           continue;
         }
 
+        let found = false;
+
+        // Try Free Dictionary API first
         try {
           const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
           if (response.ok) {
             const data = await response.json();
             if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
-              // Get the first definition from the first meaning
               const meaning = data[0].meanings[0];
               const partOfSpeech = meaning.partOfSpeech || '';
               const definition = meaning.definitions[0]?.definition || 'No definition found';
               definitions[word] = { partOfSpeech, definition };
-            } else {
-              definitions[word] = { partOfSpeech: '', definition: 'No definition found' };
+              found = true;
             }
-          } else {
-            definitions[word] = { partOfSpeech: '', definition: 'Definition not available' };
           }
         } catch (error) {
-          console.error(`Failed to fetch definition for "${word}":`, error);
-          definitions[word] = { partOfSpeech: '', definition: 'Failed to load definition' };
+          console.log(`Free Dictionary API failed for "${word}":`, error.message);
+        }
+
+        // Try Datamuse API as fallback (provides related words/meanings)
+        if (!found) {
+          try {
+            const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
+                // Datamuse format: "pos\tdefinition"
+                const defParts = data[0].defs[0].split('\t');
+                const partOfSpeech = defParts[0] || '';
+                const definition = defParts[1] || 'No definition found';
+                definitions[word] = { partOfSpeech, definition };
+                found = true;
+              }
+            }
+          } catch (error) {
+            console.log(`Datamuse API failed for "${word}":`, error.message);
+          }
+        }
+
+        // Try Wiktionary API as second fallback
+        if (!found) {
+          try {
+            const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
+            if (response.ok) {
+              const data = await response.json();
+              if (data && data.en && data.en.length > 0) {
+                const entry = data.en[0];
+                const partOfSpeech = entry.partOfSpeech || '';
+                const definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || 'No definition found';
+                definitions[word] = { partOfSpeech, definition };
+                found = true;
+              }
+            }
+          } catch (error) {
+            console.log(`Wiktionary API failed for "${word}":`, error.message);
+          }
+        }
+
+        if (!found) {
+          definitions[word] = { partOfSpeech: '', definition: 'Definition not available' };
         }
       }
 
@@ -628,7 +805,7 @@ const GematriaCalculator = () => {
     const alphabet = 'abcdefghijklmnopqrstuvwxyz'.split('');
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      // Check timeout every 10,000 attempts and yield to browser to prevent UI blocking
+      // Check timeout every 10,000 attempts
       if (attempt % 10000 === 0) {
         const elapsed = Date.now() - startTime;
         if (elapsed > timeoutMs) {
@@ -980,13 +1157,15 @@ const GematriaCalculator = () => {
         }
       }
     } else {
-      // Aik Bekar disabled - just do 3-way search
+      // Aik Bekar disabled - just do 3-way search with extended timeout for mobile
       phrase = await generatePhrase(
         parseInt(targetHebrew),
         parseInt(targetEnglish),
         parseInt(targetSimple),
         0,
-        enabledFlags3
+        enabledFlags3,
+        5000000,  // 5 million attempts
+        60000     // 60 second timeout for mobile reliability
       );
     }
 
@@ -1004,8 +1183,8 @@ const GematriaCalculator = () => {
         parseInt(targetSimple),
         aiqBekarEnabled ? parseInt(targetAiqBekar) : 0,
         aiqBekarEnabled ? { heb: true, eng: true, sim: true, aiq: true } : enabledFlags3,
-        1000000,
-        10000
+        2000000,
+        30000
       );
     }
 
@@ -1358,14 +1537,14 @@ const GematriaCalculator = () => {
         <div className="bg-zinc-900 rounded-lg shadow-2xl overflow-hidden border border-zinc-800">
           {/* Header */}
           <div className="bg-black border-b border-zinc-800 p-4 md:p-6">
-            <div className="flex items-center justify-center gap-3">
+            <div className="flex items-center justify-start md:justify-center gap-3">
               <Calculator className="w-8 h-8 text-red-500" />
               <h1 className="text-2xl md:text-4xl font-bold text-white">
                 Gematria Generator
               </h1>
             </div>
-            <p className="text-gray-400 text-center mt-1 text-sm md:text-base">
-              Generate phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew and English Gematria.
+            <p className="text-gray-400 text-left md:text-center mt-1 text-sm md:text-base">
+              Create phrases that add up to <a href="https://en.wikipedia.org/wiki/Repdigit" target="_blank" rel="noopener noreferrer" className="text-gray-400 hover:text-gray-300 underline">repdigits</a> in Hebrew and English Gematria.
             </p>
           </div>
 
@@ -1421,7 +1600,7 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      English (Simple)
+                      Simple
                     </label>
                     <select
                       value={targetSimple}
@@ -1435,9 +1614,9 @@ const GematriaCalculator = () => {
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-1">
-                        English (Aik Bekar⁹)
-                        <span className="relative inline-block">
+                      <label className="text-xs font-semibold text-gray-700 flex items-center gap-2 md:gap-1">
+                        Aik Bekar⁹
+                        <span className="relative inline-block mr-2 md:mr-0">
                           <span
                             className="inline-block cursor-pointer text-gray-400 hover:text-red-600 transition-colors"
                             onMouseEnter={() => setShowAiqTooltip(true)}
@@ -1480,7 +1659,7 @@ const GematriaCalculator = () => {
                   <button
                     onClick={handleGenerateRandomRepdigits}
                     disabled={generatingRandom || loadingWords}
-                    className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-base md:text-lg flex items-center justify-center gap-2"
+                    className="w-full bg-zinc-700 text-white font-bold py-3 px-6 rounded-lg hover:bg-zinc-600 transition duration-300 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed text-sm md:text-lg flex items-center justify-center gap-2 whitespace-nowrap"
                   >
                     {loadingWords ? 'Loading Word List...' : generatingRandom ? (<>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>) : 'Generate Random Phrase'}
                   </button>
@@ -1489,23 +1668,50 @@ const GematriaCalculator = () => {
 
               {/* Manual Input Section */}
               <div>
-                <h3 className="text-base md:text-lg font-bold text-gray-900 mb-3">
-                  Calculate Phrase Value and Generate Anagrams
-                </h3>
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-3 gap-1">
+                  <h3 className="text-base md:text-lg font-bold text-gray-900">
+                    Calculate Phrase Value and Generate Anagrams
+                  </h3>
+                  {results && (
+                    <div className="text-sm font-mono text-red-600 font-bold">
+                      {results.hebrew.total}/{results.english.total}/{results.simple.total}{results.aiqBekar ? `/${results.aiqBekar.total}` : ''}
+                    </div>
+                  )}
+                </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-700 mb-1">
-                      Enter a word or phrase:
-                    </label>
+                    <div className="flex items-center gap-1 mb-1">
+                      <label className="text-xs font-semibold text-gray-700">
+                        Enter a word or phrase:
+                      </label>
+                      <button
+                        onClick={() => speakPhrase(input)}
+                        disabled={!input.trim() || isSpeaking}
+                        className="hidden md:inline-block text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Speak phrase (cycles through voices)"
+                      >
+                        <Volume2 className={`w-4 h-4 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                      </button>
+                    </div>
                     <div className="relative">
                       <input
                         type="text"
                         value={input}
-                        onChange={(e) => setInput(e.target.value)}
+                        onChange={(e) => setInput(sanitizeInput(e.target.value))}
                         onKeyPress={(e) => e.key === 'Enter' && handleCalculate()}
                         placeholder=""
-                        className="w-full px-4 py-3 pr-12 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
+                        maxLength={500}
+                        autoComplete="off"
+                        className="w-full px-4 py-3 pr-20 bg-white border border-gray-300 rounded-lg focus:border-red-500 focus:outline-none text-base md:text-lg text-gray-900 placeholder-gray-400"
                       />
+                      <button
+                        onClick={() => speakPhrase(input)}
+                        disabled={!input.trim() || isSpeaking}
+                        className="absolute right-10 top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-red-600 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                        title="Speak phrase (cycles through voices)"
+                      >
+                        <Volume2 className={`w-5 h-5 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                      </button>
                       <button
                         onClick={handleCopy}
                         disabled={!input.trim()}
@@ -1553,18 +1759,39 @@ const GematriaCalculator = () => {
                   {clearing ? (
                     <>Clearing... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
                   ) : (
-                    <><Trash2 className="w-5 h-5" /> Clear Phrases</>
+                    <><Trash2 className="w-5 h-5 hidden md:block" /> Clear Phrases</>
                   )}
                 </button>
               </div>
             </div>
 
+            {/* Decorative image between white card and results */}
+            {results && (
+              <div className="mt-8">
+                <img
+                  src="/results-decoration.gif"
+                  alt="Decorative Star of David pattern"
+                  className="w-full h-auto rounded-lg border border-zinc-700"
+                />
+              </div>
+            )}
+
             {/* Results Section */}
             {results && (
-              <div className="mt-8 mb-8 space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
-                <h2 className="text-xl md:text-2xl font-bold text-white text-center pb-4 border-b border-zinc-800">
-                  Results for "{results.input}"
-                </h2>
+              <div className="mt-4 mb-8 space-y-6 bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
+                <div className="flex items-center justify-center gap-1 pb-4 border-b border-zinc-700">
+                  <h2 className="text-xl md:text-2xl font-bold text-white text-center">
+                    Results for "{results.input}"
+                  </h2>
+                  <button
+                    onClick={() => speakPhrase(results.input)}
+                    disabled={isSpeaking}
+                    className="p-2 text-gray-400 hover:text-red-500 disabled:opacity-50 transition-colors rounded-full hover:bg-zinc-700"
+                    title="Speak phrase (cycles through voices)"
+                  >
+                    <Volume2 className={`w-6 h-6 ${isSpeaking ? 'text-red-500 animate-pulse' : ''}`} />
+                  </button>
+                </div>
 
                 {/* Phrase Meaning */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
@@ -1625,11 +1852,11 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Simple) */}
+                {/* Simple */}
                 <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <h3 className="text-lg md:text-xl font-bold text-white">
-                      English (Simple)
+                      Simple
                     </h3>
                     <span className="text-2xl md:text-3xl font-bold text-red-500">
                       {results.simple.total}
@@ -1640,12 +1867,12 @@ const GematriaCalculator = () => {
                   </p>
                 </div>
 
-                {/* English (Aik Bekar⁹) */}
+                {/* Aik Bekar⁹ */}
                 {results.aiqBekar && (
                   <div className="bg-zinc-800 p-4 md:p-6 rounded-lg border border-zinc-700">
                     <div className="flex items-center justify-between flex-wrap gap-2">
                       <h3 className="text-lg md:text-xl font-bold text-white">
-                        English (Aik Bekar⁹)
+                        Aik Bekar⁹
                       </h3>
                       <span className="text-2xl md:text-3xl font-bold text-red-500">
                         {results.aiqBekar.total}
@@ -1661,8 +1888,12 @@ const GematriaCalculator = () => {
           </div>
 
           {/* Footer */}
-          <div className="bg-black border-t border-zinc-800 pt-8 pb-3 text-center text-xs md:text-sm text-gray-500">
-            <p>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>. Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>. All rights reserved.</p>
+          <div className="bg-black border-t border-zinc-800 pt-4 md:pt-4 pb-3 px-4 md:px-0 text-center text-xs md:text-sm text-gray-500">
+            <p className="flex flex-col items-center leading-loose md:leading-normal md:inline">
+              <span>Based on <a href="https://gematrix.org" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">gematrix.org</a>.</span>
+              <span className="md:before:content-['_']">Vibe coded by <a href="https://petebunke.com" target="_blank" rel="noopener noreferrer" className="text-red-400 hover:text-red-300 underline">Pete Bunke</a>.</span>
+              <span className="md:before:content-['_']">All rights reserved.</span>
+            </p>
           </div>
         </div>
       </div>
@@ -1701,7 +1932,7 @@ const GematriaCalculator = () => {
             >
               ×
             </button>
-            <p className="text-base md:text-lg mb-4">
+            <p className="text-sm md:text-lg mb-4">
               {errorModal.message}
             </p>
             <button
