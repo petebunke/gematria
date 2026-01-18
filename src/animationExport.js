@@ -1594,7 +1594,7 @@ export function generateMultiPhraseHtml(phrases) {
         const fill = isInPhrase ? color.hex : '#f8f8f4';
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1"/>\`;
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="2"/>\`;
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
         const textColor = isInPhrase ? '#ffffff' : '#000000';
