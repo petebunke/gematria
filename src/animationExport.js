@@ -2123,9 +2123,11 @@ export function generateMultiPhraseHtml(phrases) {
           maxHeight = Math.max(maxHeight, dim.height);
         }
 
-        const scaleFactor = 1;
-        const canvasWidth = Math.round(maxWidth * scaleFactor);
-        const canvasHeight = Math.round(maxHeight * scaleFactor);
+        // Cap canvas size to prevent browser hang
+        const maxDim = 600;
+        const scale = Math.min(1, maxDim / Math.max(maxWidth, maxHeight));
+        const canvasWidth = Math.round(maxWidth * scale);
+        const canvasHeight = Math.round(maxHeight * scale);
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasWidth;
@@ -2169,8 +2171,8 @@ export function generateMultiPhraseHtml(phrases) {
 
               // Center the image
               const dim = getDimensionsForMode(frame.mode);
-              const scaledW = dim.width * scaleFactor;
-              const scaledH = dim.height * scaleFactor;
+              const scaledW = dim.width * scale;
+              const scaledH = dim.height * scale;
               const offsetX = (canvasWidth - scaledW) / 2;
               const offsetY = (canvasHeight - scaledH) / 2;
 
