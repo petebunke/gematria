@@ -1124,6 +1124,7 @@ export function generateMultiPhraseHtml(phrases) {
       // Count colors across all frames
       for (let f = 0; f < frames.length; f++) {
         const frame = frames[f];
+        const totalPixels = frame.data.length / 4;
         for (let i = 0; i < frame.data.length; i += 4) {
           // Quantize to 5 bits per channel to reduce unique colors
           const r = frame.data[i] & 0xf8;
@@ -1131,9 +1132,12 @@ export function generateMultiPhraseHtml(phrases) {
           const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-          if (i % 20000 === 0 && i > 0) await yieldToBrowser();
+          if (i % 20000 === 0 && i > 0) {
+            const pct = Math.round((i/4) / totalPixels * 100);
+            if (onProgress) onProgress((f+1) + '/' + frames.length + ' ' + pct + '%');
+            await yieldToBrowser();
+          }
         }
-        if (onProgress) onProgress('CLR ' + (f+1) + '/' + frames.length);
         await yieldToBrowser();
       }
 
