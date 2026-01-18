@@ -374,14 +374,40 @@ const GematriaCalculator = () => {
         return (a.aiqBekar || 0) - (b.aiqBekar || 0);
       });
 
-      // Build word meanings for each phrase using cached definitions
+      // Collect all unique words from all phrases
+      setDownloadProgress('Collecting words for definitions...');
+      const allWords = new Set();
+      for (const p of sorted) {
+        const words = p.phrase.toLowerCase().split(/\s+/).filter(w => w.length > 0 && /^[a-z]+$/.test(w));
+        words.forEach(w => allWords.add(w));
+      }
+
+      // Fetch definitions for all unique words
+      setDownloadProgress(`Fetching definitions for ${allWords.size} words...`);
+      const allDefinitions = {};
+      const wordArray = Array.from(allWords);
+      for (let i = 0; i < wordArray.length; i++) {
+        const word = wordArray[i];
+        // Use cached definition if available, otherwise fetch
+        if (wordDefinitions[word]) {
+          allDefinitions[word] = wordDefinitions[word];
+        } else {
+          allDefinitions[word] = await fetchSingleDefinition(word);
+        }
+        // Update progress every 5 words
+        if (i % 5 === 0) {
+          setDownloadProgress(`Fetching definitions... ${i + 1}/${wordArray.length}`);
+        }
+      }
+
+      // Build word meanings for each phrase using fetched definitions
       setDownloadProgress('Building word meanings...');
       const phraseMeanings = {};
       for (const p of sorted) {
         const words = p.phrase.toLowerCase().split(/\s+/).filter(w => w.length > 0 && /^[a-z]+$/.test(w));
         const meanings = words
           .map(w => {
-            const def = wordDefinitions[w];
+            const def = allDefinitions[w];
             if (def && def.definition) {
               const shortDef = def.definition.length > 60 ? def.definition.slice(0, 60) + '...' : def.definition;
               return `<b>${w}</b>: ${shortDef}`;
@@ -698,114 +724,114 @@ const GematriaCalculator = () => {
     }
   }, [generatedPhrases]);
 
+  // Helper to check if definition is a synonym reference and extract the synonym word
+  const extractSynonym = (definition) => {
+    if (!definition) return null;
+    const synonymPatterns = [
+      /^synonym of\s+["']?(\w+)["']?/i,
+      /^alternative form of\s+["']?(\w+)["']?/i,
+      /^variant of\s+["']?(\w+)["']?/i,
+      /^same as\s+["']?(\w+)["']?/i,
+      /^see\s+["']?(\w+)["']?/i,
+    ];
+    for (const pattern of synonymPatterns) {
+      const match = definition.match(pattern);
+      if (match) return match[1].toLowerCase();
+    }
+    return null;
+  };
+
+  // Helper to fetch definition for a single word (reusable)
+  const fetchSingleDefinition = async (word, depth = 0) => {
+    if (depth > 2) return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
+
+    // Try Free Dictionary API first
+    try {
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
+          const meaning = data[0].meanings[0];
+          const partOfSpeech = meaning.partOfSpeech || '';
+          const definition = meaning.definitions[0]?.definition || '';
+
+          // Find phonetic text and audio from phonetics array
+          const phonetics = data[0].phonetics || [];
+          let phonetic = data[0].phonetic || '';
+          let audio = '';
+
+          // Look through phonetics for text and audio
+          for (const p of phonetics) {
+            if (!phonetic && p.text) phonetic = p.text;
+            if (!audio && p.audio) audio = p.audio;
+            if (phonetic && audio) break;
+          }
+
+          const synonymWord = extractSynonym(definition);
+          if (synonymWord && synonymWord !== word) {
+            const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+            return { ...resolved, originalWord: word, synonymOf: synonymWord };
+          }
+          return { partOfSpeech, definition, phonetic, audio };
+        }
+      }
+    } catch (error) {
+      console.log(`Free Dictionary API failed for "${word}"`);
+    }
+
+    // Try Datamuse API as fallback
+    try {
+      const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
+          const defParts = data[0].defs[0].split('\t');
+          const partOfSpeech = defParts[0] || '';
+          const definition = defParts[1] || '';
+
+          const synonymWord = extractSynonym(definition);
+          if (synonymWord && synonymWord !== word) {
+            const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+            return { ...resolved, originalWord: word, synonymOf: synonymWord };
+          }
+          return { partOfSpeech, definition, phonetic: '', audio: '' };
+        }
+      }
+    } catch (error) {
+      console.log(`Datamuse API failed for "${word}"`);
+    }
+
+    // Try Wiktionary API as second fallback
+    try {
+      const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.en && data.en.length > 0) {
+          const entry = data.en[0];
+          const partOfSpeech = entry.partOfSpeech || '';
+          let definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || '';
+
+          // Filter out garbled wiki markup
+          const isGarbled = /^\w+\s+\d+px\|/.test(definition) || (/\|/.test(definition) && definition.length < 50);
+          if (isGarbled) definition = '';
+
+          const synonymWord = extractSynonym(definition);
+          if (synonymWord && synonymWord !== word) {
+            const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
+            return { ...resolved, originalWord: word, synonymOf: synonymWord };
+          }
+          return { partOfSpeech, definition, phonetic: '', audio: '' };
+        }
+      }
+    } catch (error) {
+      console.log(`Wiktionary API failed for "${word}"`);
+    }
+
+    return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
+  };
+
   // Fetch word definitions and generate summary when results change
   useEffect(() => {
-    // Helper to check if definition is a synonym reference and extract the synonym word
-    const extractSynonym = (definition) => {
-      if (!definition) return null;
-      const synonymPatterns = [
-        /^synonym of\s+["']?(\w+)["']?/i,
-        /^alternative form of\s+["']?(\w+)["']?/i,
-        /^variant of\s+["']?(\w+)["']?/i,
-        /^same as\s+["']?(\w+)["']?/i,
-        /^see\s+["']?(\w+)["']?/i,
-      ];
-      for (const pattern of synonymPatterns) {
-        const match = definition.match(pattern);
-        if (match) return match[1].toLowerCase();
-      }
-      return null;
-    };
-
-    // Helper to fetch definition for a single word
-    const fetchSingleDefinition = async (word, depth = 0) => {
-      if (depth > 2) return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
-
-      // Try Free Dictionary API first
-      try {
-        const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${word}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0] && data[0].meanings && data[0].meanings.length > 0) {
-            const meaning = data[0].meanings[0];
-            const partOfSpeech = meaning.partOfSpeech || '';
-            const definition = meaning.definitions[0]?.definition || '';
-
-            // Find phonetic text and audio from phonetics array
-            const phonetics = data[0].phonetics || [];
-            let phonetic = data[0].phonetic || '';
-            let audio = '';
-
-            // Look through phonetics for text and audio
-            for (const p of phonetics) {
-              if (!phonetic && p.text) phonetic = p.text;
-              if (!audio && p.audio) audio = p.audio;
-              if (phonetic && audio) break;
-            }
-
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition, phonetic, audio };
-          }
-        }
-      } catch (error) {
-        console.log(`Free Dictionary API failed for "${word}"`);
-      }
-
-      // Try Datamuse API as fallback
-      try {
-        const response = await fetch(`https://api.datamuse.com/words?sp=${word}&md=d&max=1`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data[0] && data[0].defs && data[0].defs.length > 0) {
-            const defParts = data[0].defs[0].split('\t');
-            const partOfSpeech = defParts[0] || '';
-            const definition = defParts[1] || '';
-
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition, phonetic: '', audio: '' };
-          }
-        }
-      } catch (error) {
-        console.log(`Datamuse API failed for "${word}"`);
-      }
-
-      // Try Wiktionary API as second fallback
-      try {
-        const response = await fetch(`https://en.wiktionary.org/api/rest_v1/page/definition/${word}`);
-        if (response.ok) {
-          const data = await response.json();
-          if (data && data.en && data.en.length > 0) {
-            const entry = data.en[0];
-            const partOfSpeech = entry.partOfSpeech || '';
-            let definition = entry.definitions?.[0]?.definition?.replace(/<[^>]*>/g, '') || '';
-
-            // Filter out garbled wiki markup
-            const isGarbled = /^\w+\s+\d+px\|/.test(definition) || (/\|/.test(definition) && definition.length < 50);
-            if (isGarbled) definition = '';
-
-            const synonymWord = extractSynonym(definition);
-            if (synonymWord && synonymWord !== word) {
-              const resolved = await fetchSingleDefinition(synonymWord, depth + 1);
-              return { ...resolved, originalWord: word, synonymOf: synonymWord };
-            }
-            return { partOfSpeech, definition, phonetic: '', audio: '' };
-          }
-        }
-      } catch (error) {
-        console.log(`Wiktionary API failed for "${word}"`);
-      }
-
-      return { partOfSpeech: '', definition: '', phonetic: '', audio: '' };
-    };
-
     const fetchDefinitions = async () => {
       if (!results || !results.input) {
         setWordDefinitions({});
