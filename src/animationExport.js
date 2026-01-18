@@ -6,7 +6,7 @@ const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
 const COLS = 9;
 const BASE_ROWS = 3;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const STROKE_WIDTH = 2;
+const STROKE_WIDTH = 1;
 
 const ROW_COLORS = {
   0: '#c41e3a',
@@ -1594,7 +1594,7 @@ export function generateMultiPhraseHtml(phrases) {
         const fill = isInPhrase ? color.hex : '#f8f8f4';
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="2" stroke-linejoin="round"/>\`;
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
         const textColor = isInPhrase ? '#ffffff' : '#000000';
