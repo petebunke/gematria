@@ -1105,7 +1105,7 @@ export function generateMultiPhraseHtml(phrases) {
 
   <script>
     // Async GIF encoder with proper color quantization (yields to browser to prevent timeout)
-    async function encodeGifAsync(frames, width, height, delay) {
+    async function encodeGifAsync(frames, width, height, delay, onProgress) {
       const buf = [];
       const write = (b) => buf.push(b);
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
@@ -1212,7 +1212,8 @@ export function generateMultiPhraseHtml(phrases) {
         }
         write(0x00);
 
-        // Yield after each frame to prevent browser timeout
+        // Yield after each frame and report progress
+        if (onProgress) onProgress(Math.round((f + 1) / frames.length * 100));
         await yieldToBrowser();
       }
 
@@ -2223,8 +2224,10 @@ export function generateMultiPhraseHtml(phrases) {
         render(); // Restore original render
 
         // Encode GIF using custom encoder (async to prevent browser timeout)
-        btn.textContent = 'ENC';
-        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay);
+        btn.textContent = 'ENC 0%';
+        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay, (pct) => {
+          btn.textContent = 'ENC ' + pct + '%';
+        });
 
         // Download
         const blob = new Blob([gifData], { type: 'image/gif' });
