@@ -2023,7 +2023,7 @@ export function generateMultiPhraseHtml(phrases) {
       }
 
       let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}">\`;
-      svgContent += \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#f8f8f4"/>\`;
+      svgContent += \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#ffffff"/>\`;
 
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
@@ -2154,9 +2154,9 @@ export function generateMultiPhraseHtml(phrases) {
           maxHeight = Math.max(maxHeight, dim.height);
         }
 
-        // Scale down large canvases for GIF (LZW can't handle millions of pixels)
+        // Scale if extremely large
         const maxDim = Math.max(maxWidth, maxHeight);
-        const scaleFactor = maxDim > 800 ? 800 / maxDim : 1;
+        const scaleFactor = maxDim > 2000 ? 2000 / maxDim : 1;
         const canvasWidth = Math.round(maxWidth * scaleFactor);
         const canvasHeight = Math.round(maxHeight * scaleFactor);
 
@@ -2180,7 +2180,7 @@ export function generateMultiPhraseHtml(phrases) {
             if (image.complete) done();
           });
 
-          ctx.fillStyle = '#f8f8f4';
+          ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvasWidth, canvasHeight);
           const sw = frameW * scaleFactor, sh = frameH * scaleFactor;
           try { ctx.drawImage(img, (canvasWidth - sw) / 2, (canvasHeight - sh) / 2, sw, sh); } catch(e) {}
