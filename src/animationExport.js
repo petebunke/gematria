@@ -2123,7 +2123,7 @@ export function generateMultiPhraseHtml(phrases) {
           maxHeight = Math.max(maxHeight, dim.height);
         }
 
-        const scaleFactor = 2;
+        const scaleFactor = 1;
         const canvasWidth = Math.round(maxWidth * scaleFactor);
         const canvasHeight = Math.round(maxHeight * scaleFactor);
 
