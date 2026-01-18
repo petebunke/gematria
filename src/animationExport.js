@@ -899,509 +899,971 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   return blob;
 }
 
-// Generate multi-phrase HTML with all modes, Auto cycling, dropdown selector
-// Full app-style UI with dark theme, white navbar, scrolling pattern backgrounds
+// Generate multi-phrase HTML with full UI matching the reference template
+// Includes: controls overlay, background pattern, zoom/pan, all modes, auto oscillation
 export function generateMultiPhraseHtml(phrases) {
-  // phrases is an array of { phrase, hebrew, english, simple, aiqBekar, source }
-  const modes = ['single', 'dual', 'quad', 'octa', 'cube'];
-  const modeLabels = { single: 'Single', dual: 'Dual', quad: 'Quad', octa: 'Octa', cube: 'Cube' };
-
-  // Pre-generate all frames for all phrases and all modes
-  const phrasesData = phrases.map(p => {
-    const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 111];
-    const frameSpeed = aikBekarToMs(combo[3] || 111);
-
-    // Generate frames for each mode
-    const modeFrames = {};
-    modes.forEach(mode => {
-      const frames = [];
-      for (let ci = 0; ci < CONFIG_KEYS.length; ci++) {
-        for (let v = 0; v < 2; v++) {
-          frames.push(generateModeSvgFrame(p.phrase, combo, ci, v, mode));
-        }
-      }
-      modeFrames[mode] = frames;
-    });
-
-    return {
-      phrase: p.phrase,
-      combo,
-      frameSpeed,
-      modeFrames
-    };
+  // Sort phrases by aik bekar first, then hebrew value
+  const sortedPhrases = [...phrases].sort((a, b) => {
+    const aAiq = a.aiqBekar || 0;
+    const bAiq = b.aiqBekar || 0;
+    if (aAiq !== bAiq) return aAiq - bAiq;
+    return a.hebrew - b.hebrew;
   });
 
-  // Generate a simple single-mode background pattern SVG for the scrolling columns
-  const bgPatternSvg = generateModeSvgFrame(phrases[0]?.phrase || 'GEMATRIA', [111, 666, 111, 111], 0, 0, 'single');
-  const bgPatternBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(bgPatternSvg)));
+  // Build phrase options for dropdown
+  const phraseOptions = sortedPhrases.map(p => {
+    const combo = `${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}`;
+    const displayPhrase = p.phrase.length > 25 ? p.phrase.slice(0, 22) + '...' : p.phrase;
+    return `<option value="${p.phrase}|${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || 111}">${displayPhrase} (${combo})</option>`;
+  }).join('\n        ');
+
+  const firstPhrase = sortedPhrases[0] || { phrase: 'gematria', hebrew: 111, english: 666, simple: 111, aiqBekar: 99 };
+  const firstCombo = [firstPhrase.hebrew, firstPhrase.english, firstPhrase.simple, firstPhrase.aiqBekar || 111];
 
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gematria Phrases</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Gematria Polyhedron Tessellation</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
-
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
     body {
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      background: #000;
-      min-height: 100vh;
-      overflow-x: hidden;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f0;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
     }
 
-    /* Scrolling pattern background */
-    .bg-pattern {
+    #backgroundSvg {
       position: fixed;
       top: 0;
       left: 0;
-      right: 0;
-      bottom: 0;
-      z-index: 0;
-      display: flex;
-      gap: 20px;
-      padding: 0 20px;
-      overflow: hidden;
-      opacity: 0.08;
-      pointer-events: none;
-    }
-
-    .pattern-column {
-      flex: 1;
-      background-image: url('${bgPatternBase64}');
-      background-size: 160px auto;
-      background-repeat: repeat-y;
-      animation: scrollPattern 30s linear infinite;
-    }
-
-    .pattern-column:nth-child(even) {
-      animation-direction: reverse;
-      animation-duration: 25s;
-    }
-
-    .pattern-column:nth-child(3n) {
-      animation-duration: 35s;
-    }
-
-    @keyframes scrollPattern {
-      0% { background-position-y: 0; }
-      100% { background-position-y: 1000px; }
-    }
-
-    /* Main container */
-    .main-container {
-      position: relative;
-      z-index: 1;
-      max-width: 900px;
-      margin: 0 auto;
-      padding: 20px;
-      min-height: 100vh;
-      display: flex;
-      flex-direction: column;
-    }
-
-    /* White control card */
-    .control-card {
-      background: #fff;
-      border-radius: 12px;
-      padding: 20px;
-      margin-bottom: 20px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-    }
-
-    .card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 16px;
-      padding-bottom: 16px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-
-    .card-header h1 {
-      color: #dc2626;
-      font-size: 20px;
-      font-weight: 700;
-    }
-
-    .card-header .phrase-count {
-      color: #6b7280;
-      font-size: 12px;
-      margin-left: auto;
-    }
-
-    /* Phrase selector */
-    .phrase-selector {
-      margin-bottom: 16px;
-    }
-
-    .phrase-selector label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 6px;
-    }
-
-    .phrase-selector select {
       width: 100%;
-      padding: 10px 12px;
-      font-size: 14px;
-      border: 2px solid #e5e7eb;
-      border-radius: 8px;
-      background: #fff;
-      cursor: pointer;
-      color: #111827;
-      transition: border-color 0.2s;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.3;
     }
 
-    .phrase-selector select:focus {
-      outline: none;
-      border-color: #dc2626;
-    }
-
-    /* Combo display */
-    .combo-display {
-      background: #f9fafb;
-      border-radius: 8px;
-      padding: 12px;
-      margin-bottom: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .combo-display .phrase-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #111827;
-    }
-
-    .combo-display .combo-values {
-      font-size: 14px;
-      font-weight: 600;
-      color: #dc2626;
-      font-family: monospace;
-    }
-
-    /* Mode buttons */
-    .mode-section {
-      margin-bottom: 16px;
-    }
-
-    .mode-section label {
-      display: block;
-      font-size: 12px;
-      font-weight: 600;
-      color: #374151;
-      margin-bottom: 8px;
-    }
-
-    .mode-buttons {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
-
-    .mode-btn {
+    .controls-overlay {
+      background: rgba(255,255,255,0.95);
+      border-bottom: 2px solid #333;
       padding: 8px 16px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      border: 2px solid #dc2626;
-      border-radius: 6px;
-      background: #fff;
-      color: #dc2626;
-      transition: all 0.2s;
-    }
-
-    .mode-btn:hover {
-      background: #fef2f2;
-    }
-
-    .mode-btn.active {
-      background: #dc2626;
-      color: #fff;
-    }
-
-    /* Auto button */
-    .controls-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .auto-btn {
-      padding: 10px 20px;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      border: none;
-      border-radius: 6px;
-      background: #dc2626;
-      color: #fff;
-      transition: all 0.2s;
-    }
-
-    .auto-btn:hover {
-      background: #b91c1c;
-    }
-
-    .auto-btn.active {
-      background: #059669;
-    }
-
-    .mode-label {
-      font-size: 13px;
-      color: #6b7280;
-    }
-
-    /* Animation container */
-    .animation-wrapper {
-      flex: 1;
-      background: #18181b;
-      border-radius: 12px;
-      border: 1px solid #27272a;
-      overflow: hidden;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 300px;
-    }
-
-    #animation {
       width: 100%;
-      max-width: 100%;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .control-label {
+      font-size: 9px;
+      color: #666;
+      text-transform: uppercase;
+    }
+
+    select, button, input {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      color: #333;
+      padding: 4px 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    select:focus, input:focus {
+      border-color: #6b5b95;
+    }
+
+    input[type="number"] {
+      width: 60px;
+    }
+
+    button {
+      background: #6b5b95;
+      border-color: #6b5b95;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #5a4a84; }
+    button.secondary {
+      background: #fff;
+      color: #6b5b95;
+      border-color: #6b5b95;
+    }
+
+    .info-display {
+      font-family: monospace;
+      font-size: 10px;
+      background: #f0f0e8;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .tessellation-container {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
+      overflow: hidden;
+      touch-action: none;
       padding: 20px;
+      cursor: grab;
     }
 
-    #animation svg {
-      display: block;
-      max-width: 100%;
-      height: auto;
-    }
-
-    /* Footer */
-    .footer {
-      text-align: center;
-      padding: 16px;
-      color: #6b7280;
-      font-size: 12px;
-    }
-
-    /* Responsive */
-    @media (max-width: 640px) {
-      .main-container {
-        padding: 12px;
-      }
-      .control-card {
-        padding: 16px;
-      }
-      .mode-btn {
-        padding: 6px 12px;
-        font-size: 12px;
-      }
+    #tessellationSvg {
+      width: 800px;
+      height: 600px;
+      touch-action: none;
+      border: 2px solid #333;
+      background: #f8f8f4;
     }
   </style>
 </head>
 <body>
-  <!-- Scrolling pattern background columns -->
-  <div class="bg-pattern">
-    <div class="pattern-column"></div>
-    <div class="pattern-column"></div>
-    <div class="pattern-column"></div>
-    <div class="pattern-column"></div>
-    <div class="pattern-column"></div>
+  <svg id="backgroundSvg" preserveAspectRatio="xMidYMid slice"></svg>
+  <div class="controls-overlay">
+    <div class="control-group">
+      <span class="control-label">Phrase</span>
+      <select id="phraseSelect">
+        ${phraseOptions}
+      </select>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Mode</span>
+      <select id="displayMode">
+        <option value="single" selected>Single</option>
+        <option value="dual">Duo</option>
+        <option value="quad">Quad</option>
+        <option value="octa">Octa</option>
+        <option value="square">Square</option>
+        <option value="rectangle">Rectangle</option>
+        <option value="cube">Cube</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Config</span>
+      <span class="info-display" id="configName">a-*-z</span>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Var</span>
+      <span class="info-display" id="variationName" style="width: 52px; text-align: center;">Normal</span>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Speed</span>
+      <input type="number" id="frameSpeed" value="666" min="1" max="9999" step="1">
+      <span class="control-label">ms</span>
+    </div>
+
+    <div class="control-group">
+      <button id="playPause" style="width: 32px;">⏸</button>
+      <button id="prevVar" class="secondary">◀</button>
+      <button id="nextVar" class="secondary">▶</button>
+      <button id="loopBtn" class="secondary">LOOP</button>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Auto</span>
+      <button id="oscToggle" class="secondary">OFF</button>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Zoom</span>
+      <span class="info-display" id="zoomLevel">100%</span>
+    </div>
   </div>
 
-  <div class="main-container">
-    <!-- Control Card -->
-    <div class="control-card">
-      <div class="card-header">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
-          <line x1="8" y1="6" x2="16" y2="6"></line>
-          <line x1="8" y1="10" x2="16" y2="10"></line>
-          <line x1="8" y1="14" x2="12" y2="14"></line>
-        </svg>
-        <h1>Gematria Phrases</h1>
-        <span class="phrase-count">${phrases.length} phrases</span>
-      </div>
-
-      <div class="phrase-selector">
-        <label>Select Phrase</label>
-        <select id="phraseSelect">
-          ${phrases.map((p, i) => `<option value="${i}">${p.phrase} (${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'})</option>`).join('')}
-        </select>
-      </div>
-
-      <div class="combo-display">
-        <span class="phrase-title" id="phraseTitle">${phrases[0]?.phrase || 'No phrases'}</span>
-        <span class="combo-values" id="comboDisplay">${phrases[0]?.hebrew || 111}/${phrases[0]?.english || 666}/${phrases[0]?.simple || 111}/${phrases[0]?.aiqBekar || '-'}</span>
-      </div>
-
-      <div class="mode-section">
-        <label>Display Mode</label>
-        <div class="mode-buttons">
-          <button class="mode-btn active" data-mode="single">Single</button>
-          <button class="mode-btn" data-mode="dual">Dual</button>
-          <button class="mode-btn" data-mode="quad">Quad</button>
-          <button class="mode-btn" data-mode="octa">Octa</button>
-          <button class="mode-btn" data-mode="cube">Cube</button>
-        </div>
-      </div>
-
-      <div class="controls-row">
-        <button id="autoBtn" class="auto-btn active">Auto: On</button>
-        <span class="mode-label" id="modeLabel">Mode: Single</span>
-      </div>
-    </div>
-
-    <!-- Animation Display -->
-    <div class="animation-wrapper">
-      <div id="animation"></div>
-    </div>
-
-    <div class="footer">
-      Generated by Gematria Generator
-    </div>
+  <div class="tessellation-container" id="container">
+    <svg id="tessellationSvg" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
 
   <script>
-    const phrasesData = ${JSON.stringify(phrasesData)};
-    const modes = ['single', 'dual', 'quad', 'octa', 'cube'];
-    const modeLabels = { single: 'Single', dual: 'Dual', quad: 'Quad', octa: 'Octa', cube: 'Cube' };
+    // Constants
+    const TRI_SIZE = 32;
+    const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
+    const COLS = 9;
+    const BASE_ROWS = 3;
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 
-    let currentPhraseIndex = 0;
-    let currentModeIndex = 0;
-    let currentFrame = 0;
-    let frameDirection = 1;
-    let modeDirection = 1;
-    let isAutoMode = true;
-    let timer = null;
+    const ROW_COLORS = {
+      0: '#c41e3a',
+      1: '#2e8b57',
+      2: '#1e4d8c'
+    };
 
-    const animationDiv = document.getElementById('animation');
-    const autoBtn = document.getElementById('autoBtn');
-    const phraseSelect = document.getElementById('phraseSelect');
-    const phraseTitle = document.getElementById('phraseTitle');
-    const comboDisplay = document.getElementById('comboDisplay');
-    const modeLabel = document.getElementById('modeLabel');
-    const modeButtons = document.querySelectorAll('.mode-btn');
+    const CONFIGS = {
+      'a-*-z': {
+        name: 'a-*-z',
+        getSymbol: (pos) => {
+          if (pos < 13) return ALPHABET[pos];
+          if (pos === 13) return '*';
+          return ALPHABET[pos - 1];
+        }
+      },
+      '*-a-z': {
+        name: '*-a-z',
+        getSymbol: (pos) => {
+          if (pos === 0) return '*';
+          return ALPHABET[pos - 1];
+        }
+      },
+      'a-z-*': {
+        name: 'a-z-*',
+        getSymbol: (pos) => {
+          if (pos === 26) return '*';
+          return ALPHABET[pos];
+        }
+      },
+      'z-*-a': {
+        name: 'z-*-a',
+        getSymbol: (pos) => {
+          if (pos < 13) return ALPHABET[25 - pos];
+          if (pos === 13) return '*';
+          return ALPHABET[25 - (pos - 1)];
+        }
+      },
+      '*-z-a': {
+        name: '*-z-a',
+        getSymbol: (pos) => {
+          if (pos === 0) return '*';
+          return ALPHABET[26 - pos];
+        }
+      },
+      'z-a-*': {
+        name: 'z-a-*',
+        getSymbol: (pos) => {
+          if (pos === 26) return '*';
+          return ALPHABET[25 - pos];
+        }
+      }
+    };
 
-    function getCurrentMode() {
-      return modes[currentModeIndex];
+    const CONFIG_KEYS = Object.keys(CONFIGS);
+
+    // State
+    let currentPhrase = ${JSON.stringify(firstPhrase.phrase)};
+    let currentCombo = ${JSON.stringify(firstCombo)};
+    let currentConfigIndex = 0;
+    let currentVariation = 0;
+    let isPlaying = true;
+    let animationTimer = null;
+    let frameSpeed = 666;
+    let displayMode = 'single';
+    let configDirection = 1;
+    let loopMode = 0;
+    let oscActive = false;
+
+    // Zoom and pan state
+    let scale = 0.5;
+    let panX = 0;
+    let panY = 0;
+    let initialDistance = 0;
+    let initialScale = 1;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartPanX = 0;
+    let dragStartPanY = 0;
+
+    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'cube'];
+    let oscModeDirection = 1;
+
+    function isLetterInPhrase(symbol, letterData) {
+      return symbol !== '*' && (letterData.freq[symbol] || 0) > 0;
     }
 
-    function getCurrentPhraseData() {
-      return phrasesData[currentPhraseIndex];
+    function getLetterFrequency(phrase) {
+      const freq = {};
+      const cleanPhrase = phrase.toUpperCase().replace(/[^A-Z]/g, '');
+      for (const char of cleanPhrase) {
+        freq[char] = (freq[char] || 0) + 1;
+      }
+      const maxFreq = Math.max(...Object.values(freq), 1);
+      return { freq, maxFreq, totalLetters: cleanPhrase.length };
     }
 
-    function getCurrentFrames() {
-      const data = getCurrentPhraseData();
-      return data.modeFrames[getCurrentMode()];
+    function getLetterOpacity(symbol, letterData) {
+      if (symbol === '*') return 0.15;
+      const { freq, maxFreq } = letterData;
+      const count = freq[symbol] || 0;
+      if (count === 0) return 0.15;
+      return 0.3 + (count / maxFreq) * 0.7;
+    }
+
+    function comboToCMYK(combo) {
+      const toPercent = (val) => Math.round((val % 1000) / 10);
+      return {
+        c: toPercent(combo[0]),
+        m: toPercent(combo[1]),
+        y: toPercent(combo[2]),
+        k: toPercent(combo[3])
+      };
+    }
+
+    function cmykToRgb(c, m, y, k) {
+      c /= 100; m /= 100; y /= 100; k /= 100;
+      return {
+        r: Math.round(255 * (1 - c) * (1 - k)),
+        g: Math.round(255 * (1 - m) * (1 - k)),
+        b: Math.round(255 * (1 - y) * (1 - k))
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getColor() {
+      const cmyk = comboToCMYK(currentCombo);
+      const rgb = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+      return { cmyk, rgb, hex: rgbToHex(rgb.r, rgb.g, rgb.b) };
+    }
+
+    function generateBasePolyhedron() {
+      const triangles = [];
+      for (let row = 0; row < BASE_ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          triangles.push({
+            row, col,
+            pointing: col % 2 === 0 ? 'up' : 'down',
+            index: row * COLS + col,
+            polyhedronRow: row
+          });
+        }
+      }
+      return triangles;
+    }
+
+    function buildSingle(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const xFlipRows = [0, 2];
+      base.forEach(t => {
+        const x = t.col * (TRI_SIZE / 2);
+        const y = t.row * TRI_HEIGHT;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(t.row)) pointing = pointing === 'up' ? 'down' : 'up';
+        pointing = pointing === 'up' ? 'down' : 'up';
+        let letterIndex = t.index;
+        let letterRow = t.polyhedronRow;
+        if (variation === 1) {
+          const flippedRow = BASE_ROWS - 1 - t.row;
+          letterIndex = flippedRow * COLS + t.col;
+          letterRow = flippedRow;
+        }
+        allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+      });
+      return allTriangles;
+    }
+
+    function buildDualStacked(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const xFlipRows = [1, 3, 5];
+      base.forEach(t => {
+        const x = t.col * (TRI_SIZE / 2);
+        const y = t.row * TRI_HEIGHT;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(t.row)) pointing = pointing === 'up' ? 'down' : 'up';
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
+        allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+      });
+      base.forEach(t => {
+        const mirroredRow = BASE_ROWS - 1 - t.row;
+        const x = t.col * (TRI_SIZE / 2);
+        const finalRow = BASE_ROWS + mirroredRow;
+        const y = finalRow * TRI_HEIGHT;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(finalRow)) pointing = pointing === 'up' ? 'down' : 'up';
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
+        allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+      });
+      return allTriangles;
+    }
+
+    function buildQuadMirrored(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const xFlipRows = [0, 2, 4];
+      const columns = [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+      columns.forEach(({ colIndex, yMirror }) => {
+        base.forEach(t => {
+          let col = t.col, pointing = t.pointing;
+          let row = variation === 0 ? t.row : BASE_ROWS - 1 - t.row;
+          let polyRow = variation === 0 ? t.polyhedronRow : BASE_ROWS - 1 - t.polyhedronRow;
+          if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+          if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = row * TRI_HEIGHT;
+          allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
+        });
+        base.forEach(t => {
+          let col = t.col, pointing = t.pointing, row, polyRow;
+          if (variation === 0) {
+            const mirroredRow = BASE_ROWS - 1 - t.row;
+            row = BASE_ROWS + mirroredRow;
+            polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+          } else {
+            row = BASE_ROWS + t.row;
+            polyRow = t.polyhedronRow;
+          }
+          if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+          if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = row * TRI_HEIGHT;
+          allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
+        });
+      });
+      return allTriangles;
+    }
+
+    function buildOcta(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const xFlipRows = [0, 2, 4];
+      const GAP = 0;
+      const quadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }
+      ];
+      quadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+        const quadXOffset = qCol * quadWidth;
+        const quadYOffset = qRow * (quadHeight + GAP);
+        let columns;
+        if (xFlipAll) {
+          columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+                             : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
+        } else {
+          columns = yFlipAll ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+                             : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+        }
+        columns.forEach(({ colIndex, yMirror }) => {
+          base.forEach(t => {
+            let col = t.col, pointing = t.pointing;
+            let row = variation === 0 ? t.row : BASE_ROWS - 1 - t.row;
+            let polyRow = variation === 0 ? t.polyhedronRow : BASE_ROWS - 1 - t.polyhedronRow;
+            if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+            if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+            if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
+            allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
+          });
+          base.forEach(t => {
+            let col = t.col, pointing = t.pointing, row, polyRow;
+            if (variation === 0) {
+              const mirroredRow = BASE_ROWS - 1 - t.row;
+              row = BASE_ROWS + mirroredRow;
+              polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+            } else {
+              row = BASE_ROWS + t.row;
+              polyRow = t.polyhedronRow;
+            }
+            if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+            if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+            if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
+            allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
+          });
+        });
+      });
+      return allTriangles;
+    }
+
+    function buildSquare(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const xFlipRows = [0, 2, 4];
+      const GAP = 0;
+      const octaHalves = [{ halfRow: 0, globalXFlip: true }, { halfRow: 1, globalXFlip: false }];
+      const octaQuadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }
+      ];
+      const octaHeight = quadHeight * 2 + GAP;
+      octaHalves.forEach(({ halfRow, globalXFlip }) => {
+        const halfYOffset = halfRow * (octaHeight + GAP);
+        octaQuadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+          const quadXOffset = qCol * quadWidth;
+          const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
+          const combinedXFlip = xFlipAll !== globalXFlip;
+          let columns;
+          if (combinedXFlip) {
+            columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+                               : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
+          } else {
+            columns = yFlipAll ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+                               : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+          }
+          columns.forEach(({ colIndex, yMirror }) => {
+            base.forEach(t => {
+              let col = t.col, pointing = t.pointing;
+              let row = variation === 0 ? t.row : BASE_ROWS - 1 - t.row;
+              let polyRow = variation === 0 ? t.polyhedronRow : BASE_ROWS - 1 - t.polyhedronRow;
+              if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+              if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+              if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+              if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+              allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
+            });
+            base.forEach(t => {
+              let col = t.col, pointing = t.pointing, row, polyRow;
+              if (variation === 0) {
+                const mirroredRow = BASE_ROWS - 1 - t.row;
+                row = BASE_ROWS + mirroredRow;
+                polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+              } else {
+                row = BASE_ROWS + t.row;
+                polyRow = t.polyhedronRow;
+              }
+              if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+              if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+              if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+              if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+              allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
+            });
+          });
+        });
+      });
+      return allTriangles;
+    }
+
+    function buildRectangle(variation) {
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const squareWidth = polyWidth * 4;
+      for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
+        const squareTriangles = buildSquare(variation);
+        const xOffset = gridIndex * (squareWidth + GAP);
+        const shouldXFlip = gridIndex % 2 === 1;
+        squareTriangles.forEach(tri => {
+          let newPointing = tri.pointing;
+          if (shouldXFlip) newPointing = tri.pointing === 'up' ? 'down' : 'up';
+          allTriangles.push({ ...tri, x: tri.x + xOffset, y: tri.y, pointing: newPointing, gridIndex });
+        });
+      }
+      return allTriangles;
+    }
+
+    function buildCube(variation) {
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+      const squareHeight = octaHeight * 2 + GAP;
+      const rectangleHeight = squareHeight;
+      for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+        const rectangleTriangles = buildRectangle(variation);
+        const yOffset = rowIndex * (rectangleHeight + GAP);
+        const shouldXFlip = rowIndex % 2 === 0;
+        rectangleTriangles.forEach(tri => {
+          let newPointing = tri.pointing;
+          if (shouldXFlip) newPointing = tri.pointing === 'up' ? 'down' : 'up';
+          allTriangles.push({ ...tri, x: tri.x, y: tri.y + yOffset, pointing: newPointing, rowIndex });
+        });
+      }
+      return allTriangles;
+    }
+
+    function getTrianglePath(x, y, pointing) {
+      const halfWidth = TRI_SIZE / 2;
+      if (pointing === 'up') {
+        return \`M \${x} \${y + TRI_HEIGHT} L \${x + halfWidth} \${y} L \${x + TRI_SIZE} \${y + TRI_HEIGHT} Z\`;
+      } else {
+        return \`M \${x} \${y} L \${x + TRI_SIZE} \${y} L \${x + halfWidth} \${y + TRI_HEIGHT} Z\`;
+      }
+    }
+
+    function aikBekarToMs(value) {
+      if (value <= 0) return 666;
+      const str = value.toString();
+      const mirroredDigits = str.split('').map(d => {
+        const digit = parseInt(d);
+        if (digit === 0 || digit === 5) return digit;
+        return 10 - digit;
+      });
+      const mirroredNum = parseInt(mirroredDigits.join(''));
+      const numDigits = str.length;
+      if (numDigits === 1) return mirroredNum * 1111;
+      else if (numDigits === 2) return mirroredNum * 10 + mirroredDigits[mirroredDigits.length - 1];
+      else return mirroredNum / Math.pow(10, numDigits - 2);
     }
 
     function render() {
-      const frames = getCurrentFrames();
-      if (frames && frames[currentFrame]) {
-        animationDiv.innerHTML = frames[currentFrame];
-      }
-    }
+      const svg = document.getElementById('tessellationSvg');
+      const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
 
-    function updateModeButtons() {
-      modeButtons.forEach(btn => {
-        btn.classList.toggle('active', btn.dataset.mode === getCurrentMode());
+      document.getElementById('configName').textContent = config.name;
+      document.getElementById('variationName').textContent = currentVariation === 0 ? 'Normal' : 'Inverted';
+      document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+
+      let triangles, totalWidth, totalHeight;
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+
+      if (displayMode === 'single') {
+        triangles = buildSingle(currentVariation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * TRI_HEIGHT;
+      } else if (displayMode === 'dual') {
+        triangles = buildDualStacked(currentVariation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (displayMode === 'cube') {
+        triangles = buildCube(currentVariation);
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight * 4 + GAP * 3;
+      } else if (displayMode === 'rectangle') {
+        triangles = buildRectangle(currentVariation);
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight;
+      } else if (displayMode === 'square') {
+        triangles = buildSquare(currentVariation);
+        totalWidth = polyWidth * 4;
+        totalHeight = octaHeight * 2 + GAP;
+      } else if (displayMode === 'octa') {
+        triangles = buildOcta(currentVariation);
+        totalWidth = polyWidth * 4;
+        totalHeight = quadHeight * 2 + GAP;
+      } else {
+        triangles = buildQuadMirrored(currentVariation);
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      }
+
+      const viewWidth = totalWidth / scale;
+      const viewHeight = totalHeight / scale;
+      const viewX = (totalWidth - viewWidth) / 2 + panX;
+      const viewY = (totalHeight - viewHeight) / 2 + panY;
+      svg.setAttribute('viewBox', \`\${viewX} \${viewY} \${viewWidth} \${viewHeight}\`);
+
+      let svgContent = \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#f8f8f4"/>\`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
       });
-      modeLabel.textContent = 'Mode: ' + modeLabels[getCurrentMode()];
-    }
 
-    function updateDisplay() {
-      const data = getCurrentPhraseData();
-      if (data) {
-        phraseTitle.textContent = data.phrase;
-        const combo = data.combo;
-        comboDisplay.textContent = combo[0] + '/' + combo[1] + '/' + combo[2] + '/' + (combo[3] || '-');
-      }
-      currentFrame = 0;
-      frameDirection = 1;
-      updateModeButtons();
-      render();
+      svg.innerHTML = svgContent;
     }
 
     function animate() {
-      const data = getCurrentPhraseData();
-      const frames = getCurrentFrames();
-      if (!data || !frames) return;
+      if (!isPlaying) return;
+      const varCount = 2;
+      let configChanged = false;
+      let newConfigIndex = currentConfigIndex;
 
-      currentFrame += frameDirection;
+      currentVariation += configDirection;
+      if (currentVariation >= varCount) {
+        currentVariation = 0;
+        newConfigIndex = currentConfigIndex + configDirection;
+        configChanged = true;
+      } else if (currentVariation < 0) {
+        currentVariation = varCount - 1;
+        newConfigIndex = currentConfigIndex + configDirection;
+        configChanged = true;
+      }
 
-      if (currentFrame >= frames.length) {
-        frameDirection = -1;
-        currentFrame = frames.length - 2;
+      if (configChanged) {
+        if (newConfigIndex >= CONFIG_KEYS.length || newConfigIndex < 0) {
+          if (loopMode === 0) {
+            const wasGoingBackward = configDirection === -1;
+            configDirection *= -1;
+            newConfigIndex = currentConfigIndex + configDirection;
+            currentVariation += configDirection * 2;
+            if (currentVariation < 0) currentVariation = varCount - 1;
+            if (currentVariation >= varCount) currentVariation = 0;
 
-        // Auto mode: advance to next mode when animation cycle completes
-        if (isAutoMode) {
-          currentModeIndex += modeDirection;
-          if (currentModeIndex >= modes.length) {
-            modeDirection = -1;
-            currentModeIndex = modes.length - 2;
-          } else if (currentModeIndex < 0) {
-            modeDirection = 1;
-            currentModeIndex = 1;
+            if (oscActive && wasGoingBackward) {
+              const currentModeIndex = MODE_ORDER.indexOf(displayMode);
+              let nextModeIndex = currentModeIndex + oscModeDirection;
+              if (nextModeIndex >= MODE_ORDER.length || nextModeIndex < 0) {
+                oscModeDirection *= -1;
+                nextModeIndex = currentModeIndex + oscModeDirection;
+              }
+              displayMode = MODE_ORDER[nextModeIndex];
+              document.getElementById('displayMode').value = displayMode;
+              currentVariation = 0;
+              panX = 0;
+              panY = 0;
+              if (displayMode === 'rectangle' || displayMode === 'cube') scale = 0.75;
+            }
+          } else {
+            newConfigIndex = (newConfigIndex + CONFIG_KEYS.length) % CONFIG_KEYS.length;
           }
-          updateModeButtons();
         }
-      } else if (currentFrame < 0) {
-        frameDirection = 1;
-        currentFrame = 1;
+        currentConfigIndex = newConfigIndex;
       }
 
       render();
-      timer = setTimeout(animate, data.frameSpeed);
+      animationTimer = setTimeout(animate, frameSpeed);
     }
 
-    function stopAnimation() {
-      if (timer) {
-        clearTimeout(timer);
-        timer = null;
+    // Background
+    let bgColumns = [];
+    let bgTileHeight = 0;
+    let bgAnimationId = null;
+    let bgLastTime = 0;
+
+    function renderBackground() {
+      const bgSvg = document.getElementById('backgroundSvg');
+      const config = CONFIGS[CONFIG_KEYS[0]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+      const triangles = buildQuadMirrored(0);
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const tileWidth = polyWidth * 2;
+      bgTileHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const tilesX = Math.ceil(screenWidth / tileWidth) + 2;
+      const tilesY = Math.ceil(screenHeight / bgTileHeight) + 3;
+      const totalWidth = tilesX * tileWidth;
+      bgSvg.setAttribute('viewBox', \`0 0 \${totalWidth} \${screenHeight}\`);
+
+      let tileContent = '';
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        tileContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#999" stroke-width="0.5"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        tileContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity * 0.7}">\${symbol}</text>\`;
+      });
+
+      let svgContent = \`<rect x="0" y="0" width="\${totalWidth}" height="\${screenHeight}" fill="#f5f5f0"/>\`;
+      svgContent += \`<defs><g id="tile">\${tileContent}</g></defs>\`;
+
+      const totalColumnHeight = tilesY * bgTileHeight;
+      if (bgColumns.length !== tilesX) {
+        bgColumns = [];
+        const staggerOffset = totalColumnHeight / 3;
+        for (let col = 0; col < tilesX; col++) {
+          const goingUp = col % 2 === 0;
+          const yFlip = col % 2 === 1;
+          const baseOffset = goingUp ? 0 : -bgTileHeight;
+          const stagger = (col % 2) * staggerOffset;
+          bgColumns.push({ direction: goingUp ? -1 : 1, offset: baseOffset - stagger, yFlip, xPos: col * tileWidth, tileWidth });
+        }
+      }
+
+      for (let col = 0; col < tilesX; col++) {
+        const xPos = col * tileWidth;
+        const yFlip = col % 2 === 1;
+        const flipTransform = yFlip ? \`translate(\${2 * xPos + tileWidth}, 0) scale(-1, 1)\` : '';
+        svgContent += \`<g id="bgCol\${col}" \${yFlip ? \`transform="\${flipTransform}"\` : ''}>\`;
+        for (let row = -1; row < tilesY; row++) {
+          svgContent += \`<use href="#tile" x="\${xPos}" y="\${row * bgTileHeight}"/>\`;
+        }
+        svgContent += '</g>';
+      }
+      bgSvg.innerHTML = svgContent;
+
+      if (!bgAnimationId) {
+        bgLastTime = performance.now();
+        bgAnimationId = requestAnimationFrame(animateBackground);
       }
     }
 
-    function startAnimation() {
-      stopAnimation();
-      animate();
+    function animateBackground(currentTime) {
+      const deltaTime = currentTime - bgLastTime;
+      bgLastTime = currentTime;
+      const scrollSpeed = bgTileHeight / (Math.max(3, frameSpeed / 20) * 8000);
+      bgColumns.forEach((col, i) => {
+        col.offset += col.direction * scrollSpeed * deltaTime;
+        if (col.offset <= -bgTileHeight) col.offset += bgTileHeight;
+        if (col.offset >= 0) col.offset -= bgTileHeight;
+        const colEl = document.getElementById('bgCol' + i);
+        if (colEl) {
+          if (col.yFlip) colEl.setAttribute('transform', \`translate(\${2 * col.xPos + col.tileWidth}, \${col.offset}) scale(-1, 1)\`);
+          else colEl.setAttribute('transform', \`translate(0, \${col.offset})\`);
+        }
+      });
+      bgAnimationId = requestAnimationFrame(animateBackground);
     }
 
-    autoBtn.addEventListener('click', () => {
-      isAutoMode = !isAutoMode;
-      autoBtn.textContent = isAutoMode ? 'Auto: On' : 'Auto: Off';
-      autoBtn.classList.toggle('active', isAutoMode);
+    // Event handlers
+    document.getElementById('playPause').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('playPause').textContent = isPlaying ? '⏸' : '▶';
+      if (isPlaying) animate();
+      else if (animationTimer) clearTimeout(animationTimer);
     });
 
-    modeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const newMode = btn.dataset.mode;
-        currentModeIndex = modes.indexOf(newMode);
-        currentFrame = 0;
-        frameDirection = 1;
-        updateModeButtons();
+    document.getElementById('prevVar').addEventListener('click', () => {
+      const total = CONFIG_KEYS.length * 2;
+      let idx = currentConfigIndex * 2 + currentVariation - 1;
+      idx = ((idx % total) + total) % total;
+      currentConfigIndex = Math.floor(idx / 2);
+      currentVariation = idx % 2;
+      render();
+    });
+
+    document.getElementById('nextVar').addEventListener('click', () => {
+      const total = CONFIG_KEYS.length * 2;
+      let idx = currentConfigIndex * 2 + currentVariation + 1;
+      idx = idx % total;
+      currentConfigIndex = Math.floor(idx / 2);
+      currentVariation = idx % 2;
+      render();
+    });
+
+    document.getElementById('loopBtn').addEventListener('click', () => {
+      loopMode = (loopMode + 1) % 3;
+      const btn = document.getElementById('loopBtn');
+      if (loopMode === 0) { btn.textContent = 'LOOP'; btn.style.background = ''; btn.style.color = ''; configDirection = 1; }
+      else if (loopMode === 1) { btn.textContent = 'LOOP 1'; btn.style.background = '#6b5b95'; btn.style.color = '#fff'; configDirection = 1; if (oscActive) stopOsc(); }
+      else { btn.textContent = 'LOOP 2'; btn.style.background = '#6b5b95'; btn.style.color = '#fff'; configDirection = -1; if (oscActive) stopOsc(); }
+    });
+
+    function startOsc() {
+      oscModeDirection = 1;
+      oscActive = true;
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'ON';
+      btn.style.background = '#6b5b95';
+      btn.style.color = '#fff';
+      loopMode = 0;
+      configDirection = 1;
+      document.getElementById('loopBtn').textContent = 'LOOP';
+      document.getElementById('loopBtn').style.background = '';
+      document.getElementById('loopBtn').style.color = '';
+      if (!isPlaying) { isPlaying = true; document.getElementById('playPause').textContent = '⏸'; animate(); }
+    }
+
+    function stopOsc() {
+      oscActive = false;
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'OFF';
+      btn.style.background = '';
+      btn.style.color = '';
+    }
+
+    document.getElementById('oscToggle').addEventListener('click', () => { if (oscActive) stopOsc(); else startOsc(); });
+
+    document.getElementById('phraseSelect').addEventListener('change', (e) => {
+      const [phrase, combo] = e.target.value.split('|');
+      currentPhrase = phrase;
+      currentCombo = combo.split('/').map(Number);
+      const aikBekarValue = currentCombo[currentCombo.length - 1];
+      frameSpeed = aikBekarToMs(aikBekarValue);
+      document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toPrecision(4));
+      render();
+      renderBackground();
+    });
+
+    document.getElementById('displayMode').addEventListener('change', (e) => {
+      displayMode = e.target.value;
+      currentVariation = 0;
+      panX = 0; panY = 0;
+      if (displayMode === 'rectangle' || displayMode === 'cube') scale = 0.75;
+      render();
+    });
+
+    document.getElementById('frameSpeed').addEventListener('input', (e) => {
+      frameSpeed = Math.min(9999, Math.max(1, parseFloat(e.target.value) || 666));
+      if (isPlaying && animationTimer) { clearTimeout(animationTimer); animationTimer = setTimeout(animate, frameSpeed); }
+    });
+
+    // Zoom and pan
+    const container = document.getElementById('container');
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const minZoom = (displayMode === 'rectangle' || displayMode === 'cube') ? 0.75 : 0.25;
+      scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
+      render();
+    }, { passive: false });
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) { isDragging = true; dragStartX = e.clientX; dragStartY = e.clientY; dragStartPanX = panX; dragStartPanY = panY; container.style.cursor = 'grabbing'; }
+    });
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const svg = document.getElementById('tessellationSvg');
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const scaleX = viewBox[2] / rect.width;
+        const scaleY = viewBox[3] / rect.height;
+        panX = dragStartPanX - (e.clientX - dragStartX) * scaleX;
+        panY = dragStartPanY - (e.clientY - dragStartY) * scaleY;
         render();
-      });
+      }
     });
+    document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; container.style.cursor = ''; } });
 
-    phraseSelect.addEventListener('change', (e) => {
-      currentPhraseIndex = parseInt(e.target.value);
-      updateDisplay();
-    });
+    window.addEventListener('resize', () => { render(); renderBackground(); });
 
-    // Initial render and start animation
-    updateDisplay();
-    startAnimation();
-  </script>
+    // Init
+    const initialAikBekar = currentCombo[currentCombo.length - 1];
+    frameSpeed = aikBekarToMs(initialAikBekar);
+    document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toPrecision(4));
+    render();
+    renderBackground();
+    animate();
+  <\/script>
 </body>
 </html>`;
 
