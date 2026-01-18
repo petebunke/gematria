@@ -1996,14 +1996,27 @@ export function generateMultiPhraseHtml(phrases) {
           const savedMode = displayMode;
           const savedConfig = currentConfigIndex;
           const savedVar = currentVariation;
+          const savedScale = scale;
+          const savedPanX = panX;
+          const savedPanY = panY;
 
           displayMode = frame.mode;
           currentConfigIndex = frame.configIndex;
           currentVariation = frame.variation;
+          // Reset zoom/pan for consistent GIF frames
+          scale = 1;
+          panX = 0;
+          panY = 0;
           render();
 
           // Capture SVG to canvas
           const svgElement = document.getElementById('tessellationSvg');
+
+          // Set explicit width/height on SVG for proper image rendering
+          const dim = getDimensionsForMode(frame.mode);
+          svgElement.setAttribute('width', dim.width);
+          svgElement.setAttribute('height', dim.height);
+
           const svgData = new XMLSerializer().serializeToString(svgElement);
           const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
@@ -2043,6 +2056,9 @@ export function generateMultiPhraseHtml(phrases) {
           displayMode = savedMode;
           currentConfigIndex = savedConfig;
           currentVariation = savedVar;
+          scale = savedScale;
+          panX = savedPanX;
+          panY = savedPanY;
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
