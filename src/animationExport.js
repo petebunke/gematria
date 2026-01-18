@@ -1131,15 +1131,18 @@ export function generateMultiPhraseHtml(phrases) {
       });
       while (colors.length < 256) colors.push([0, 0, 0]);
 
+      const nearestCache = new Map();
       const findNearest = (r, g, b) => {
         const key = (r << 16) | (g << 8) | b;
         if (colorMap.has(key)) return colorMap.get(key);
+        if (nearestCache.has(key)) return nearestCache.get(key);
         let minDist = Infinity, closest = 0;
         for (let i = 0; i < colors.length; i++) {
           const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
           const dist = dr*dr + dg*dg + db*db;
           if (dist < minDist) { minDist = dist; closest = i; }
         }
+        nearestCache.set(key, closest);
         return closest;
       };
 
