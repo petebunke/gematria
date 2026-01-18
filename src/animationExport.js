@@ -900,6 +900,7 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
 }
 
 // Generate multi-phrase HTML with all modes, Auto cycling, dropdown selector
+// Full app-style UI with dark theme, white navbar, scrolling pattern backgrounds
 export function generateMultiPhraseHtml(phrases) {
   // phrases is an array of { phrase, hebrew, english, simple, aiqBekar, source }
   const modes = ['single', 'dual', 'quad', 'octa', 'cube'];
@@ -930,6 +931,10 @@ export function generateMultiPhraseHtml(phrases) {
     };
   });
 
+  // Generate a simple single-mode background pattern SVG for the scrolling columns
+  const bgPatternSvg = generateModeSvgFrame(phrases[0]?.phrase || 'GEMATRIA', [111, 666, 111, 111], 0, 0, 'single');
+  const bgPatternBase64 = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(bgPatternSvg)));
+
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -938,148 +943,332 @@ export function generateMultiPhraseHtml(phrases) {
   <title>Gematria Phrases</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: system-ui, -apple-system, sans-serif;
-      background: #f5f5f0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    /* Scrolling pattern background */
+    .bg-pattern {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 0;
       display: flex;
-      flex-direction: column;
-      align-items: center;
+      gap: 20px;
+      padding: 0 20px;
+      overflow: hidden;
+      opacity: 0.08;
+      pointer-events: none;
+    }
+
+    .pattern-column {
+      flex: 1;
+      background-image: url('${bgPatternBase64}');
+      background-size: 160px auto;
+      background-repeat: repeat-y;
+      animation: scrollPattern 30s linear infinite;
+    }
+
+    .pattern-column:nth-child(even) {
+      animation-direction: reverse;
+      animation-duration: 25s;
+    }
+
+    .pattern-column:nth-child(3n) {
+      animation-duration: 35s;
+    }
+
+    @keyframes scrollPattern {
+      0% { background-position-y: 0; }
+      100% { background-position-y: 1000px; }
+    }
+
+    /* Main container */
+    .main-container {
+      position: relative;
+      z-index: 1;
+      max-width: 900px;
+      margin: 0 auto;
       padding: 20px;
       min-height: 100vh;
-    }
-    h1 {
-      color: #dc2626;
-      margin-bottom: 10px;
-      font-size: 24px;
-    }
-    .phrase-selector {
-      margin-bottom: 15px;
       display: flex;
-      gap: 10px;
+      flex-direction: column;
+    }
+
+    /* White control card */
+    .control-card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    }
+
+    .card-header {
+      display: flex;
       align-items: center;
-      flex-wrap: wrap;
-      justify-content: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid #e5e7eb;
     }
-    select {
-      padding: 8px 12px;
-      font-size: 14px;
-      border: 2px solid #dc2626;
-      border-radius: 4px;
-      background: white;
-      cursor: pointer;
-      min-width: 200px;
-      max-width: 400px;
-    }
-    .combo {
-      color: #000;
-      margin-bottom: 15px;
-      font-size: 18px;
+
+    .card-header h1 {
+      color: #dc2626;
+      font-size: 20px;
       font-weight: 700;
     }
-    .container {
-      border: none;
+
+    .card-header .phrase-count {
+      color: #6b7280;
+      font-size: 12px;
+      margin-left: auto;
+    }
+
+    /* Phrase selector */
+    .phrase-selector {
+      margin-bottom: 16px;
+    }
+
+    .phrase-selector label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 6px;
+    }
+
+    .phrase-selector select {
+      width: 100%;
+      padding: 10px 12px;
+      font-size: 14px;
+      border: 2px solid #e5e7eb;
       border-radius: 8px;
-      overflow: hidden;
-      background: #f8f8f4;
-      line-height: 0;
-      width: 100%;
-      max-width: 800px;
+      background: #fff;
+      cursor: pointer;
+      color: #111827;
+      transition: border-color 0.2s;
+    }
+
+    .phrase-selector select:focus {
+      outline: none;
+      border-color: #dc2626;
+    }
+
+    /* Combo display */
+    .combo-display {
+      background: #f9fafb;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
       display: flex;
-      justify-content: center;
       align-items: center;
+      justify-content: space-between;
     }
-    #animation {
+
+    .combo-display .phrase-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #111827;
+    }
+
+    .combo-display .combo-values {
+      font-size: 14px;
+      font-weight: 600;
+      color: #dc2626;
+      font-family: monospace;
+    }
+
+    /* Mode buttons */
+    .mode-section {
+      margin-bottom: 16px;
+    }
+
+    .mode-section label {
       display: block;
-      line-height: 0;
-      width: 100%;
+      font-size: 12px;
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 8px;
     }
-    #animation svg {
-      display: block;
-      width: 100%;
-      height: auto;
-    }
+
     .mode-buttons {
-      margin-top: 15px;
       display: flex;
       gap: 8px;
       flex-wrap: wrap;
-      justify-content: center;
     }
+
     .mode-btn {
       padding: 8px 16px;
       font-size: 13px;
+      font-weight: 600;
       cursor: pointer;
       border: 2px solid #dc2626;
-      border-radius: 4px;
-      background: white;
+      border-radius: 6px;
+      background: #fff;
       color: #dc2626;
-      font-weight: 600;
       transition: all 0.2s;
     }
+
     .mode-btn:hover {
       background: #fef2f2;
     }
+
     .mode-btn.active {
       background: #dc2626;
-      color: white;
+      color: #fff;
     }
-    .controls {
-      margin-top: 15px;
+
+    /* Auto button */
+    .controls-row {
       display: flex;
-      gap: 10px;
-      flex-wrap: wrap;
-      justify-content: center;
+      align-items: center;
+      gap: 12px;
     }
-    button {
+
+    .auto-btn {
       padding: 10px 20px;
       font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       border: none;
-      border-radius: 4px;
+      border-radius: 6px;
       background: #dc2626;
-      color: white;
-      font-weight: 600;
+      color: #fff;
+      transition: all 0.2s;
     }
-    button:hover {
+
+    .auto-btn:hover {
       background: #b91c1c;
     }
-    button.active {
+
+    .auto-btn.active {
       background: #059669;
     }
-    .phrase-count {
-      color: #666;
-      font-size: 12px;
-      margin-bottom: 10px;
-    }
+
     .mode-label {
-      color: #666;
+      font-size: 13px;
+      color: #6b7280;
+    }
+
+    /* Animation container */
+    .animation-wrapper {
+      flex: 1;
+      background: #18181b;
+      border-radius: 12px;
+      border: 1px solid #27272a;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 300px;
+    }
+
+    #animation {
+      width: 100%;
+      max-width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    #animation svg {
+      display: block;
+      max-width: 100%;
+      height: auto;
+    }
+
+    /* Footer */
+    .footer {
+      text-align: center;
+      padding: 16px;
+      color: #6b7280;
       font-size: 12px;
-      margin-top: 10px;
+    }
+
+    /* Responsive */
+    @media (max-width: 640px) {
+      .main-container {
+        padding: 12px;
+      }
+      .control-card {
+        padding: 16px;
+      }
+      .mode-btn {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
     }
   </style>
 </head>
 <body>
-  <h1 id="phraseTitle">Gematria Phrases</h1>
-  <div class="phrase-count">${phrases.length} phrases</div>
-  <div class="phrase-selector">
-    <select id="phraseSelect">
-      ${phrases.map((p, i) => `<option value="${i}">${p.phrase} (${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'})</option>`).join('')}
-    </select>
+  <!-- Scrolling pattern background columns -->
+  <div class="bg-pattern">
+    <div class="pattern-column"></div>
+    <div class="pattern-column"></div>
+    <div class="pattern-column"></div>
+    <div class="pattern-column"></div>
+    <div class="pattern-column"></div>
   </div>
-  <div class="combo" id="comboDisplay">${phrases[0]?.hebrew || 111}/${phrases[0]?.english || 666}/${phrases[0]?.simple || 111}/${phrases[0]?.aiqBekar || '-'}</div>
-  <div class="container">
-    <div id="animation"></div>
-  </div>
-  <div class="mode-label" id="modeLabel">Mode: Single</div>
-  <div class="mode-buttons">
-    <button class="mode-btn active" data-mode="single">Single</button>
-    <button class="mode-btn" data-mode="dual">Dual</button>
-    <button class="mode-btn" data-mode="quad">Quad</button>
-    <button class="mode-btn" data-mode="octa">Octa</button>
-    <button class="mode-btn" data-mode="cube">Cube</button>
-  </div>
-  <div class="controls">
-    <button id="autoBtn" class="active">Auto: On</button>
+
+  <div class="main-container">
+    <!-- Control Card -->
+    <div class="control-card">
+      <div class="card-header">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect>
+          <line x1="8" y1="6" x2="16" y2="6"></line>
+          <line x1="8" y1="10" x2="16" y2="10"></line>
+          <line x1="8" y1="14" x2="12" y2="14"></line>
+        </svg>
+        <h1>Gematria Phrases</h1>
+        <span class="phrase-count">${phrases.length} phrases</span>
+      </div>
+
+      <div class="phrase-selector">
+        <label>Select Phrase</label>
+        <select id="phraseSelect">
+          ${phrases.map((p, i) => `<option value="${i}">${p.phrase} (${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="combo-display">
+        <span class="phrase-title" id="phraseTitle">${phrases[0]?.phrase || 'No phrases'}</span>
+        <span class="combo-values" id="comboDisplay">${phrases[0]?.hebrew || 111}/${phrases[0]?.english || 666}/${phrases[0]?.simple || 111}/${phrases[0]?.aiqBekar || '-'}</span>
+      </div>
+
+      <div class="mode-section">
+        <label>Display Mode</label>
+        <div class="mode-buttons">
+          <button class="mode-btn active" data-mode="single">Single</button>
+          <button class="mode-btn" data-mode="dual">Dual</button>
+          <button class="mode-btn" data-mode="quad">Quad</button>
+          <button class="mode-btn" data-mode="octa">Octa</button>
+          <button class="mode-btn" data-mode="cube">Cube</button>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <button id="autoBtn" class="auto-btn active">Auto: On</button>
+        <span class="mode-label" id="modeLabel">Mode: Single</span>
+      </div>
+    </div>
+
+    <!-- Animation Display -->
+    <div class="animation-wrapper">
+      <div id="animation"></div>
+    </div>
+
+    <div class="footer">
+      Generated by Gematria Generator
+    </div>
   </div>
 
   <script>
@@ -1118,7 +1307,9 @@ export function generateMultiPhraseHtml(phrases) {
 
     function render() {
       const frames = getCurrentFrames();
-      animationDiv.innerHTML = frames[currentFrame];
+      if (frames && frames[currentFrame]) {
+        animationDiv.innerHTML = frames[currentFrame];
+      }
     }
 
     function updateModeButtons() {
@@ -1130,9 +1321,11 @@ export function generateMultiPhraseHtml(phrases) {
 
     function updateDisplay() {
       const data = getCurrentPhraseData();
-      phraseTitle.textContent = data.phrase;
-      const combo = data.combo;
-      comboDisplay.textContent = combo[0] + '/' + combo[1] + '/' + combo[2] + '/' + (combo[3] || '-');
+      if (data) {
+        phraseTitle.textContent = data.phrase;
+        const combo = data.combo;
+        comboDisplay.textContent = combo[0] + '/' + combo[1] + '/' + combo[2] + '/' + (combo[3] || '-');
+      }
       currentFrame = 0;
       frameDirection = 1;
       updateModeButtons();
@@ -1142,6 +1335,7 @@ export function generateMultiPhraseHtml(phrases) {
     function animate() {
       const data = getCurrentPhraseData();
       const frames = getCurrentFrames();
+      if (!data || !frames) return;
 
       currentFrame += frameDirection;
 
