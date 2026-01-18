@@ -1104,18 +1104,22 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // GIF encoder with proper color quantization
-    function encodeGif(frames, width, height, delay) {
+    // Async GIF encoder with proper color quantization (yields to browser to prevent timeout)
+    async function encodeGifAsync(frames, width, height, delay) {
       const buf = [];
       const write = (b) => buf.push(b);
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
+      // Yield to browser periodically
+      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+
       // Build global color table with better quantization
       const colorCounts = new Map();
 
       // Count colors across all frames
-      frames.forEach(frame => {
+      for (let f = 0; f < frames.length; f++) {
+        const frame = frames[f];
         for (let i = 0; i < frame.data.length; i += 4) {
           // Quantize to 5 bits per channel to reduce unique colors
           const r = frame.data[i] & 0xf8;
@@ -1124,7 +1128,8 @@ export function generateMultiPhraseHtml(phrases) {
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
-      });
+        if (f % 2 === 0) await yieldToBrowser();
+      }
 
       // Sort by frequency and take top 256
       const sortedColors = [...colorCounts.entries()]
@@ -1175,7 +1180,9 @@ export function generateMultiPhraseHtml(phrases) {
       write(0x00);
 
       // Frames
-      frames.forEach(frame => {
+      for (let f = 0; f < frames.length; f++) {
+        const frame = frames[f];
+
         // Graphics Control Extension
         write(0x21); write(0xf9); write(0x04);
         write(0x00); // No transparency
@@ -1204,7 +1211,10 @@ export function generateMultiPhraseHtml(phrases) {
           chunk.forEach(b => write(b));
         }
         write(0x00);
-      });
+
+        // Yield after each frame to prevent browser timeout
+        await yieldToBrowser();
+      }
 
       write(0x3b); // Trailer
       return new Uint8Array(buf);
@@ -2155,17 +2165,10 @@ export function generateMultiPhraseHtml(phrases) {
           const savedMode = displayMode;
           const savedConfig = currentConfigIndex;
           const savedVar = currentVariation;
-          const savedScale = scale;
-          const savedPanX = panX;
-          const savedPanY = panY;
 
           displayMode = frame.mode;
           currentConfigIndex = frame.configIndex;
           currentVariation = frame.variation;
-          // Reset zoom/pan for consistent GIF frames
-          scale = 1;
-          panX = 0;
-          panY = 0;
           render();
 
           // Capture SVG to canvas
@@ -2213,18 +2216,15 @@ export function generateMultiPhraseHtml(phrases) {
           displayMode = savedMode;
           currentConfigIndex = savedConfig;
           currentVariation = savedVar;
-          scale = savedScale;
-          panX = savedPanX;
-          panY = savedPanY;
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
 
         render(); // Restore original render
 
-        // Encode GIF using custom encoder
+        // Encode GIF using custom encoder (async to prevent browser timeout)
         btn.textContent = 'ENC';
-        const gifData = encodeGif(frameDataList, canvasWidth, canvasHeight, delay);
+        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay);
 
         // Download
         const blob = new Blob([gifData], { type: 'image/gif' });
