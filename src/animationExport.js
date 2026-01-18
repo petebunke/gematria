@@ -821,7 +821,7 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const canvas = document.createElement('canvas');
   canvas.width = gifWidth;
   canvas.height = gifHeight;
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false });
 
   // Generate frames (6 configs × 2 variations = 12 frames, then reverse for ping-pong)
   const svgFrames = [];
@@ -870,16 +870,6 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   // Add each frame
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
-
-    // Snap near-white pixels to pure white before quantization
-    // This prevents low-opacity fills from being quantized to gray
-    for (let j = 0; j < rgba.length; j += 4) {
-      if (rgba[j] > 240 && rgba[j + 1] > 240 && rgba[j + 2] > 240) {
-        rgba[j] = 255;     // R
-        rgba[j + 1] = 255; // G
-        rgba[j + 2] = 255; // B
-      }
-    }
 
     // Quantize to 256 color palette
     const palette = quantize(rgba, 256);
