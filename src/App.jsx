@@ -1908,10 +1908,13 @@ const GematriaCalculator = () => {
                   title={generatedPhrases.length > 0 ? 'Clear all generated phrases' : 'No phrases to clear'}
                 >
                   {clearing ? (
-                    <>Clearing... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
+                    <Loader2 className="w-5 h-5 animate-spin flex-shrink-0" />
                   ) : (
-                    <><Trash2 className="w-5 h-5 hidden md:block" /> Clear Phrases</>
+                    <Trash2 className="w-5 h-5 flex-shrink-0 hidden md:block" />
                   )}
+                  <span>
+                    {clearing ? 'Clearing...' : 'Clear Phrases'}
+                  </span>
                 </button>
               </div>
             </div>
