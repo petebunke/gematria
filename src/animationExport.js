@@ -197,6 +197,190 @@ function getSingleDimensions() {
   };
 }
 
+// Build Dual mode (stacked)
+function buildDualStacked(variation) {
+  const base = generateBasePolyhedron();
+  const allTriangles = [];
+  const xFlipRows = [1, 3, 5];
+
+  base.forEach(t => {
+    const x = t.col * (TRI_SIZE / 2);
+    const y = t.row * TRI_HEIGHT;
+    const finalRow = t.row;
+    let pointing = t.pointing;
+    if (xFlipRows.includes(finalRow)) pointing = pointing === 'up' ? 'down' : 'up';
+    let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+    let letterIndex = letterRow * COLS + t.col;
+    allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+  });
+
+  base.forEach(t => {
+    const mirroredRow = BASE_ROWS - 1 - t.row;
+    const x = t.col * (TRI_SIZE / 2);
+    const finalRow = BASE_ROWS + mirroredRow;
+    const y = finalRow * TRI_HEIGHT;
+    let pointing = t.pointing;
+    if (xFlipRows.includes(finalRow)) pointing = pointing === 'up' ? 'down' : 'up';
+    let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+    let letterIndex = letterRow * COLS + t.col;
+    allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+  });
+
+  return allTriangles;
+}
+
+// Get dimensions for dual mode
+function getDualDimensions() {
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const polyHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+  return {
+    width: polyWidth,
+    height: polyHeight
+  };
+}
+
+// Build Quad mode (mirrored)
+function buildQuadMirrored(variation) {
+  const base = generateBasePolyhedron();
+  const allTriangles = [];
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const xFlipRows = [0, 2, 4];
+  const columns = [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+
+  columns.forEach(({ colIndex, yMirror }) => {
+    base.forEach(t => {
+      let col = t.col;
+      let pointing = t.pointing;
+      let row = variation === 0 ? t.row : BASE_ROWS - 1 - t.row;
+      let polyRow = variation === 0 ? t.polyhedronRow : BASE_ROWS - 1 - t.polyhedronRow;
+      if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+      if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+      const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+      const y = row * TRI_HEIGHT;
+      allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
+    });
+
+    base.forEach(t => {
+      let col = t.col;
+      let pointing = t.pointing;
+      let row, polyRow;
+      if (variation === 0) {
+        const mirroredRow = BASE_ROWS - 1 - t.row;
+        row = BASE_ROWS + mirroredRow;
+        polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+      } else {
+        row = BASE_ROWS + t.row;
+        polyRow = t.polyhedronRow;
+      }
+      if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+      if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+      const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+      const y = row * TRI_HEIGHT;
+      allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
+    });
+  });
+
+  return allTriangles;
+}
+
+// Get dimensions for quad mode
+function getQuadDimensions() {
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+  return {
+    width: polyWidth * 2,
+    height: quadHeight
+  };
+}
+
+// Build Octa mode
+function buildOcta(variation) {
+  const base = generateBasePolyhedron();
+  const allTriangles = [];
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const quadWidth = polyWidth * 2;
+  const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+  const xFlipRows = [0, 2, 4];
+  const GAP = 0;
+
+  const quadrants = [
+    { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
+    { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
+    { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },
+    { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }
+  ];
+
+  quadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+    const quadXOffset = qCol * quadWidth;
+    const quadYOffset = qRow * (quadHeight + GAP);
+
+    let columns;
+    if (xFlipAll) {
+      columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+                         : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
+    } else {
+      columns = yFlipAll ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+                         : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+    }
+
+    columns.forEach(({ colIndex, yMirror }) => {
+      base.forEach(t => {
+        let col = t.col, pointing = t.pointing;
+        let row = variation === 0 ? t.row : BASE_ROWS - 1 - t.row;
+        let polyRow = variation === 0 ? t.polyhedronRow : BASE_ROWS - 1 - t.polyhedronRow;
+        if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+        if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+        if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+        const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+        const y = quadYOffset + row * TRI_HEIGHT;
+        allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
+      });
+
+      base.forEach(t => {
+        let col = t.col, pointing = t.pointing, row, polyRow;
+        if (variation === 0) {
+          const mirroredRow = BASE_ROWS - 1 - t.row;
+          row = BASE_ROWS + mirroredRow;
+          polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+        } else {
+          row = BASE_ROWS + t.row;
+          polyRow = t.polyhedronRow;
+        }
+        if (yMirror) { col = COLS - 1 - col; pointing = pointing === 'up' ? 'down' : 'up'; }
+        if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
+        if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
+        const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+        const y = quadYOffset + row * TRI_HEIGHT;
+        allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
+      });
+    });
+  });
+
+  return allTriangles;
+}
+
+// Get dimensions for octa mode
+function getOctaDimensions() {
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const quadWidth = polyWidth * 2;
+  const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+  return {
+    width: quadWidth * 2,
+    height: quadHeight * 2
+  };
+}
+
+// Get dimensions for square (cube) mode
+function getSquareDimensions() {
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+  const octaHeight = quadHeight * 2;
+  return {
+    width: polyWidth * 4,
+    height: octaHeight * 2
+  };
+}
+
 function buildSquare(variation) {
   const base = generateBasePolyhedron();
   const allTriangles = [];
@@ -356,13 +540,26 @@ export function generateSvgFrame(phrase, combo, configIndex, variation) {
   return svgContent;
 }
 
-// Generate SVG content for Single mode
-export function generateSingleSvgFrame(phrase, combo, configIndex, variation) {
+// Mode definitions with build functions and dimension getters
+const MODES = {
+  single: { build: buildSingle, getDimensions: getSingleDimensions, label: 'Single' },
+  dual: { build: buildDualStacked, getDimensions: getDualDimensions, label: 'Dual' },
+  quad: { build: buildQuadMirrored, getDimensions: getQuadDimensions, label: 'Quad' },
+  octa: { build: buildOcta, getDimensions: getOctaDimensions, label: 'Octa' },
+  cube: { build: buildSquare, getDimensions: getSquareDimensions, label: 'Cube' },
+  rectangle: { build: buildRectangle, getDimensions: getRectangleDimensions, label: 'Rectangle' }
+};
+
+const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'cube', 'rectangle'];
+
+// Generate SVG content for any mode
+export function generateModeSvgFrame(phrase, combo, configIndex, variation, mode) {
   const config = CONFIGS[CONFIG_KEYS[configIndex]];
   const colorHex = getColor(combo);
   const letterData = getLetterFrequency(phrase);
-  const triangles = buildSingle(variation);
-  const { width, height } = getSingleDimensions();
+  const modeConfig = MODES[mode] || MODES.single;
+  const triangles = modeConfig.build(variation);
+  const { width, height } = modeConfig.getDimensions();
 
   // Add padding for stroke width to prevent clipping at edges
   const padding = STROKE_WIDTH / 2;
@@ -390,6 +587,11 @@ export function generateSingleSvgFrame(phrase, combo, configIndex, variation) {
 
   svgContent += '</svg>';
   return svgContent;
+}
+
+// Backwards compatible - generate Single mode SVG frame
+export function generateSingleSvgFrame(phrase, combo, configIndex, variation) {
+  return generateModeSvgFrame(phrase, combo, configIndex, variation, 'single');
 }
 
 // Generate standalone HTML with embedded animation
@@ -697,29 +899,34 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   return blob;
 }
 
-// Generate multi-phrase HTML with dropdown selector - Single mode, Auto on, zoom to fit
+// Generate multi-phrase HTML with all modes, Auto cycling, dropdown selector
 export function generateMultiPhraseHtml(phrases) {
   // phrases is an array of { phrase, hebrew, english, simple, aiqBekar, source }
-  const { width, height } = getSingleDimensions();
+  const modes = ['single', 'dual', 'quad', 'octa', 'cube'];
+  const modeLabels = { single: 'Single', dual: 'Dual', quad: 'Quad', octa: 'Octa', cube: 'Cube' };
 
-  // Pre-generate all frames for all phrases
+  // Pre-generate all frames for all phrases and all modes
   const phrasesData = phrases.map(p => {
     const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 111];
     const frameSpeed = aikBekarToMs(combo[3] || 111);
 
-    // Generate all frames for Single mode (6 configs × 2 variations = 12 frames per cycle)
-    const frames = [];
-    for (let ci = 0; ci < CONFIG_KEYS.length; ci++) {
-      for (let v = 0; v < 2; v++) {
-        frames.push(generateSingleSvgFrame(p.phrase, combo, ci, v));
+    // Generate frames for each mode
+    const modeFrames = {};
+    modes.forEach(mode => {
+      const frames = [];
+      for (let ci = 0; ci < CONFIG_KEYS.length; ci++) {
+        for (let v = 0; v < 2; v++) {
+          frames.push(generateModeSvgFrame(p.phrase, combo, ci, v, mode));
+        }
       }
-    }
+      modeFrames[mode] = frames;
+    });
 
     return {
       phrase: p.phrase,
       combo,
       frameSpeed,
-      frames
+      modeFrames
     };
   });
 
@@ -791,8 +998,33 @@ export function generateMultiPhraseHtml(phrases) {
       width: 100%;
       height: auto;
     }
+    .mode-buttons {
+      margin-top: 15px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .mode-btn {
+      padding: 8px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      border: 2px solid #dc2626;
+      border-radius: 4px;
+      background: white;
+      color: #dc2626;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+    .mode-btn:hover {
+      background: #fef2f2;
+    }
+    .mode-btn.active {
+      background: #dc2626;
+      color: white;
+    }
     .controls {
-      margin-top: 20px;
+      margin-top: 15px;
       display: flex;
       gap: 10px;
       flex-wrap: wrap;
@@ -819,6 +1051,11 @@ export function generateMultiPhraseHtml(phrases) {
       font-size: 12px;
       margin-bottom: 10px;
     }
+    .mode-label {
+      color: #666;
+      font-size: 12px;
+      margin-top: 10px;
+    }
   </style>
 </head>
 <body>
@@ -833,31 +1070,62 @@ export function generateMultiPhraseHtml(phrases) {
   <div class="container">
     <div id="animation"></div>
   </div>
+  <div class="mode-label" id="modeLabel">Mode: Single</div>
+  <div class="mode-buttons">
+    <button class="mode-btn active" data-mode="single">Single</button>
+    <button class="mode-btn" data-mode="dual">Dual</button>
+    <button class="mode-btn" data-mode="quad">Quad</button>
+    <button class="mode-btn" data-mode="octa">Octa</button>
+    <button class="mode-btn" data-mode="cube">Cube</button>
+  </div>
   <div class="controls">
-    <button id="playPause" class="active">Auto: On</button>
+    <button id="autoBtn" class="active">Auto: On</button>
   </div>
 
   <script>
     const phrasesData = ${JSON.stringify(phrasesData)};
+    const modes = ['single', 'dual', 'quad', 'octa', 'cube'];
+    const modeLabels = { single: 'Single', dual: 'Dual', quad: 'Quad', octa: 'Octa', cube: 'Cube' };
+
     let currentPhraseIndex = 0;
+    let currentModeIndex = 0;
     let currentFrame = 0;
-    let direction = 1;
-    let isPlaying = true;
+    let frameDirection = 1;
+    let modeDirection = 1;
+    let isAutoMode = true;
     let timer = null;
 
     const animationDiv = document.getElementById('animation');
-    const playPauseBtn = document.getElementById('playPause');
+    const autoBtn = document.getElementById('autoBtn');
     const phraseSelect = document.getElementById('phraseSelect');
     const phraseTitle = document.getElementById('phraseTitle');
     const comboDisplay = document.getElementById('comboDisplay');
+    const modeLabel = document.getElementById('modeLabel');
+    const modeButtons = document.querySelectorAll('.mode-btn');
+
+    function getCurrentMode() {
+      return modes[currentModeIndex];
+    }
 
     function getCurrentPhraseData() {
       return phrasesData[currentPhraseIndex];
     }
 
-    function render() {
+    function getCurrentFrames() {
       const data = getCurrentPhraseData();
-      animationDiv.innerHTML = data.frames[currentFrame];
+      return data.modeFrames[getCurrentMode()];
+    }
+
+    function render() {
+      const frames = getCurrentFrames();
+      animationDiv.innerHTML = frames[currentFrame];
+    }
+
+    function updateModeButtons() {
+      modeButtons.forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === getCurrentMode());
+      });
+      modeLabel.textContent = 'Mode: ' + modeLabels[getCurrentMode()];
     }
 
     function updateDisplay() {
@@ -866,44 +1134,79 @@ export function generateMultiPhraseHtml(phrases) {
       const combo = data.combo;
       comboDisplay.textContent = combo[0] + '/' + combo[1] + '/' + combo[2] + '/' + (combo[3] || '-');
       currentFrame = 0;
-      direction = 1;
+      frameDirection = 1;
+      updateModeButtons();
       render();
     }
 
     function animate() {
       const data = getCurrentPhraseData();
-      currentFrame += direction;
-      if (currentFrame >= data.frames.length) {
-        direction = -1;
-        currentFrame = data.frames.length - 2;
+      const frames = getCurrentFrames();
+
+      currentFrame += frameDirection;
+
+      if (currentFrame >= frames.length) {
+        frameDirection = -1;
+        currentFrame = frames.length - 2;
+
+        // Auto mode: advance to next mode when animation cycle completes
+        if (isAutoMode) {
+          currentModeIndex += modeDirection;
+          if (currentModeIndex >= modes.length) {
+            modeDirection = -1;
+            currentModeIndex = modes.length - 2;
+          } else if (currentModeIndex < 0) {
+            modeDirection = 1;
+            currentModeIndex = 1;
+          }
+          updateModeButtons();
+        }
       } else if (currentFrame < 0) {
-        direction = 1;
+        frameDirection = 1;
         currentFrame = 1;
       }
+
       render();
-      if (isPlaying) {
-        timer = setTimeout(animate, data.frameSpeed);
+      timer = setTimeout(animate, data.frameSpeed);
+    }
+
+    function stopAnimation() {
+      if (timer) {
+        clearTimeout(timer);
+        timer = null;
       }
     }
 
-    playPauseBtn.addEventListener('click', () => {
-      isPlaying = !isPlaying;
-      playPauseBtn.textContent = isPlaying ? 'Auto: On' : 'Auto: Off';
-      playPauseBtn.classList.toggle('active', isPlaying);
-      if (isPlaying) animate();
-      else clearTimeout(timer);
+    function startAnimation() {
+      stopAnimation();
+      animate();
+    }
+
+    autoBtn.addEventListener('click', () => {
+      isAutoMode = !isAutoMode;
+      autoBtn.textContent = isAutoMode ? 'Auto: On' : 'Auto: Off';
+      autoBtn.classList.toggle('active', isAutoMode);
+    });
+
+    modeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const newMode = btn.dataset.mode;
+        currentModeIndex = modes.indexOf(newMode);
+        currentFrame = 0;
+        frameDirection = 1;
+        updateModeButtons();
+        render();
+      });
     });
 
     phraseSelect.addEventListener('change', (e) => {
-      clearTimeout(timer);
       currentPhraseIndex = parseInt(e.target.value);
       updateDisplay();
-      if (isPlaying) animate();
     });
 
-    // Initial render
+    // Initial render and start animation
     updateDisplay();
-    animate();
+    startAnimation();
   </script>
 </body>
 </html>`;
