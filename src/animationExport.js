@@ -1084,7 +1084,7 @@ export function generateMultiPhraseHtml(phrases) {
 
     <div class="control-group">
       <span class="control-label">Auto</span>
-      <button id="oscToggle" class="secondary">OFF</button>
+      <button id="oscToggle" class="secondary" style="background:#6b5b95;color:#fff">ON</button>
     </div>
 
     <div class="control-group">
@@ -1171,7 +1171,7 @@ export function generateMultiPhraseHtml(phrases) {
     let displayMode = 'single';
     let configDirection = 1;
     let loopMode = 0;
-    let oscActive = false;
+    let oscActive = true;
 
     // Zoom and pan state
     let scale = 0.5;
