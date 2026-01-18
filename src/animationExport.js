@@ -1093,6 +1093,10 @@ export function generateMultiPhraseHtml(phrases) {
       <span class="control-label">Zoom</span>
       <span class="info-display" id="zoomLevel">100%</span>
     </div>
+
+    <div class="control-group">
+      <button id="gifBtn" class="secondary" style="font-weight:bold;">GIF</button>
+    </div>
   </div>
 
   <div class="tessellation-container" id="container">
@@ -1857,6 +1861,221 @@ export function generateMultiPhraseHtml(phrases) {
     document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; container.style.cursor = ''; } });
 
     window.addEventListener('resize', () => { render(); renderBackground(); });
+
+    // GIF Export functionality
+    async function exportGif() {
+      const btn = document.getElementById('gifBtn');
+      const originalText = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '...';
+
+      try {
+        // Load gifenc from CDN
+        const { GIFEncoder, quantize, applyPalette } = await import('https://esm.sh/gifenc@1.0.3');
+
+        // Determine frame sequence based on current settings
+        const frames = [];
+        const varCount = 2;
+        const configKeys = Object.keys(CONFIGS);
+        const delay = Math.max(Math.round(frameSpeed / 10), 2); // GIF delay in centiseconds, min 20ms
+
+        if (oscActive) {
+          // Auto mode: cycle through all modes
+          const modeList = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'cube'];
+          // Forward through modes
+          for (const mode of modeList) {
+            for (let ci = 0; ci < configKeys.length; ci++) {
+              for (let v = 0; v < varCount; v++) {
+                frames.push({ mode, configIndex: ci, variation: v });
+              }
+            }
+          }
+          // Backward through modes (excluding first and last)
+          for (let mi = modeList.length - 2; mi > 0; mi--) {
+            const mode = modeList[mi];
+            for (let ci = configKeys.length - 1; ci >= 0; ci--) {
+              for (let v = varCount - 1; v >= 0; v--) {
+                frames.push({ mode, configIndex: ci, variation: v });
+              }
+            }
+          }
+        } else if (loopMode === 1) {
+          // Loop forward: cycle through configs/variations in current mode
+          for (let ci = 0; ci < configKeys.length; ci++) {
+            for (let v = 0; v < varCount; v++) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+          // Ping-pong back
+          for (let ci = configKeys.length - 2; ci > 0; ci--) {
+            for (let v = varCount - 1; v >= 0; v--) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+        } else if (loopMode === 2) {
+          // Loop backward: cycle through configs/variations in reverse
+          for (let ci = configKeys.length - 1; ci >= 0; ci--) {
+            for (let v = varCount - 1; v >= 0; v--) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+          // Ping-pong forward
+          for (let ci = 1; ci < configKeys.length - 1; ci++) {
+            for (let v = 0; v < varCount; v++) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+        } else {
+          // No loop: just current mode, all configs/variations once with ping-pong
+          for (let ci = 0; ci < configKeys.length; ci++) {
+            for (let v = 0; v < varCount; v++) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+          for (let ci = configKeys.length - 2; ci > 0; ci--) {
+            for (let v = varCount - 1; v >= 0; v--) {
+              frames.push({ mode: displayMode, configIndex: ci, variation: v });
+            }
+          }
+        }
+
+        // Get dimensions for current mode
+        function getDimensionsForMode(mode) {
+          const polyWidth = COLS * (TRI_SIZE / 2) + TRI_SIZE / 2;
+          const polyHeight = BASE_ROWS * TRI_HEIGHT;
+          const quadHeight = polyHeight * 2;
+          const octaHeight = quadHeight * 2;
+          const GAP = 4;
+
+          if (mode === 'single') return { width: polyWidth, height: polyHeight };
+          if (mode === 'dual') return { width: polyWidth, height: polyHeight * 2 };
+          if (mode === 'quad') return { width: polyWidth * 2, height: BASE_ROWS * 2 * TRI_HEIGHT };
+          if (mode === 'octa') return { width: polyWidth * 4, height: quadHeight * 2 + GAP };
+          if (mode === 'square') return { width: polyWidth * 4, height: octaHeight * 2 + GAP };
+          if (mode === 'rectangle') {
+            const squareWidth = polyWidth * 4;
+            const squareHeight = octaHeight * 2 + GAP;
+            return { width: squareWidth * 4 + GAP * 3, height: squareHeight };
+          }
+          if (mode === 'cube') {
+            const squareWidth = polyWidth * 4;
+            const squareHeight = octaHeight * 2 + GAP;
+            return { width: squareWidth * 4 + GAP * 3, height: squareHeight * 4 + GAP * 3 };
+          }
+          return { width: polyWidth, height: polyHeight };
+        }
+
+        // Find max dimensions across all frames
+        let maxWidth = 0, maxHeight = 0;
+        const uniqueModes = [...new Set(frames.map(f => f.mode))];
+        for (const mode of uniqueModes) {
+          const dim = getDimensionsForMode(mode);
+          maxWidth = Math.max(maxWidth, dim.width);
+          maxHeight = Math.max(maxHeight, dim.height);
+        }
+
+        const scaleFactor = 2;
+        const canvasWidth = Math.round(maxWidth * scaleFactor);
+        const canvasHeight = Math.round(maxHeight * scaleFactor);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = canvasWidth;
+        canvas.height = canvasHeight;
+        const ctx = canvas.getContext('2d');
+
+        btn.textContent = '0%';
+
+        // Generate each frame
+        const frameDataList = [];
+        for (let i = 0; i < frames.length; i++) {
+          const frame = frames[i];
+
+          // Temporarily change mode and render
+          const savedMode = displayMode;
+          const savedConfig = currentConfigIndex;
+          const savedVar = currentVariation;
+
+          displayMode = frame.mode;
+          currentConfigIndex = frame.configIndex;
+          currentVariation = frame.variation;
+          render();
+
+          // Capture SVG to canvas
+          const svgElement = document.getElementById('tessellationSvg');
+          const svgData = new XMLSerializer().serializeToString(svgElement);
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+
+          await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.fillStyle = '#f8f8f4';
+              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+
+              // Center the image
+              const dim = getDimensionsForMode(frame.mode);
+              const scaledW = dim.width * scaleFactor;
+              const scaledH = dim.height * scaleFactor;
+              const offsetX = (canvasWidth - scaledW) / 2;
+              const offsetY = (canvasHeight - scaledH) / 2;
+
+              ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
+              URL.revokeObjectURL(url);
+
+              const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+              frameDataList.push(imageData.data);
+              resolve();
+            };
+            img.onerror = () => {
+              ctx.fillStyle = '#f8f8f4';
+              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight).data);
+              resolve();
+            };
+            img.src = url;
+          });
+
+          // Restore state
+          displayMode = savedMode;
+          currentConfigIndex = savedConfig;
+          currentVariation = savedVar;
+
+          btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
+        }
+
+        render(); // Restore original render
+
+        // Encode GIF
+        btn.textContent = 'ENC';
+        const gif = GIFEncoder();
+
+        for (let i = 0; i < frameDataList.length; i++) {
+          const rgba = frameDataList[i];
+          const palette = quantize(rgba, 256, { format: 'rgb444' });
+          const index = applyPalette(rgba, palette, { format: 'rgb444' });
+          gif.writeFrame(index, canvasWidth, canvasHeight, { palette, delay, dispose: 1 });
+        }
+        gif.finish();
+
+        // Download
+        const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = currentPhrase.replace(/[^a-z0-9]/gi, '_') + '_' + displayMode + '.gif';
+        a.click();
+        URL.revokeObjectURL(a.href);
+
+        btn.textContent = originalText;
+        btn.disabled = false;
+      } catch (err) {
+        console.error('GIF export error:', err);
+        alert('GIF export failed: ' + err.message);
+        btn.textContent = originalText;
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('gifBtn').addEventListener('click', exportGif);
 
     // Init
     const initialAikBekar = currentCombo[currentCombo.length - 1];
