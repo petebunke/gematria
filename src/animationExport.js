@@ -1111,8 +1111,8 @@ export function generateMultiPhraseHtml(phrases) {
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
-      // Yield to browser periodically
-      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 0));
+      // Yield to browser periodically (longer delay to prevent timeout dialogs)
+      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 10));
 
       // Build global color table with better quantization
       const colorCounts = new Map();
@@ -1204,7 +1204,7 @@ export function generateMultiPhraseHtml(phrases) {
           pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
         }
 
-        const lzwData = lzwEncode(pixels, minCodeSize);
+        const lzwData = await lzwEncodeAsync(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
           const chunk = lzwData.slice(i, i + 255);
           write(chunk.length);
@@ -1221,7 +1221,7 @@ export function generateMultiPhraseHtml(phrases) {
       return new Uint8Array(buf);
     }
 
-    function lzwEncode(pixels, minCodeSize) {
+    async function lzwEncodeAsync(pixels, minCodeSize) {
       const clearCode = 1 << minCodeSize;
       const eoiCode = clearCode + 1;
       let codeSize = minCodeSize + 1;
@@ -1249,6 +1249,7 @@ export function generateMultiPhraseHtml(phrases) {
       }
 
       let prefix = String(pixels[0]);
+      const yieldInterval = 50000; // Yield every 50k pixels
 
       for (let i = 1; i < pixels.length; i++) {
         const suffix = String(pixels[i]);
@@ -1269,6 +1270,10 @@ export function generateMultiPhraseHtml(phrases) {
             codeSize = minCodeSize + 1;
           }
           prefix = suffix;
+        }
+        // Yield periodically to prevent browser timeout
+        if (i % yieldInterval === 0) {
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
       emit(table.get(prefix));
