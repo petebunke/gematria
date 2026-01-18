@@ -878,14 +878,6 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
 
     // Quantize to 256 color palette
     const palette = quantize(rgba, 256);
-
-    // Fix any near-white palette entries to pure white
-    for (let p = 0; p < palette.length; p++) {
-      if (palette[p][0] > 240 && palette[p][1] > 240 && palette[p][2] > 240) {
-        palette[p] = [255, 255, 255];
-      }
-    }
-
     const index = applyPalette(rgba, palette);
 
     gif.writeFrame(index, gifWidth, gifHeight, {
@@ -1089,11 +1081,11 @@ export function generateMultiPhraseHtml(phrases) {
       <button id="playPause" style="width: 32px;">⏸</button>
       <button id="prevVar" class="secondary">◀</button>
       <button id="nextVar" class="secondary">▶</button>
-      <button id="loopBtn" class="secondary" style="width:58px;margin-left:7px">LOOP</button>
+      <button id="oscToggle" class="secondary" style="background:#6b5b95;color:#fff;margin-left:7px">AUTO</button>
     </div>
 
     <div class="control-group">
-      <button id="oscToggle" class="secondary" style="background:#6b5b95;color:#fff">AUTO</button>
+      <button id="loopBtn" class="secondary" style="width:58px">LOOP</button>
     </div>
 
     <div class="control-group">
@@ -1121,19 +1113,33 @@ export function generateMultiPhraseHtml(phrases) {
       const colorCounts = new Map();
       frames.forEach(frame => {
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i] & 0xf8;
-          const g = frame.data[i+1] & 0xf8;
-          const b = frame.data[i+2] & 0xf8;
+          const r = frame.data[i];
+          const g = frame.data[i+1];
+          const b = frame.data[i+2];
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
       });
 
       const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
+      const paletteSet = new Set(sortedColors);
       const colorMap = new Map();
       sortedColors.forEach((key, idx) => colorMap.set(key, idx));
       const palette = sortedColors.map(key => [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
       while (palette.length < 256) palette.push([0, 0, 0]);
+
+      // For colors not in palette, find nearest
+      function findNearest(r, g, b) {
+        let best = 0, bestDist = Infinity;
+        for (let i = 0; i < sortedColors.length; i++) {
+          const pr = (sortedColors[i] >> 16) & 0xff;
+          const pg = (sortedColors[i] >> 8) & 0xff;
+          const pb = sortedColors[i] & 0xff;
+          const d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
+          if (d < bestDist) { bestDist = d; best = i; }
+        }
+        return best;
+      }
 
       writeStr('GIF89a');
       writeShort(width);
@@ -1161,11 +1167,13 @@ export function generateMultiPhraseHtml(phrases) {
         write(minCodeSize);
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i] & 0xf8;
-          const g = frame.data[i+1] & 0xf8;
-          const b = frame.data[i+2] & 0xf8;
+          const r = frame.data[i];
+          const g = frame.data[i+1];
+          const b = frame.data[i+2];
           const key = (r << 16) | (g << 8) | b;
-          pixels.push(colorMap.get(key) || 0);
+          let idx = colorMap.get(key);
+          if (idx === undefined) idx = findNearest(r, g, b);
+          pixels.push(idx);
         }
         const lzwData = lzwEncode(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
