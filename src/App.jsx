@@ -4,7 +4,7 @@ import html2pdf from 'html2pdf.js';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import PolyhedronAnimation from './PolyhedronAnimation';
-import { generateStandaloneHtml, generateSimpleGif } from './animationExport';
+import { generateStandaloneHtml, generateSimpleGif, generateMultiPhraseHtml } from './animationExport';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -454,22 +454,23 @@ const GematriaCalculator = () => {
       // Add PDF to zip
       zip.file(`gemgen-${timestamp}.pdf`, pdfBlob);
 
-      // Generate animation files for each phrase
+      // Generate single HTML file with all phrases (Single mode, Auto on)
+      setDownloadProgress('Generating HTML viewer...');
+      const htmlFile = generateMultiPhraseHtml(sorted);
+      zip.file(`gemgen-${timestamp}.html`, htmlFile);
+
+      // Generate GIFs for each phrase (loose in root directory)
       for (let i = 0; i < sorted.length; i++) {
         const p = sorted[i];
-        const folderName = p.phrase.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase();
+        const safeName = p.phrase.replace(/[^a-zA-Z0-9\s]/g, '').replace(/\s+/g, '-').toLowerCase();
         const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 111];
 
-        setDownloadProgress(`Generating animations (${i + 1}/${sorted.length}): ${p.phrase}`);
+        setDownloadProgress(`Generating GIFs (${i + 1}/${sorted.length}): ${p.phrase}`);
 
-        // Generate standalone HTML
-        const htmlFile = generateStandaloneHtml(p.phrase, combo);
-        zip.file(`${folderName}/${folderName}.html`, htmlFile);
-
-        // Generate animated GIF
+        // Generate animated GIF (loose in root directory)
         try {
           const gifBlob = await generateSimpleGif(p.phrase, combo);
-          zip.file(`${folderName}/${folderName}.gif`, gifBlob);
+          zip.file(`${safeName}.gif`, gifBlob);
         } catch (err) {
           console.error(`Failed to generate GIF for "${p.phrase}":`, err);
         }

@@ -161,6 +161,42 @@ function generateBasePolyhedron() {
   return triangles;
 }
 
+// Build Single mode (just the base polyhedron)
+function buildSingle(variation) {
+  const base = generateBasePolyhedron();
+  const allTriangles = [];
+  const xFlipRows = [0, 2];
+
+  base.forEach(t => {
+    const x = t.col * (TRI_SIZE / 2);
+    const y = t.row * TRI_HEIGHT;
+    let pointing = t.pointing;
+    if (xFlipRows.includes(t.row)) pointing = pointing === 'up' ? 'down' : 'up';
+    pointing = pointing === 'up' ? 'down' : 'up';
+
+    let letterIndex = t.index;
+    let letterRow = t.polyhedronRow;
+    if (variation === 1) {
+      const flippedRow = BASE_ROWS - 1 - t.row;
+      letterIndex = flippedRow * COLS + t.col;
+      letterRow = flippedRow;
+    }
+
+    allTriangles.push({ ...t, pointing, x, y, index: letterIndex, polyhedronRow: letterRow, yMirror: false });
+  });
+  return allTriangles;
+}
+
+// Get dimensions for single mode
+function getSingleDimensions() {
+  const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+  const polyHeight = BASE_ROWS * TRI_HEIGHT;
+  return {
+    width: polyWidth,
+    height: polyHeight
+  };
+}
+
 function buildSquare(variation) {
   const base = generateBasePolyhedron();
   const allTriangles = [];
@@ -291,6 +327,42 @@ export function generateSvgFrame(phrase, combo, configIndex, variation) {
   const letterData = getLetterFrequency(phrase);
   const triangles = buildRectangle(variation);
   const { width, height } = getRectangleDimensions();
+
+  // Add padding for stroke width to prevent clipping at edges
+  const padding = STROKE_WIDTH / 2;
+  const viewBox = `${-padding} ${-padding} ${width + STROKE_WIDTH} ${height + STROKE_WIDTH}`;
+
+  let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}">`;
+  svgContent += `<rect x="${-padding}" y="${-padding}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}" fill="#f8f8f4"/>`;
+
+  triangles.forEach(tri => {
+    const symbol = config.getSymbol(tri.index % 27);
+    const letterOpacity = getLetterOpacity(symbol, letterData);
+    const isInPhrase = isLetterInPhrase(symbol, letterData);
+    const fill = isInPhrase ? colorHex : '#f8f8f4';
+    const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+    const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+
+    svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="${STROKE_WIDTH}" stroke-linejoin="round"/>`;
+
+    const textX = tri.x + TRI_SIZE / 2;
+    const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+    const textColor = isInPhrase ? '#ffffff' : '#000000';
+
+    svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="${textColor}" fill-opacity="${letterOpacity}">${symbol}</text>`;
+  });
+
+  svgContent += '</svg>';
+  return svgContent;
+}
+
+// Generate SVG content for Single mode
+export function generateSingleSvgFrame(phrase, combo, configIndex, variation) {
+  const config = CONFIGS[CONFIG_KEYS[configIndex]];
+  const colorHex = getColor(combo);
+  const letterData = getLetterFrequency(phrase);
+  const triangles = buildSingle(variation);
+  const { width, height } = getSingleDimensions();
 
   // Add padding for stroke width to prevent clipping at edges
   const padding = STROKE_WIDTH / 2;
@@ -625,4 +697,218 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   return blob;
 }
 
-export { CONFIG_KEYS, getRectangleDimensions, aikBekarToMs };
+// Generate multi-phrase HTML with dropdown selector - Single mode, Auto on, zoom to fit
+export function generateMultiPhraseHtml(phrases) {
+  // phrases is an array of { phrase, hebrew, english, simple, aiqBekar, source }
+  const { width, height } = getSingleDimensions();
+
+  // Pre-generate all frames for all phrases
+  const phrasesData = phrases.map(p => {
+    const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 111];
+    const frameSpeed = aikBekarToMs(combo[3] || 111);
+
+    // Generate all frames for Single mode (6 configs × 2 variations = 12 frames per cycle)
+    const frames = [];
+    for (let ci = 0; ci < CONFIG_KEYS.length; ci++) {
+      for (let v = 0; v < 2; v++) {
+        frames.push(generateSingleSvgFrame(p.phrase, combo, ci, v));
+      }
+    }
+
+    return {
+      phrase: p.phrase,
+      combo,
+      frameSpeed,
+      frames
+    };
+  });
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria Phrases</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px;
+      min-height: 100vh;
+    }
+    h1 {
+      color: #dc2626;
+      margin-bottom: 10px;
+      font-size: 24px;
+    }
+    .phrase-selector {
+      margin-bottom: 15px;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    select {
+      padding: 8px 12px;
+      font-size: 14px;
+      border: 2px solid #dc2626;
+      border-radius: 4px;
+      background: white;
+      cursor: pointer;
+      min-width: 200px;
+      max-width: 400px;
+    }
+    .combo {
+      color: #000;
+      margin-bottom: 15px;
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .container {
+      border: none;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #f8f8f4;
+      line-height: 0;
+      width: 100%;
+      max-width: 800px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    #animation {
+      display: block;
+      line-height: 0;
+      width: 100%;
+    }
+    #animation svg {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .controls {
+      margin-top: 20px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      background: #dc2626;
+      color: white;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #b91c1c;
+    }
+    button.active {
+      background: #059669;
+    }
+    .phrase-count {
+      color: #666;
+      font-size: 12px;
+      margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <h1 id="phraseTitle">Gematria Phrases</h1>
+  <div class="phrase-count">${phrases.length} phrases</div>
+  <div class="phrase-selector">
+    <select id="phraseSelect">
+      ${phrases.map((p, i) => `<option value="${i}">${p.phrase} (${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'})</option>`).join('')}
+    </select>
+  </div>
+  <div class="combo" id="comboDisplay">${phrases[0]?.hebrew || 111}/${phrases[0]?.english || 666}/${phrases[0]?.simple || 111}/${phrases[0]?.aiqBekar || '-'}</div>
+  <div class="container">
+    <div id="animation"></div>
+  </div>
+  <div class="controls">
+    <button id="playPause" class="active">Auto: On</button>
+  </div>
+
+  <script>
+    const phrasesData = ${JSON.stringify(phrasesData)};
+    let currentPhraseIndex = 0;
+    let currentFrame = 0;
+    let direction = 1;
+    let isPlaying = true;
+    let timer = null;
+
+    const animationDiv = document.getElementById('animation');
+    const playPauseBtn = document.getElementById('playPause');
+    const phraseSelect = document.getElementById('phraseSelect');
+    const phraseTitle = document.getElementById('phraseTitle');
+    const comboDisplay = document.getElementById('comboDisplay');
+
+    function getCurrentPhraseData() {
+      return phrasesData[currentPhraseIndex];
+    }
+
+    function render() {
+      const data = getCurrentPhraseData();
+      animationDiv.innerHTML = data.frames[currentFrame];
+    }
+
+    function updateDisplay() {
+      const data = getCurrentPhraseData();
+      phraseTitle.textContent = data.phrase;
+      const combo = data.combo;
+      comboDisplay.textContent = combo[0] + '/' + combo[1] + '/' + combo[2] + '/' + (combo[3] || '-');
+      currentFrame = 0;
+      direction = 1;
+      render();
+    }
+
+    function animate() {
+      const data = getCurrentPhraseData();
+      currentFrame += direction;
+      if (currentFrame >= data.frames.length) {
+        direction = -1;
+        currentFrame = data.frames.length - 2;
+      } else if (currentFrame < 0) {
+        direction = 1;
+        currentFrame = 1;
+      }
+      render();
+      if (isPlaying) {
+        timer = setTimeout(animate, data.frameSpeed);
+      }
+    }
+
+    playPauseBtn.addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      playPauseBtn.textContent = isPlaying ? 'Auto: On' : 'Auto: Off';
+      playPauseBtn.classList.toggle('active', isPlaying);
+      if (isPlaying) animate();
+      else clearTimeout(timer);
+    });
+
+    phraseSelect.addEventListener('change', (e) => {
+      clearTimeout(timer);
+      currentPhraseIndex = parseInt(e.target.value);
+      updateDisplay();
+      if (isPlaying) animate();
+    });
+
+    // Initial render
+    updateDisplay();
+    animate();
+  </script>
+</body>
+</html>`;
+
+  return html;
+}
+
+export { CONFIG_KEYS, getRectangleDimensions, getSingleDimensions, aikBekarToMs };
