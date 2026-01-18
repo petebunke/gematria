@@ -1118,6 +1118,7 @@ export function generateMultiPhraseHtml(phrases) {
       const colorCounts = new Map();
 
       // Count colors across all frames
+      if (onProgress) onProgress('CLR');
       for (let f = 0; f < frames.length; f++) {
         const frame = frames[f];
         for (let i = 0; i < frame.data.length; i += 4) {
@@ -1127,8 +1128,10 @@ export function generateMultiPhraseHtml(phrases) {
           const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+          if (i % 100000 === 0) await yieldToBrowser();
         }
-        if (f % 2 === 0) await yieldToBrowser();
+        if (onProgress) onProgress('CLR ' + (f+1) + '/' + frames.length);
+        await yieldToBrowser();
       }
 
       // Sort by frequency and take top 256
@@ -1181,6 +1184,7 @@ export function generateMultiPhraseHtml(phrases) {
 
       // Frames
       for (let f = 0; f < frames.length; f++) {
+        if (onProgress) onProgress('F' + (f+1) + '/' + frames.length);
         const frame = frames[f];
 
         // Graphics Control Extension
@@ -1213,9 +1217,6 @@ export function generateMultiPhraseHtml(phrases) {
           chunk.forEach(b => write(b));
         }
         write(0x00);
-
-        // Yield after each frame and report progress
-        if (onProgress) onProgress(Math.round((f + 1) / frames.length * 100));
         await yieldToBrowser();
       }
 
@@ -2231,9 +2232,9 @@ export function generateMultiPhraseHtml(phrases) {
         render(); // Restore original render
 
         // Encode GIF using custom encoder (async to prevent browser timeout)
-        btn.textContent = 'ENC 0%';
-        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay, (pct) => {
-          btn.textContent = 'ENC ' + pct + '%';
+        btn.textContent = 'ENC';
+        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay, (status) => {
+          btn.textContent = status;
         });
 
         // Download
