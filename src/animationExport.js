@@ -876,6 +876,15 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
 
+    // Snap near-white pixels to pure white before quantization
+    for (let j = 0; j < rgba.length; j += 4) {
+      if (rgba[j] > 230 && rgba[j + 1] > 230 && rgba[j + 2] > 230) {
+        rgba[j] = 255;
+        rgba[j + 1] = 255;
+        rgba[j + 2] = 255;
+      }
+    }
+
     // Quantize to 256 color palette
     const palette = quantize(rgba, 256);
     const index = applyPalette(rgba, palette);
@@ -1081,12 +1090,11 @@ export function generateMultiPhraseHtml(phrases) {
       <button id="playPause" style="width: 32px;">⏸</button>
       <button id="prevVar" class="secondary">◀</button>
       <button id="nextVar" class="secondary">▶</button>
-      <button id="loopBtn" class="secondary">LOOP</button>
+      <button id="loopBtn" class="secondary" style="width:58px">LOOP</button>
     </div>
 
     <div class="control-group">
-      <span class="control-label">Auto</span>
-      <button id="oscToggle" class="secondary" style="background:#6b5b95;color:#fff">ON</button>
+      <button id="oscToggle" class="secondary" style="background:#6b5b95;color:#fff">AUTO</button>
     </div>
 
     <div class="control-group">
@@ -1902,7 +1910,6 @@ export function generateMultiPhraseHtml(phrases) {
       oscModeDirection = 1;
       oscActive = true;
       const btn = document.getElementById('oscToggle');
-      btn.textContent = 'ON';
       btn.style.background = '#6b5b95';
       btn.style.color = '#fff';
       loopMode = 0;
@@ -1916,7 +1923,6 @@ export function generateMultiPhraseHtml(phrases) {
     function stopOsc() {
       oscActive = false;
       const btn = document.getElementById('oscToggle');
-      btn.textContent = 'OFF';
       btn.style.background = '';
       btn.style.color = '';
     }
