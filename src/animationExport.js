@@ -876,17 +876,16 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
 
-    // Snap near-white pixels to pure white before quantization
-    for (let j = 0; j < rgba.length; j += 4) {
-      if (rgba[j] > 230 && rgba[j + 1] > 230 && rgba[j + 2] > 230) {
-        rgba[j] = 255;
-        rgba[j + 1] = 255;
-        rgba[j + 2] = 255;
+    // Quantize to 256 color palette
+    const palette = quantize(rgba, 256);
+
+    // Fix any near-white palette entries to pure white
+    for (let p = 0; p < palette.length; p++) {
+      if (palette[p][0] > 240 && palette[p][1] > 240 && palette[p][2] > 240) {
+        palette[p] = [255, 255, 255];
       }
     }
 
-    // Quantize to 256 color palette
-    const palette = quantize(rgba, 256);
     const index = applyPalette(rgba, palette);
 
     gif.writeFrame(index, gifWidth, gifHeight, {
