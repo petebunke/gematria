@@ -1889,7 +1889,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={downloadPhraseTable}
                   disabled={clearing || isDownloading}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
+                  className="flex items-center justify-center gap-1 px-2 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   {isDownloading ? (
@@ -1897,8 +1897,8 @@ const GematriaCalculator = () => {
                   ) : (
                     <Download className="w-5 h-5 flex-shrink-0 hidden md:block" />
                   )}
-                  <span className="truncate">
-                    {isDownloading ? (downloadProgress || 'Downloading...') : `Download Phrases ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
+                  <span>
+                    {isDownloading ? (downloadProgress || 'Downloading...') : `Download ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
                   </span>
                 </button>
                 <button
