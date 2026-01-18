@@ -1199,9 +1199,11 @@ export function generateMultiPhraseHtml(phrases) {
         const minCodeSize = 8;
         write(minCodeSize);
 
+        // Build pixel array with periodic yields
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
           pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
+          if (i % 200000 === 0 && i > 0) await yieldToBrowser();
         }
 
         const lzwData = await lzwEncodeAsync(pixels, minCodeSize);
