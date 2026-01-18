@@ -2159,20 +2159,14 @@ export function generateMultiPhraseHtml(phrases) {
 
           const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
 
-          await new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-              ctx.fillStyle = '#f8f8f4';
-              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-              const offsetX = (canvasWidth - frameW) / 2;
-              const offsetY = (canvasHeight - frameH) / 2;
-              ctx.drawImage(img, offsetX, offsetY, frameW, frameH);
-              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
-              resolve();
-            };
-            img.onerror = () => resolve();
-            img.src = dataUrl;
-          });
+          const img = new Image();
+          img.src = dataUrl;
+          await new Promise(r => img.decode ? img.decode().then(r).catch(r) : (img.onload = r, img.onerror = r));
+
+          ctx.fillStyle = '#f8f8f4';
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH);
+          frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
