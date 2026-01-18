@@ -517,13 +517,13 @@ export function generateSvgFrame(phrase, combo, configIndex, variation) {
   const viewBox = `${-padding} ${-padding} ${width + STROKE_WIDTH} ${height + STROKE_WIDTH}`;
 
   let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}">`;
-  svgContent += `<rect x="${-padding}" y="${-padding}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}" fill="#f8f8f4"/>`;
+  svgContent += `<rect x="${-padding}" y="${-padding}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}" fill="#ffffff"/>`;
 
   triangles.forEach(tri => {
     const symbol = config.getSymbol(tri.index % 27);
     const letterOpacity = getLetterOpacity(symbol, letterData);
     const isInPhrase = isLetterInPhrase(symbol, letterData);
-    const fill = isInPhrase ? colorHex : '#f8f8f4';
+    const fill = isInPhrase ? colorHex : '#ffffff';
     const fillOpacity = isInPhrase ? letterOpacity : 0.08;
     const path = getTrianglePath(tri.x, tri.y, tri.pointing);
 
@@ -566,13 +566,13 @@ export function generateModeSvgFrame(phrase, combo, configIndex, variation, mode
   const viewBox = `${-padding} ${-padding} ${width + STROKE_WIDTH} ${height + STROKE_WIDTH}`;
 
   let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${viewBox}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}">`;
-  svgContent += `<rect x="${-padding}" y="${-padding}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}" fill="#f8f8f4"/>`;
+  svgContent += `<rect x="${-padding}" y="${-padding}" width="${width + STROKE_WIDTH}" height="${height + STROKE_WIDTH}" fill="#ffffff"/>`;
 
   triangles.forEach(tri => {
     const symbol = config.getSymbol(tri.index % 27);
     const letterOpacity = getLetterOpacity(symbol, letterData);
     const isInPhrase = isLetterInPhrase(symbol, letterData);
-    const fill = isInPhrase ? colorHex : '#f8f8f4';
+    const fill = isInPhrase ? colorHex : '#ffffff';
     const fillOpacity = isInPhrase ? letterOpacity : 0.08;
     const path = getTrianglePath(tri.x, tri.y, tri.pointing);
 
@@ -782,7 +782,7 @@ export async function generateGifBlob(phrase, combo, progressCallback) {
       // Add frames (forward and backward for ping-pong)
       const allFrames = [...images, ...images.slice(1, -1).reverse()];
       allFrames.forEach((img, i) => {
-        ctx.fillStyle = '#f8f8f4';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, width, height);
         ctx.drawImage(img, 0, 0);
         gif.addFrame(ctx, { copy: true, delay: frameSpeed });
@@ -797,7 +797,7 @@ export async function generateGifBlob(phrase, combo, progressCallback) {
       gif.render();
     }).catch(() => {
       // Fallback: return a simple single-frame "GIF" (actually PNG)
-      ctx.fillStyle = '#f8f8f4';
+      ctx.fillStyle = '#ffffff';
       ctx.fillRect(0, 0, width, height);
       const img = images[0];
       ctx.drawImage(img, 0, 0);
@@ -849,14 +849,14 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
 
     await new Promise((resolve) => {
       img.onload = () => {
-        ctx.fillStyle = '#f8f8f4';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, scaledWidth, scaledHeight);
         ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
         URL.revokeObjectURL(url);
         resolve();
       };
       img.onerror = () => {
-        ctx.fillStyle = '#f8f8f4';
+        ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, scaledWidth, scaledHeight);
         resolve();
       };
