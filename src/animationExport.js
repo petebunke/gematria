@@ -871,6 +871,16 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
 
+    // Snap near-white pixels to pure white before quantization
+    // This prevents low-opacity fills from being quantized to gray
+    for (let j = 0; j < rgba.length; j += 4) {
+      if (rgba[j] > 240 && rgba[j + 1] > 240 && rgba[j + 2] > 240) {
+        rgba[j] = 255;     // R
+        rgba[j + 1] = 255; // G
+        rgba[j + 2] = 255; // B
+      }
+    }
+
     // Quantize to 256 color palette
     const palette = quantize(rgba, 256);
     const index = applyPalette(rgba, palette);
