@@ -2025,13 +2025,15 @@ export function generateMultiPhraseHtml(phrases) {
               URL.revokeObjectURL(url);
 
               const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-              frameDataList.push(imageData.data);
+              // Must copy the data - imageData.data buffer can be reused
+              frameDataList.push(new Uint8Array(imageData.data));
               resolve();
             };
             img.onerror = () => {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight).data);
+              const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
+              frameDataList.push(new Uint8Array(imageData.data));
               resolve();
             };
             img.src = url;
