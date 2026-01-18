@@ -1177,8 +1177,6 @@ export function generateMultiPhraseHtml(phrases) {
       const eoiCode = clearCode + 1;
       let codeSize = minCodeSize + 1;
       let nextCode = eoiCode + 1;
-      const table = new Map();
-      for (let i = 0; i < clearCode; i++) table.set(String(i), i);
       const output = [];
       let bits = 0, bitCount = 0;
       const emit = (code) => {
@@ -1186,21 +1184,35 @@ export function generateMultiPhraseHtml(phrases) {
         bitCount += codeSize;
         while (bitCount >= 8) { output.push(bits & 0xff); bits >>= 8; bitCount -= 8; }
       };
+
+      // Use trie for faster lookup
+      let root = {};
+      for (let i = 0; i < clearCode; i++) root[i] = { code: i, children: {} };
+
       emit(clearCode);
       if (pixels.length === 0) { emit(eoiCode); if (bitCount > 0) output.push(bits & 0xff); return output; }
-      let prefix = String(pixels[0]);
+
+      let node = root[pixels[0]];
       for (let i = 1; i < pixels.length; i++) {
-        const suffix = String(pixels[i]);
-        const combined = prefix + ',' + suffix;
-        if (table.has(combined)) { prefix = combined; }
-        else {
-          emit(table.get(prefix));
-          if (nextCode < 4096) { table.set(combined, nextCode++); if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++; }
-          else { emit(clearCode); table.clear(); for (let j = 0; j < clearCode; j++) table.set(String(j), j); nextCode = eoiCode + 1; codeSize = minCodeSize + 1; }
-          prefix = suffix;
+        const k = pixels[i];
+        if (node.children[k]) {
+          node = node.children[k];
+        } else {
+          emit(node.code);
+          if (nextCode < 4096) {
+            node.children[k] = { code: nextCode++, children: {} };
+            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+          } else {
+            emit(clearCode);
+            root = {};
+            for (let j = 0; j < clearCode; j++) root[j] = { code: j, children: {} };
+            nextCode = eoiCode + 1;
+            codeSize = minCodeSize + 1;
+          }
+          node = root[k];
         }
       }
-      emit(table.get(prefix));
+      emit(node.code);
       emit(eoiCode);
       if (bitCount > 0) output.push(bits & 0xff);
       return output;
