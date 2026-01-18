@@ -433,7 +433,7 @@ const GematriaCalculator = () => {
             <thead>
               <tr>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; max-width: 350px;">Meanings</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; width: 450px;">Definitions</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
                 <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
@@ -446,7 +446,7 @@ const GematriaCalculator = () => {
               ${sorted.map((p, i) => `
                 <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap;">${p.phrase}</td>
-                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; max-width: 350px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; width: 450px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>

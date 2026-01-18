@@ -926,6 +926,7 @@ export function generateMultiPhraseHtml(phrases) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>Gematria Polyhedron Tessellation</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect x='7' y='4' width='18' height='24' rx='2' fill='none' stroke='%23ef4444' stroke-width='2'/%3E%3Cline x1='10' y1='9' x2='22' y2='9' stroke='%23ef4444' stroke-width='2'/%3E%3Ccircle cx='22' cy='14' r='1' fill='%23ef4444'/%3E%3Ccircle cx='16' cy='14' r='1' fill='%23ef4444'/%3E%3Ccircle cx='10' cy='14' r='1' fill='%23ef4444'/%3E%3Ccircle cx='22' cy='19' r='1' fill='%23ef4444'/%3E%3Ccircle cx='16' cy='19' r='1' fill='%23ef4444'/%3E%3Ccircle cx='10' cy='19' r='1' fill='%23ef4444'/%3E%3Ccircle cx='22' cy='24' r='1' fill='%23ef4444'/%3E%3Ccircle cx='16' cy='24' r='1' fill='%23ef4444'/%3E%3Ccircle cx='10' cy='24' r='1' fill='%23ef4444'/%3E%3C/svg%3E">
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
