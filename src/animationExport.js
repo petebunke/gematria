@@ -2159,14 +2159,17 @@ export function generateMultiPhraseHtml(phrases) {
 
           await new Promise((resolve) => {
             const img = new Image();
+            let done = false;
+            const finish = () => { if (!done) { done = true; resolve(); } };
             img.onload = function() {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, canvasWidth, canvasHeight);
               ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH);
               frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
-              resolve();
+              finish();
             };
-            img.onerror = function() { resolve(); };
+            img.onerror = finish;
+            setTimeout(finish, 200);
             img.src = 'data:image/svg+xml,' + encodeURIComponent(svgStr);
           });
 
