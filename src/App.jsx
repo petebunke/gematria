@@ -154,129 +154,1815 @@ const GematriaCalculator = () => {
       return;
     }
 
-    // Sort by combination (Hebrew, English, Simple, Aik Bekar⁹)
+    // Sort by aik bekar value first, then hebrew value (matching the tessellation dropdown order)
     const sorted = [...generatedPhrases].sort((a, b) => {
-      if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
-      if (a.english !== b.english) return a.english - b.english;
-      if (a.simple !== b.simple) return a.simple - b.simple;
-      return (a.aiqBekar || 0) - (b.aiqBekar || 0);
+      if ((a.aiqBekar || 0) !== (b.aiqBekar || 0)) return (a.aiqBekar || 0) - (b.aiqBekar || 0);
+      return a.hebrew - b.hebrew;
     });
 
-    // Create HTML content for PDF
-    const htmlContent = `
-<!DOCTYPE html>
-<html>
+    // Generate phrase options for the tessellation dropdown
+    const phraseOptions = sorted.map(p => {
+      const combo = `${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || 0}`;
+      const displayPhrase = p.phrase.length > 20 ? p.phrase.substring(0, 17) + '...' : p.phrase;
+      return `<option value="${p.phrase}|${combo}">${displayPhrase} (${combo})</option>`;
+    }).join('\n        ');
+
+    // Get the first phrase for initial state
+    const firstPhrase = sorted[0];
+    const initialPhrase = firstPhrase.phrase;
+    const initialCombo = [firstPhrase.hebrew, firstPhrase.english, firstPhrase.simple, firstPhrase.aiqBekar || 0];
+
+    // Create the tessellation HTML content
+    const htmlContent = `<!DOCTYPE html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Gematria Generated Phrases - ${new Date().toLocaleDateString()}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Gematria Polyhedron Tessellation</title>
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      touch-action: none;
+    }
     body {
-      font-family: Arial, sans-serif;
-      padding: 20px;
-      max-width: 1200px;
-      margin: 0 auto;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f5f0;
+      color: #333;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      position: relative;
     }
-    h1 {
-      color: #dc2626;
-      border-bottom: 3px solid #dc2626;
-      padding-bottom: 10px;
-      margin-bottom: 20px;
+
+    #backgroundSvg {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: -1;
+      opacity: 0.3;
     }
-    .meta {
+
+    .controls-overlay {
+      background: rgba(255,255,255,0.95);
+      border-bottom: 2px solid #333;
+      padding: 8px 16px;
+      width: 100%;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: center;
+      transition: transform 0.3s ease;
+    }
+
+    .controls-overlay.hidden {
+      transform: translateY(-100%);
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .control-label {
+      font-size: 9px;
       color: #666;
-      margin-bottom: 30px;
+      text-transform: uppercase;
+    }
+
+    select, button, input {
+      background: #fff;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      color: #333;
+      padding: 4px 6px;
+      font-size: 11px;
+      outline: none;
+    }
+    select:focus, input:focus {
+      border-color: #6b5b95;
+    }
+
+    input[type="number"] {
+      width: 60px;
+    }
+
+    button {
+      background: #6b5b95;
+      border-color: #6b5b95;
+      color: #fff;
+      cursor: pointer;
+    }
+    button:hover { background: #5a4a84; }
+    button.secondary {
+      background: #fff;
+      color: #6b5b95;
+      border-color: #6b5b95;
+    }
+
+    .info-display {
+      font-family: monospace;
+      font-size: 10px;
+      background: #f0f0e8;
+      padding: 2px 5px;
+      border-radius: 4px;
+    }
+
+    .color-swatch {
+      width: 16px;
+      height: 16px;
+      border-radius: 3px;
+      border: 1px solid #333;
+    }
+
+    .tessellation-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      touch-action: none;
+      padding: 20px;
+      cursor: grab;
+    }
+
+    body.fullscreen .tessellation-container {
+      padding: 0;
+    }
+
+    #tessellationSvg {
+      width: 800px;
+      height: 600px;
+      touch-action: none;
+      border: 2px solid #333;
+      background: #f8f8f4;
+    }
+
+    body.fullscreen #tessellationSvg {
+      border: none;
+    }
+
+    #fullscreenBtn {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      z-index: 100;
+      background: rgba(107, 91, 149, 0.9);
+      border: none;
+      padding: 8px 12px;
       font-size: 14px;
     }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 20px;
-    }
-    th {
-      background-color: #dc2626;
-      color: white;
-      padding: 12px;
-      text-align: left;
-      font-weight: bold;
-    }
-    td {
-      padding: 10px 12px;
-      border-bottom: 1px solid #ddd;
-    }
-    tr:nth-child(even) {
-      background-color: #f9f9f9;
-    }
-    tr:hover {
-      background-color: #f5f5f5;
-    }
-    .phrase {
-      font-weight: 600;
-      color: #1f2937;
-    }
-    .numbers {
-      font-family: monospace;
-      color: #dc2626;
-    }
-    .source {
-      text-transform: capitalize;
-      color: #4b5563;
-    }
-    @media print {
-      body { padding: 10px; }
-      tr { page-break-inside: avoid; }
+
+    body.fullscreen #fullscreenBtn {
+      top: 10px;
     }
   </style>
 </head>
 <body>
-  <h1>Gematria Generated Phrases</h1>
-  <div class="meta">
-    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-    <p><strong>Total Phrases:</strong> ${sorted.length}</p>
+  <svg id="backgroundSvg" preserveAspectRatio="xMidYMid slice"></svg>
+  <button id="fullscreenBtn">⛶</button>
+  <div class="controls-overlay" id="controlsOverlay">
+    <div class="control-group">
+      <span class="control-label">Phrase</span>
+      <select id="phraseSelect">
+        ${phraseOptions}
+      </select>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Mode</span>
+      <select id="displayMode">
+        <option value="single" selected>Single</option>
+        <option value="dual">Duo</option>
+        <option value="quad">Quad</option>
+        <option value="octa">Octa</option>
+        <option value="square">Square</option>
+        <option value="rectangle">Rectangle</option>
+        <option value="cube">Cube</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Config</span>
+      <span class="info-display" id="configName">a-*-z</span>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Var</span>
+      <span class="info-display" id="variationName" style="width: 52px; text-align: center;">Normal</span>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Speed</span>
+      <input type="number" id="frameSpeed" value="666" min="1" max="999" step="1">
+      <span class="control-label">ms</span>
+    </div>
+
+    <div class="control-group">
+      <button id="playPause" style="width: 32px;">⏸</button>
+      <button id="prevVar" class="secondary">◀</button>
+      <button id="nextVar" class="secondary">▶</button>
+      <button id="loopBtn" class="secondary">LOOP</button>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Auto</span>
+      <button id="oscToggle">ON</button>
+    </div>
+
+    <div class="control-group">
+      <span class="control-label">Zoom</span>
+      <span class="info-display" id="zoomLevel">100%</span>
+    </div>
+
+    <div class="control-group">
+      <button id="exportGif" class="secondary">GIF</button>
+    </div>
   </div>
-  <table>
-    <thead>
-      <tr>
-        <th>Phrase</th>
-        <th>Hebrew</th>
-        <th>English</th>
-        <th>Simple</th>
-        <th>Aik Bekar⁹</th>
-        <th>Combination</th>
-        <th>Source</th>
-        <th>Gen Time</th>
-        <th>Timestamp</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${sorted.map(p => `
-        <tr>
-          <td class="phrase">${p.phrase}</td>
-          <td class="numbers">${p.hebrew}</td>
-          <td class="numbers">${p.english}</td>
-          <td class="numbers">${p.simple}</td>
-          <td class="numbers">${p.aiqBekar || '-'}</td>
-          <td class="numbers">${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'}</td>
-          <td class="source">${p.source}</td>
-          <td class="numbers">${p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-'}</td>
-          <td>${new Date(p.timestamp).toLocaleString()}</td>
-        </tr>
-      `).join('')}
-    </tbody>
-  </table>
-</body>
-</html>
-    `;
 
-    // Open in new window for printing/saving as PDF
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+  <div class="tessellation-container" id="container">
+    <svg id="tessellationSvg" preserveAspectRatio="xMidYMid meet"></svg>
+  </div>
 
-    // Trigger print dialog after content loads
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
+  <script>
+    // Constants
+    const TRI_SIZE = 32;
+    const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
+    const COLS = 9;
+    const BASE_ROWS = 3;
+
+    // Alphabet
+    const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+    // Row colors for polyhedron (by row position)
+    const ROW_COLORS = {
+      0: '#c41e3a',
+      1: '#2e8b57',
+      2: '#1e4d8c'
     };
+
+    // 6 configurations
+    const CONFIGS = {
+      'a-*-z': {
+        name: 'a-*-z',
+        getSymbol: (pos) => {
+          if (pos < 13) return ALPHABET[pos];
+          if (pos === 13) return '*';
+          return ALPHABET[pos - 1];
+        }
+      },
+      '*-a-z': {
+        name: '*-a-z',
+        getSymbol: (pos) => {
+          if (pos === 0) return '*';
+          return ALPHABET[pos - 1];
+        }
+      },
+      'a-z-*': {
+        name: 'a-z-*',
+        getSymbol: (pos) => {
+          if (pos === 26) return '*';
+          return ALPHABET[pos];
+        }
+      },
+      'z-*-a': {
+        name: 'z-*-a',
+        getSymbol: (pos) => {
+          if (pos < 13) return ALPHABET[25 - pos];
+          if (pos === 13) return '*';
+          return ALPHABET[25 - (pos - 1)];
+        }
+      },
+      '*-z-a': {
+        name: '*-z-a',
+        getSymbol: (pos) => {
+          if (pos === 0) return '*';
+          return ALPHABET[26 - pos];
+        }
+      },
+      'z-a-*': {
+        name: 'z-a-*',
+        getSymbol: (pos) => {
+          if (pos === 26) return '*';
+          return ALPHABET[25 - pos];
+        }
+      }
+    };
+
+    const CONFIG_KEYS = Object.keys(CONFIGS);
+
+    // State - Default to Single mode with Auto ON
+    let currentPhrase = ${JSON.stringify(initialPhrase)};
+    let currentCombo = ${JSON.stringify(initialCombo)};
+    let currentConfigIndex = 0;
+    let currentVariation = 0;
+    let isPlaying = true;
+    let animationTimer = null;
+    let frameSpeed = 666;
+    let displayMode = 'single';
+    let configDirection = 1;
+    let loopMode = 0;
+
+    // Self-oscillator (Auto) state - DEFAULT ON
+    let oscActive = true;
+
+    // Zoom and pan state
+    let scale = 1.0;
+    let panX = 0;
+    let panY = 0;
+    let initialDistance = 0;
+    let initialScale = 1;
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    let dragStartPanX = 0;
+    let dragStartPanY = 0;
+
+    // Fullscreen state
+    let isFullscreen = false;
+
+    function isLetterInPhrase(symbol, letterData) {
+      return symbol !== '*' && (letterData.freq[symbol] || 0) > 0;
+    }
+
+    function getLetterFrequency(phrase) {
+      const freq = {};
+      const cleanPhrase = phrase.toUpperCase().replace(/[^A-Z]/g, '');
+      for (const char of cleanPhrase) {
+        freq[char] = (freq[char] || 0) + 1;
+      }
+      const maxFreq = Math.max(...Object.values(freq), 1);
+      return { freq, maxFreq, totalLetters: cleanPhrase.length };
+    }
+
+    function getLetterOpacity(symbol, letterData) {
+      if (symbol === '*') return 0.15;
+      const { freq, maxFreq } = letterData;
+      const count = freq[symbol] || 0;
+      if (count === 0) return 0.15;
+      const baseOpacity = 0.3;
+      const normalized = count / maxFreq;
+      return baseOpacity + normalized * (1 - baseOpacity);
+    }
+
+    function getLetterColor(polyhedronRow) {
+      return ROW_COLORS[polyhedronRow % 3];
+    }
+
+    function comboToCMYK(combo) {
+      const toPercent = (val) => Math.round((val % 1000) / 10);
+      return {
+        c: toPercent(combo[0]),
+        m: toPercent(combo[1]),
+        y: toPercent(combo[2]),
+        k: toPercent(combo[3])
+      };
+    }
+
+    function cmykToRgb(c, m, y, k) {
+      c /= 100; m /= 100; y /= 100; k /= 100;
+      return {
+        r: Math.round(255 * (1 - c) * (1 - k)),
+        g: Math.round(255 * (1 - m) * (1 - k)),
+        b: Math.round(255 * (1 - y) * (1 - k))
+      };
+    }
+
+    function rgbToHex(r, g, b) {
+      return '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+
+    function getColor() {
+      const cmyk = comboToCMYK(currentCombo);
+      const rgb = cmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+      return { cmyk, rgb, hex: rgbToHex(rgb.r, rgb.g, rgb.b) };
+    }
+
+    function generateBasePolyhedron() {
+      const triangles = [];
+      for (let row = 0; row < BASE_ROWS; row++) {
+        for (let col = 0; col < COLS; col++) {
+          triangles.push({
+            row,
+            col,
+            pointing: col % 2 === 0 ? 'up' : 'down',
+            index: row * COLS + col,
+            polyhedronRow: row
+          });
+        }
+      }
+      return triangles;
+    }
+
+    function buildDualStacked(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const xFlipRows = [1, 3, 5];
+
+      base.forEach(t => {
+        const x = t.col * (TRI_SIZE / 2);
+        const y = t.row * TRI_HEIGHT;
+        const finalRow = t.row;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(finalRow)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
+        allTriangles.push({
+          ...t,
+          pointing,
+          x,
+          y,
+          index: letterIndex,
+          polyhedronRow: letterRow,
+          yMirror: false
+        });
+      });
+
+      base.forEach(t => {
+        const mirroredRow = BASE_ROWS - 1 - t.row;
+        const x = t.col * (TRI_SIZE / 2);
+        const finalRow = BASE_ROWS + mirroredRow;
+        const y = finalRow * TRI_HEIGHT;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(finalRow)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+        let letterRow = variation === 1 ? (BASE_ROWS - 1 - t.row) : t.row;
+        let letterIndex = letterRow * COLS + t.col;
+        allTriangles.push({
+          ...t,
+          pointing,
+          x,
+          y,
+          index: letterIndex,
+          polyhedronRow: letterRow,
+          yMirror: false
+        });
+      });
+
+      return allTriangles;
+    }
+
+    function buildSingle(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const xFlipRows = [0, 2];
+
+      base.forEach(t => {
+        const x = t.col * (TRI_SIZE / 2);
+        const y = t.row * TRI_HEIGHT;
+        let pointing = t.pointing;
+        if (xFlipRows.includes(t.row)) {
+          pointing = pointing === 'up' ? 'down' : 'up';
+        }
+        pointing = pointing === 'up' ? 'down' : 'up';
+        let letterIndex = t.index;
+        let letterRow = t.polyhedronRow;
+        if (variation === 1) {
+          const flippedRow = BASE_ROWS - 1 - t.row;
+          letterIndex = flippedRow * COLS + t.col;
+          letterRow = flippedRow;
+        }
+        allTriangles.push({
+          ...t,
+          pointing,
+          x,
+          y,
+          index: letterIndex,
+          polyhedronRow: letterRow,
+          yMirror: false
+        });
+      });
+
+      return allTriangles;
+    }
+
+    function buildQuadMirrored(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const xFlipRows = [0, 2, 4];
+      const columns = [
+        { colIndex: 0, yMirror: true },
+        { colIndex: 1, yMirror: false }
+      ];
+
+      columns.forEach(({ colIndex, yMirror }) => {
+        base.forEach(t => {
+          let col = t.col;
+          let pointing = t.pointing;
+          let row, polyRow;
+          if (variation === 0) {
+            row = t.row;
+            polyRow = t.polyhedronRow;
+          } else {
+            row = BASE_ROWS - 1 - t.row;
+            polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+          }
+          if (yMirror) {
+            col = COLS - 1 - col;
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+          if (xFlipRows.includes(row)) {
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = row * TRI_HEIGHT;
+          allTriangles.push({
+            ...t,
+            col,
+            pointing,
+            polyhedronRow: polyRow,
+            x,
+            y,
+            yMirror,
+            section: 'top'
+          });
+        });
+
+        base.forEach(t => {
+          let col = t.col;
+          let pointing = t.pointing;
+          let row, polyRow;
+          if (variation === 0) {
+            const mirroredRow = BASE_ROWS - 1 - t.row;
+            row = BASE_ROWS + mirroredRow;
+            polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+          } else {
+            row = BASE_ROWS + t.row;
+            polyRow = t.polyhedronRow;
+          }
+          if (yMirror) {
+            col = COLS - 1 - col;
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+          if (xFlipRows.includes(row)) {
+            pointing = pointing === 'up' ? 'down' : 'up';
+          }
+          const x = colIndex * polyWidth + col * (TRI_SIZE / 2);
+          const y = row * TRI_HEIGHT;
+          allTriangles.push({
+            ...t,
+            col,
+            pointing,
+            polyhedronRow: polyRow,
+            x,
+            y,
+            yMirror,
+            section: 'bottom'
+          });
+        });
+      });
+
+      return allTriangles;
+    }
+
+    function buildOcta(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const xFlipRows = [0, 2, 4];
+      const GAP = 0;
+
+      const quadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }
+      ];
+
+      quadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+        const quadXOffset = qCol * quadWidth;
+        const quadYOffset = qRow * (quadHeight + GAP);
+
+        let columns;
+        if (xFlipAll) {
+          columns = yFlipAll
+            ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+            : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
+        } else {
+          columns = yFlipAll
+            ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+            : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+        }
+
+        columns.forEach(({ colIndex, yMirror }) => {
+          base.forEach(t => {
+            let col = t.col;
+            let pointing = t.pointing;
+            let row, polyRow;
+            if (variation === 0) {
+              row = t.row;
+              polyRow = t.polyhedronRow;
+            } else {
+              row = BASE_ROWS - 1 - t.row;
+              polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+            }
+            if (yMirror) {
+              col = COLS - 1 - col;
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            if (xFlipRows.includes(row)) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            if (xFlipAll) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
+            allTriangles.push({
+              ...t,
+              col,
+              pointing,
+              polyhedronRow: polyRow,
+              x,
+              y,
+              yMirror,
+              section: 'top'
+            });
+          });
+
+          base.forEach(t => {
+            let col = t.col;
+            let pointing = t.pointing;
+            let row, polyRow;
+            if (variation === 0) {
+              const mirroredRow = BASE_ROWS - 1 - t.row;
+              row = BASE_ROWS + mirroredRow;
+              polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+            } else {
+              row = BASE_ROWS + t.row;
+              polyRow = t.polyhedronRow;
+            }
+            if (yMirror) {
+              col = COLS - 1 - col;
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            if (xFlipRows.includes(row)) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            if (xFlipAll) {
+              pointing = pointing === 'up' ? 'down' : 'up';
+            }
+            const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+            const y = quadYOffset + row * TRI_HEIGHT;
+            allTriangles.push({
+              ...t,
+              col,
+              pointing,
+              polyhedronRow: polyRow,
+              x,
+              y,
+              yMirror,
+              section: 'bottom'
+            });
+          });
+        });
+      });
+
+      return allTriangles;
+    }
+
+    function buildSquare(variation) {
+      const base = generateBasePolyhedron();
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const quadWidth = polyWidth * 2;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const xFlipRows = [0, 2, 4];
+      const GAP = 0;
+
+      const octaHalves = [
+        { halfRow: 0, globalXFlip: true },
+        { halfRow: 1, globalXFlip: false }
+      ];
+
+      const octaQuadrants = [
+        { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
+        { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
+        { qRow: 1, qCol: 0, xFlipAll: true, yFlipAll: false },
+        { qRow: 1, qCol: 1, xFlipAll: true, yFlipAll: true }
+      ];
+
+      const octaHeight = quadHeight * 2 + GAP;
+
+      octaHalves.forEach(({ halfRow, globalXFlip }) => {
+        const halfYOffset = halfRow * (octaHeight + GAP);
+
+        octaQuadrants.forEach(({ qRow, qCol, xFlipAll, yFlipAll }) => {
+          const quadXOffset = qCol * quadWidth;
+          const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
+          const combinedXFlip = xFlipAll !== globalXFlip;
+
+          let columns;
+          if (combinedXFlip) {
+            columns = yFlipAll
+              ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+              : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
+          } else {
+            columns = yFlipAll
+              ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+              : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
+          }
+
+          columns.forEach(({ colIndex, yMirror }) => {
+            base.forEach(t => {
+              let col = t.col;
+              let pointing = t.pointing;
+              let row, polyRow;
+              if (variation === 0) {
+                row = t.row;
+                polyRow = t.polyhedronRow;
+              } else {
+                row = BASE_ROWS - 1 - t.row;
+                polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+              }
+              if (yMirror) {
+                col = COLS - 1 - col;
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (xFlipRows.includes(row)) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (xFlipAll) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (globalXFlip) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+              allTriangles.push({
+                ...t,
+                col,
+                pointing,
+                polyhedronRow: polyRow,
+                x,
+                y,
+                yMirror,
+                section: 'top'
+              });
+            });
+
+            base.forEach(t => {
+              let col = t.col;
+              let pointing = t.pointing;
+              let row, polyRow;
+              if (variation === 0) {
+                const mirroredRow = BASE_ROWS - 1 - t.row;
+                row = BASE_ROWS + mirroredRow;
+                polyRow = BASE_ROWS - 1 - t.polyhedronRow;
+              } else {
+                row = BASE_ROWS + t.row;
+                polyRow = t.polyhedronRow;
+              }
+              if (yMirror) {
+                col = COLS - 1 - col;
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (xFlipRows.includes(row)) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (xFlipAll) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              if (globalXFlip) {
+                pointing = pointing === 'up' ? 'down' : 'up';
+              }
+              const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
+              const y = quadYOffset + row * TRI_HEIGHT;
+              allTriangles.push({
+                ...t,
+                col,
+                pointing,
+                polyhedronRow: polyRow,
+                x,
+                y,
+                yMirror,
+                section: 'bottom'
+              });
+            });
+          });
+        });
+      });
+
+      return allTriangles;
+    }
+
+    function buildRectangle(variation) {
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const squareWidth = polyWidth * 4;
+
+      for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
+        const squareTriangles = buildSquare(variation);
+        const xOffset = gridIndex * (squareWidth + GAP);
+        const shouldXFlip = gridIndex % 2 === 1;
+
+        squareTriangles.forEach(tri => {
+          let newPointing = tri.pointing;
+          if (shouldXFlip) {
+            newPointing = tri.pointing === 'up' ? 'down' : 'up';
+          }
+          allTriangles.push({
+            ...tri,
+            x: tri.x + xOffset,
+            y: tri.y,
+            pointing: newPointing,
+            gridIndex: gridIndex
+          });
+        });
+      }
+
+      return allTriangles;
+    }
+
+    function buildCube(variation) {
+      const allTriangles = [];
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+      const squareHeight = octaHeight * 2 + GAP;
+      const rectangleHeight = squareHeight;
+
+      for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
+        const rectangleTriangles = buildRectangle(variation);
+        const yOffset = rowIndex * (rectangleHeight + GAP);
+        const shouldXFlip = rowIndex % 2 === 0;
+
+        rectangleTriangles.forEach(tri => {
+          let newPointing = tri.pointing;
+          if (shouldXFlip) {
+            newPointing = tri.pointing === 'up' ? 'down' : 'up';
+          }
+          allTriangles.push({
+            ...tri,
+            x: tri.x,
+            y: tri.y + yOffset,
+            pointing: newPointing,
+            rowIndex: rowIndex
+          });
+        });
+      }
+
+      return allTriangles;
+    }
+
+    function getTrianglePath(x, y, pointing) {
+      const halfWidth = TRI_SIZE / 2;
+      if (pointing === 'up') {
+        return \`M \${x} \${y + TRI_HEIGHT} L \${x + halfWidth} \${y} L \${x + TRI_SIZE} \${y + TRI_HEIGHT} Z\`;
+      } else {
+        return \`M \${x} \${y} L \${x + TRI_SIZE} \${y} L \${x + halfWidth} \${y + TRI_HEIGHT} Z\`;
+      }
+    }
+
+    // Calculate scale to fit content in viewport
+    function calculateFitScale(totalWidth, totalHeight) {
+      const container = document.getElementById('container');
+      const containerWidth = container.clientWidth - 40;
+      const containerHeight = container.clientHeight - 40;
+      const scaleX = containerWidth / totalWidth;
+      const scaleY = containerHeight / totalHeight;
+      return Math.min(scaleX, scaleY, 2.0);
+    }
+
+    function render() {
+      const svg = document.getElementById('tessellationSvg');
+      const config = CONFIGS[CONFIG_KEYS[currentConfigIndex]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+
+      document.getElementById('configName').textContent = config.name;
+      const varName = currentVariation === 0 ? 'Normal' : 'Inverted';
+      document.getElementById('variationName').textContent = varName;
+      document.getElementById('zoomLevel').textContent = \`\${Math.round(scale * 100)}%\`;
+
+      let triangles;
+      let totalWidth, totalHeight;
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+
+      if (displayMode === 'single') {
+        triangles = buildSingle(currentVariation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * TRI_HEIGHT;
+      } else if (displayMode === 'dual') {
+        triangles = buildDualStacked(currentVariation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (displayMode === 'cube') {
+        triangles = buildCube(currentVariation);
+        const GAP = 0;
+        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        const octaHeight = quadHeight * 2 + GAP;
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        const rectangleWidth = squareWidth * 4 + GAP * 3;
+        const rectangleHeight = squareHeight;
+        totalWidth = rectangleWidth;
+        totalHeight = rectangleHeight * 4 + GAP * 3;
+      } else if (displayMode === 'rectangle') {
+        triangles = buildRectangle(currentVariation);
+        const GAP = 0;
+        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        const octaHeight = quadHeight * 2 + GAP;
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight;
+      } else if (displayMode === 'square') {
+        triangles = buildSquare(currentVariation);
+        const GAP = 0;
+        const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+        const octaHeight = quadHeight * 2 + GAP;
+        totalWidth = polyWidth * 4;
+        totalHeight = octaHeight * 2 + GAP;
+      } else if (displayMode === 'octa') {
+        triangles = buildOcta(currentVariation);
+        const GAP = 0;
+        totalWidth = polyWidth * 4;
+        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + GAP;
+      } else {
+        triangles = buildQuadMirrored(currentVariation);
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      }
+
+      const viewWidth = totalWidth / scale;
+      const viewHeight = totalHeight / scale;
+      const viewX = (totalWidth - viewWidth) / 2 + panX;
+      const viewY = (totalHeight - viewHeight) / 2 + panY;
+
+      svg.setAttribute('viewBox', \`\${viewX} \${viewY} \${viewWidth} \${viewHeight}\`);
+
+      let svgContent = \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#f8f8f4"/>\`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const letterColor = getLetterColor(tri.polyhedronRow);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
+      });
+
+      svg.innerHTML = svgContent;
+    }
+
+    function getVariationCount() {
+      return 2;
+    }
+
+    const MODE_ORDER = ['single', 'dual', 'quad', 'octa', 'square', 'rectangle', 'cube'];
+    let oscModeDirection = 1;
+
+    function animate() {
+      if (!isPlaying) return;
+
+      const varCount = getVariationCount();
+      let configChanged = false;
+      let newConfigIndex = currentConfigIndex;
+
+      if (varCount > 1) {
+        currentVariation += configDirection;
+        if (currentVariation >= varCount) {
+          currentVariation = 0;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
+        } else if (currentVariation < 0) {
+          currentVariation = varCount - 1;
+          newConfigIndex = currentConfigIndex + configDirection;
+          configChanged = true;
+        }
+      } else {
+        newConfigIndex = currentConfigIndex + configDirection;
+        configChanged = true;
+      }
+
+      if (configChanged) {
+        if (newConfigIndex >= CONFIG_KEYS.length || newConfigIndex < 0) {
+          if (loopMode === 0) {
+            const wasGoingBackward = configDirection === -1;
+            configDirection *= -1;
+            newConfigIndex = currentConfigIndex + configDirection;
+            if (varCount > 1) {
+              currentVariation += configDirection * 2;
+              if (currentVariation < 0) currentVariation = varCount - 1;
+              if (currentVariation >= varCount) currentVariation = 0;
+            }
+
+            if (oscActive && wasGoingBackward) {
+              const currentModeIndex = MODE_ORDER.indexOf(displayMode);
+              let nextModeIndex = currentModeIndex + oscModeDirection;
+
+              if (nextModeIndex >= MODE_ORDER.length || nextModeIndex < 0) {
+                oscModeDirection *= -1;
+                nextModeIndex = currentModeIndex + oscModeDirection;
+              }
+
+              displayMode = MODE_ORDER[nextModeIndex];
+              document.getElementById('displayMode').value = displayMode;
+              currentVariation = 0;
+              panX = 0;
+              panY = 0;
+              // Auto-fit zoom when mode changes
+              updateScaleForMode();
+            }
+          } else {
+            newConfigIndex = (newConfigIndex + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+          }
+        }
+        currentConfigIndex = newConfigIndex;
+      }
+
+      render();
+      animationTimer = setTimeout(animate, frameSpeed);
+    }
+
+    function updateScaleForMode() {
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+      let totalWidth, totalHeight;
+
+      if (displayMode === 'single') {
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * TRI_HEIGHT;
+      } else if (displayMode === 'dual') {
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (displayMode === 'cube') {
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight * 4 + GAP * 3;
+      } else if (displayMode === 'rectangle') {
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight;
+      } else if (displayMode === 'square') {
+        totalWidth = polyWidth * 4;
+        totalHeight = octaHeight * 2 + GAP;
+      } else if (displayMode === 'octa') {
+        totalWidth = polyWidth * 4;
+        totalHeight = BASE_ROWS * 4 * TRI_HEIGHT + GAP;
+      } else {
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      }
+
+      scale = calculateFitScale(totalWidth, totalHeight);
+    }
+
+    function getTotalVariationIndex() {
+      const varCount = getVariationCount();
+      return currentConfigIndex * varCount + currentVariation;
+    }
+
+    function setFromTotalVariationIndex(idx) {
+      const varCount = getVariationCount();
+      const total = CONFIG_KEYS.length * varCount;
+      idx = ((idx % total) + total) % total;
+      currentConfigIndex = Math.floor(idx / varCount);
+      currentVariation = idx % varCount;
+    }
+
+    function getDistance(touches) {
+      const dx = touches[0].clientX - touches[1].clientX;
+      const dy = touches[0].clientY - touches[1].clientY;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    const container = document.getElementById('container');
+
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        initialDistance = getDistance(e.touches);
+        initialScale = scale;
+      }
+    }, { passive: false });
+
+    container.addEventListener('touchmove', (e) => {
+      if (e.touches.length === 2) {
+        e.preventDefault();
+        const currentDistance = getDistance(e.touches);
+        const newScale = initialScale * (currentDistance / initialDistance);
+        const minZoom = 0.1;
+        scale = Math.max(minZoom, Math.min(5, newScale));
+        render();
+      }
+    }, { passive: false });
+
+    container.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      const minZoom = 0.1;
+      scale = Math.max(minZoom, Math.min(5, scale * zoomFactor));
+      render();
+    }, { passive: false });
+
+    container.addEventListener('mousedown', (e) => {
+      if (e.button === 0) {
+        isDragging = true;
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+        container.style.cursor = 'grabbing';
+      }
+    });
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const svg = document.getElementById('tessellationSvg');
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const scaleX = viewBox[2] / rect.width;
+        const scaleY = viewBox[3] / rect.height;
+        panX = dragStartPanX - (e.clientX - dragStartX) * scaleX;
+        panY = dragStartPanY - (e.clientY - dragStartY) * scaleY;
+        render();
+      }
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (isDragging) {
+        isDragging = false;
+        container.style.cursor = '';
+      }
+    });
+
+    container.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 1) {
+        isDragging = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+        dragStartPanX = panX;
+        dragStartPanY = panY;
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchmove', (e) => {
+      if (isDragging && e.touches.length === 1) {
+        const svg = document.getElementById('tessellationSvg');
+        const rect = svg.getBoundingClientRect();
+        const viewBox = svg.getAttribute('viewBox').split(' ').map(Number);
+        const scaleX = viewBox[2] / rect.width;
+        const scaleY = viewBox[3] / rect.height;
+        panX = dragStartPanX - (e.touches[0].clientX - dragStartX) * scaleX;
+        panY = dragStartPanY - (e.touches[0].clientY - dragStartY) * scaleY;
+        render();
+      }
+    }, { passive: true });
+
+    container.addEventListener('touchend', () => {
+      isDragging = false;
+    }, { passive: true });
+
+    document.getElementById('playPause').addEventListener('click', () => {
+      isPlaying = !isPlaying;
+      document.getElementById('playPause').textContent = isPlaying ? '⏸' : '▶';
+      if (isPlaying) animate();
+      else if (animationTimer) clearTimeout(animationTimer);
+    });
+
+    document.getElementById('prevVar').addEventListener('click', () => {
+      const varCount = getVariationCount();
+      if (varCount > 1) {
+        setFromTotalVariationIndex(getTotalVariationIndex() - 1);
+      } else {
+        currentConfigIndex = (currentConfigIndex - 1 + CONFIG_KEYS.length) % CONFIG_KEYS.length;
+      }
+      render();
+    });
+
+    document.getElementById('nextVar').addEventListener('click', () => {
+      const varCount = getVariationCount();
+      if (varCount > 1) {
+        setFromTotalVariationIndex(getTotalVariationIndex() + 1);
+      } else {
+        currentConfigIndex = (currentConfigIndex + 1) % CONFIG_KEYS.length;
+      }
+      render();
+    });
+
+    document.getElementById('loopBtn').addEventListener('click', () => {
+      loopMode = (loopMode + 1) % 3;
+      const btn = document.getElementById('loopBtn');
+      if (loopMode === 0) {
+        btn.textContent = 'LOOP';
+        btn.style.background = '';
+        btn.style.color = '';
+        configDirection = 1;
+      } else if (loopMode === 1) {
+        btn.textContent = 'LOOP 1';
+        btn.style.background = '#6b5b95';
+        btn.style.color = '#ffffff';
+        configDirection = 1;
+        if (oscActive) stopOsc();
+      } else {
+        btn.textContent = 'LOOP 2';
+        btn.style.background = '#6b5b95';
+        btn.style.color = '#ffffff';
+        configDirection = -1;
+        if (oscActive) stopOsc();
+      }
+    });
+
+    function aikBekarToMs(value) {
+      if (value <= 0) return 666;
+      const numDigits = Math.floor(Math.log10(value)) + 1;
+      const digit = Math.floor(value / Math.pow(10, numDigits - 1));
+      const mirroredDigit = 10 - digit;
+      const mirroredValue = mirroredDigit * value / digit;
+      if (numDigits >= 4) {
+        return mirroredValue / Math.pow(10, numDigits - 1);
+      } else if (numDigits === 3) {
+        return mirroredValue / 10;
+      } else if (numDigits === 2) {
+        return mirroredValue * 10 + mirroredDigit;
+      } else {
+        return mirroredValue * 1111;
+      }
+    }
+
+    function startOsc() {
+      oscModeDirection = 1;
+      oscActive = true;
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'ON';
+      btn.style.background = '#6b5b95';
+      btn.style.color = '#ffffff';
+
+      loopMode = 0;
+      configDirection = 1;
+      const loopBtn = document.getElementById('loopBtn');
+      loopBtn.textContent = 'LOOP';
+      loopBtn.style.background = '';
+      loopBtn.style.color = '';
+
+      if (!isPlaying) {
+        isPlaying = true;
+        document.getElementById('playPause').textContent = '⏸';
+        animate();
+      }
+    }
+
+    function stopOsc() {
+      oscActive = false;
+      const btn = document.getElementById('oscToggle');
+      btn.textContent = 'OFF';
+      btn.style.background = '';
+      btn.style.color = '';
+    }
+
+    document.getElementById('oscToggle').addEventListener('click', () => {
+      if (oscActive) {
+        stopOsc();
+      } else {
+        startOsc();
+      }
+    });
+
+    document.getElementById('phraseSelect').addEventListener('change', (e) => {
+      const [phrase, combo] = e.target.value.split('|');
+      currentPhrase = phrase;
+      currentCombo = combo.split('/').map(Number);
+
+      const aikBekarValue = currentCombo[currentCombo.length - 1];
+      frameSpeed = aikBekarToMs(aikBekarValue);
+      document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toPrecision(4));
+
+      render();
+      renderBackground();
+      updateBackgroundSpeed();
+    });
+
+    document.getElementById('displayMode').addEventListener('change', (e) => {
+      displayMode = e.target.value;
+      currentVariation = 0;
+      panX = 0;
+      panY = 0;
+      updateScaleForMode();
+      render();
+      if (isPlaying && animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(animate, frameSpeed);
+      }
+    });
+
+    document.getElementById('frameSpeed').addEventListener('input', (e) => {
+      frameSpeed = Math.min(999, Math.max(1, parseFloat(e.target.value) || 666));
+      if (isPlaying && animationTimer) {
+        clearTimeout(animationTimer);
+        animationTimer = setTimeout(animate, frameSpeed);
+      }
+      updateBackgroundSpeed();
+    });
+
+    // Fullscreen toggle
+    document.getElementById('fullscreenBtn').addEventListener('click', () => {
+      isFullscreen = !isFullscreen;
+      document.body.classList.toggle('fullscreen', isFullscreen);
+      document.getElementById('controlsOverlay').classList.toggle('hidden', isFullscreen);
+      document.getElementById('fullscreenBtn').textContent = isFullscreen ? '⛶' : '⛶';
+      updateScaleForMode();
+      render();
+    });
+
+    function generateFrameSvg(configIdx, variation, width, height) {
+      const config = CONFIGS[CONFIG_KEYS[configIdx]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+
+      let triangles;
+      if (displayMode === 'single') {
+        triangles = buildSingle(variation);
+      } else if (displayMode === 'dual') {
+        triangles = buildDualStacked(variation);
+      } else if (displayMode === 'cube') {
+        triangles = buildCube(variation);
+      } else if (displayMode === 'rectangle') {
+        triangles = buildRectangle(variation);
+      } else if (displayMode === 'square') {
+        triangles = buildSquare(variation);
+      } else if (displayMode === 'octa') {
+        triangles = buildOcta(variation);
+      } else {
+        triangles = buildQuadMirrored(variation);
+      }
+
+      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 \${width} \${height}" width="\${width}" height="\${height}">\`;
+      svgContent += \`<rect x="0" y="0" width="\${width}" height="\${height}" fill="#f8f8f4"/>\`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
+      });
+
+      svgContent += '</svg>';
+      return svgContent;
+    }
+
+    function getModeDimensions(mode) {
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+
+      if (mode === 'single') return { width: polyWidth, height: BASE_ROWS * TRI_HEIGHT };
+      if (mode === 'dual') return { width: polyWidth, height: BASE_ROWS * 2 * TRI_HEIGHT };
+      if (mode === 'quad') return { width: polyWidth * 2, height: BASE_ROWS * 2 * TRI_HEIGHT };
+      if (mode === 'octa') return { width: polyWidth * 4, height: quadHeight * 2 + GAP };
+      if (mode === 'square') return { width: polyWidth * 4, height: octaHeight * 2 + GAP };
+      if (mode === 'rectangle') {
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        return { width: squareWidth * 4 + GAP * 3, height: squareHeight };
+      }
+      const squareWidth = polyWidth * 4;
+      const squareHeight = octaHeight * 2 + GAP;
+      const rectangleWidth = squareWidth * 4 + GAP * 3;
+      const rectangleHeight = squareHeight;
+      return { width: rectangleWidth, height: rectangleHeight * 4 + GAP * 3 };
+    }
+
+    document.getElementById('exportGif').addEventListener('click', async () => {
+      const btn = document.getElementById('exportGif');
+      const originalText = btn.textContent;
+      btn.textContent = '...';
+      btn.disabled = true;
+
+      try {
+        const varCount = 2;
+        const framesPerMode = CONFIG_KEYS.length * varCount;
+
+        let frameSequence = [];
+        let modeSequence = [];
+
+        if (oscActive) {
+          const forwardModes = [...MODE_ORDER];
+          const backwardModes = [...MODE_ORDER].reverse().slice(1, -1);
+          const allModes = [...forwardModes, ...backwardModes];
+
+          allModes.forEach(mode => {
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(mode);
+            }
+            for (let i = framesPerMode - 2; i > 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(mode);
+            }
+          });
+        } else {
+          if (loopMode === 2) {
+            for (let i = framesPerMode - 1; i >= 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+          } else if (loopMode === 1) {
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+          } else {
+            for (let i = 0; i < framesPerMode; i++) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+            for (let i = framesPerMode - 2; i > 0; i--) {
+              frameSequence.push(i);
+              modeSequence.push(displayMode);
+            }
+          }
+        }
+
+        const canvasMode = oscActive ? 'cube' : displayMode;
+        const dims = getModeDimensions(canvasMode);
+        const width = Math.round(dims.width);
+        const height = Math.round(dims.height);
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+
+        const savedDisplayMode = displayMode;
+
+        const frames = [];
+        for (let i = 0; i < frameSequence.length; i++) {
+          const frameIdx = frameSequence[i];
+          const mode = modeSequence[i];
+          const configIdx = Math.floor(frameIdx / varCount);
+          const variation = frameIdx % varCount;
+
+          displayMode = mode;
+          const modeDims = getModeDimensions(mode);
+
+          const svgData = generateFrameSvg(configIdx, variation, modeDims.width, modeDims.height);
+          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const url = URL.createObjectURL(svgBlob);
+
+          await new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+              ctx.fillStyle = '#f8f8f4';
+              ctx.fillRect(0, 0, width, height);
+              const offsetX = (width - modeDims.width) / 2;
+              const offsetY = (height - modeDims.height) / 2;
+              ctx.drawImage(img, offsetX, offsetY, modeDims.width, modeDims.height);
+              frames.push(ctx.getImageData(0, 0, width, height));
+              URL.revokeObjectURL(url);
+              resolve();
+            };
+            img.onerror = reject;
+            img.src = url;
+          });
+        }
+
+        displayMode = savedDisplayMode;
+
+        const gif = encodeGif(frames, width, height, Math.round(frameSpeed / 10));
+
+        const blob = new Blob([gif], { type: 'image/gif' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const modeLabel = oscActive ? 'auto' : savedDisplayMode;
+        a.download = \`gematria-\${currentPhrase.split(' ')[0]}-\${modeLabel}.gif\`;
+        a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error('GIF export error:', err);
+        alert('Error creating GIF: ' + err.message);
+      }
+
+      btn.textContent = originalText;
+      btn.disabled = false;
+    });
+
+    function encodeGif(frames, width, height, delay) {
+      const buf = [];
+      const write = (b) => buf.push(b);
+      const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
+      const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
+
+      const colorCounts = new Map();
+
+      frames.forEach(frame => {
+        for (let i = 0; i < frame.data.length; i += 4) {
+          const r = frame.data[i] & 0xf8;
+          const g = frame.data[i+1] & 0xf8;
+          const b = frame.data[i+2] & 0xf8;
+          const key = (r << 16) | (g << 8) | b;
+          colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+        }
+      });
+
+      const sortedColors = [...colorCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 256)
+        .map(([key]) => key);
+
+      const colorMap = new Map();
+      const colors = [];
+      sortedColors.forEach((key, idx) => {
+        colorMap.set(key, idx);
+        colors.push([(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
+      });
+      while (colors.length < 256) colors.push([0, 0, 0]);
+
+      const findNearest = (r, g, b) => {
+        const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
+        const key = (qr << 16) | (qg << 8) | qb;
+        if (colorMap.has(key)) return colorMap.get(key);
+
+        let minDist = Infinity, closest = 0;
+        for (let i = 0; i < colors.length; i++) {
+          const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
+          const dist = dr*dr + dg*dg + db*db;
+          if (dist < minDist) { minDist = dist; closest = i; }
+        }
+        return closest;
+      };
+
+      writeStr('GIF89a');
+      writeShort(width);
+      writeShort(height);
+      write(0xf7);
+      write(0);
+      write(0);
+
+      colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+
+      write(0x21); write(0xff); write(0x0b);
+      writeStr('NETSCAPE2.0');
+      write(0x03); write(0x01);
+      writeShort(0);
+      write(0x00);
+
+      frames.forEach(frame => {
+        write(0x21); write(0xf9); write(0x04);
+        write(0x00);
+        writeShort(delay);
+        write(0x00); write(0x00);
+
+        write(0x2c);
+        writeShort(0); writeShort(0);
+        writeShort(width); writeShort(height);
+        write(0x00);
+
+        const minCodeSize = 8;
+        write(minCodeSize);
+
+        const pixels = [];
+        for (let i = 0; i < frame.data.length; i += 4) {
+          pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
+        }
+
+        const lzwData = lzwEncode(pixels, minCodeSize);
+        for (let i = 0; i < lzwData.length; i += 255) {
+          const chunk = lzwData.slice(i, i + 255);
+          write(chunk.length);
+          chunk.forEach(b => write(b));
+        }
+        write(0x00);
+      });
+
+      write(0x3b);
+      return new Uint8Array(buf);
+    }
+
+    function lzwEncode(pixels, minCodeSize) {
+      const clearCode = 1 << minCodeSize;
+      const eoiCode = clearCode + 1;
+      let codeSize = minCodeSize + 1;
+      let nextCode = eoiCode + 1;
+      const table = new Map();
+      for (let i = 0; i < clearCode; i++) table.set(String(i), i);
+
+      const output = [];
+      let bits = 0, bitCount = 0;
+      const emit = (code) => {
+        bits |= code << bitCount;
+        bitCount += codeSize;
+        while (bitCount >= 8) {
+          output.push(bits & 0xff);
+          bits >>= 8;
+          bitCount -= 8;
+        }
+      };
+
+      emit(clearCode);
+      if (pixels.length === 0) {
+        emit(eoiCode);
+        if (bitCount > 0) output.push(bits & 0xff);
+        return output;
+      }
+
+      let prefix = String(pixels[0]);
+
+      for (let i = 1; i < pixels.length; i++) {
+        const suffix = String(pixels[i]);
+        const combined = prefix + ',' + suffix;
+        if (table.has(combined)) {
+          prefix = combined;
+        } else {
+          emit(table.get(prefix));
+          if (nextCode < 4096) {
+            table.set(combined, nextCode++);
+            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+          } else {
+            emit(clearCode);
+            table.clear();
+            for (let j = 0; j < clearCode; j++) table.set(String(j), j);
+            nextCode = eoiCode + 1;
+            codeSize = minCodeSize + 1;
+          }
+          prefix = suffix;
+        }
+      }
+      emit(table.get(prefix));
+      emit(eoiCode);
+      if (bitCount > 0) output.push(bits & 0xff);
+      return output;
+    }
+
+    let bgColumns = [];
+    let bgTileHeight = 0;
+    let bgAnimationId = null;
+    let bgLastTime = 0;
+
+    function renderBackground() {
+      const bgSvg = document.getElementById('backgroundSvg');
+      const config = CONFIGS[CONFIG_KEYS[0]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+
+      const triangles = buildQuadMirrored(0);
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const tileWidth = polyWidth * 2;
+      bgTileHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+
+      const screenWidth = window.innerWidth;
+      const screenHeight = window.innerHeight;
+      const tilesX = Math.ceil(screenWidth / tileWidth) + 2;
+      const tilesY = Math.ceil(screenHeight / bgTileHeight) + 3;
+
+      const totalWidth = tilesX * tileWidth;
+
+      bgSvg.setAttribute('viewBox', \`0 0 \${totalWidth} \${screenHeight}\`);
+
+      let tileContent = '';
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        tileContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#999" stroke-width="0.5"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        tileContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity * 0.7}">\${symbol}</text>\`;
+      });
+
+      let svgContent = \`<rect x="0" y="0" width="\${totalWidth}" height="\${screenHeight}" fill="#f5f5f0"/>\`;
+      svgContent += \`<defs><g id="tile">\${tileContent}</g></defs>\`;
+
+      const totalColumnHeight = tilesY * bgTileHeight;
+      if (bgColumns.length !== tilesX) {
+        bgColumns = [];
+        const staggerOffset = totalColumnHeight / 3;
+        for (let col = 0; col < tilesX; col++) {
+          const goingUp = col % 2 === 0;
+          const yFlip = col % 2 === 1;
+          const baseOffset = goingUp ? 0 : -bgTileHeight;
+          const stagger = (col % 2) * staggerOffset;
+          bgColumns.push({
+            direction: goingUp ? -1 : 1,
+            offset: baseOffset - stagger,
+            yFlip: yFlip,
+            xPos: col * tileWidth,
+            tileWidth: tileWidth
+          });
+        }
+      }
+
+      for (let col = 0; col < tilesX; col++) {
+        const xPos = col * tileWidth;
+        const yFlip = col % 2 === 1;
+        const flipTransform = yFlip ? \`translate(\${2 * xPos + tileWidth}, 0) scale(-1, 1)\` : '';
+        svgContent += \`<g id="bgCol\${col}" \${yFlip ? \`transform="\${flipTransform}"\` : ''}>\`;
+        for (let row = -1; row < tilesY; row++) {
+          const yPos = row * bgTileHeight;
+          svgContent += \`<use href="#tile" x="\${xPos}" y="\${yPos}"/>\`;
+        }
+        svgContent += \`</g>\`;
+      }
+
+      bgSvg.innerHTML = svgContent;
+
+      if (!bgAnimationId) {
+        bgLastTime = performance.now();
+        bgAnimationId = requestAnimationFrame(animateBackground);
+      }
+    }
+
+    function animateBackground(currentTime) {
+      const deltaTime = currentTime - bgLastTime;
+      bgLastTime = currentTime;
+
+      const scrollSpeed = bgTileHeight / (Math.max(3, frameSpeed / 20) * 8000);
+
+      bgColumns.forEach((col, i) => {
+        col.offset += col.direction * scrollSpeed * deltaTime;
+
+        if (col.offset <= -bgTileHeight) col.offset += bgTileHeight;
+        if (col.offset >= 0) col.offset -= bgTileHeight;
+
+        const colEl = document.getElementById(\`bgCol\${i}\`);
+        if (colEl) {
+          if (col.yFlip) {
+            colEl.setAttribute('transform', \`translate(\${2 * col.xPos + col.tileWidth}, \${col.offset}) scale(-1, 1)\`);
+          } else {
+            colEl.setAttribute('transform', \`translate(0, \${col.offset})\`);
+          }
+        }
+      });
+
+      bgAnimationId = requestAnimationFrame(animateBackground);
+    }
+
+    function updateBackgroundSpeed() {}
+
+    window.addEventListener('resize', () => {
+      updateScaleForMode();
+      render();
+      renderBackground();
+    });
+
+    // Initialize with aik bekar speed and Auto ON
+    const initialAikBekar = currentCombo[currentCombo.length - 1];
+    frameSpeed = aikBekarToMs(initialAikBekar);
+    document.getElementById('frameSpeed').value = parseFloat(frameSpeed.toPrecision(4));
+
+    // Set Auto button to ON state visually
+    const oscBtn = document.getElementById('oscToggle');
+    oscBtn.style.background = '#6b5b95';
+    oscBtn.style.color = '#ffffff';
+
+    // Initialize with fit-to-frame zoom
+    setTimeout(() => {
+      updateScaleForMode();
+      render();
+      renderBackground();
+      animate();
+    }, 100);
+  <\/script>
+</body>
+</html>`;
+
+    // Download as HTML file
+    const blob = new Blob([htmlContent], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `gematria-tessellation-${new Date().toISOString().split('T')[0]}.html`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatBreakdown = (breakdown) => {
@@ -1478,12 +3164,12 @@ const GematriaCalculator = () => {
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
-                  disabled={clearing}
+                  disabled={clearing || generatedPhrases.length === 0}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
-                  title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
+                  title={generatedPhrases.length > 0 ? `Download tessellation with ${generatedPhrases.length} phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'Generate phrases first'}
                 >
                   <Download className="w-5 h-5" />
-                  Download Phrases {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  Download Tessellation {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
                 </button>
                 <button
                   onClick={handleClearPhrases}
