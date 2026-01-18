@@ -6,7 +6,7 @@ const TRI_HEIGHT = TRI_SIZE * Math.sqrt(3) / 2;
 const COLS = 9;
 const BASE_ROWS = 3;
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-const STROKE_WIDTH = 2; // Increased from 1 to prevent points sticking out
+const STROKE_WIDTH = 3; // Increased from 2 to prevent points sticking out
 
 // Row colors for polyhedron
 const ROW_COLORS = {
