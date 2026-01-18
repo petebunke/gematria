@@ -1964,6 +1964,73 @@ export function generateMultiPhraseHtml(phrases) {
 
     window.addEventListener('resize', () => { render(); renderBackground(); });
 
+    // Generate SVG frame without touching live DOM
+    function generateFrameSvg(mode, configIdx, variation) {
+      const config = CONFIGS[CONFIG_KEYS[configIdx]];
+      const color = getColor();
+      const letterData = getLetterFrequency(currentPhrase);
+
+      let triangles, totalWidth, totalHeight;
+      const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
+      const GAP = 0;
+      const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      const octaHeight = quadHeight * 2 + GAP;
+
+      if (mode === 'single') {
+        triangles = buildSingle(variation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * TRI_HEIGHT;
+      } else if (mode === 'dual') {
+        triangles = buildDualStacked(variation);
+        totalWidth = polyWidth;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      } else if (mode === 'cube') {
+        triangles = buildCube(variation);
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight * 4 + GAP * 3;
+      } else if (mode === 'rectangle') {
+        triangles = buildRectangle(variation);
+        const squareWidth = polyWidth * 4;
+        const squareHeight = octaHeight * 2 + GAP;
+        totalWidth = squareWidth * 4 + GAP * 3;
+        totalHeight = squareHeight;
+      } else if (mode === 'square') {
+        triangles = buildSquare(variation);
+        totalWidth = polyWidth * 4;
+        totalHeight = octaHeight * 2 + GAP;
+      } else if (mode === 'octa') {
+        triangles = buildOcta(variation);
+        totalWidth = polyWidth * 4;
+        totalHeight = quadHeight * 2 + GAP;
+      } else {
+        triangles = buildQuadMirrored(variation);
+        totalWidth = polyWidth * 2;
+        totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
+      }
+
+      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}">\`;
+      svgContent += \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#f8f8f4"/>\`;
+
+      triangles.forEach(tri => {
+        const symbol = config.getSymbol(tri.index % 27);
+        const letterOpacity = getLetterOpacity(symbol, letterData);
+        const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+        const path = getTrianglePath(tri.x, tri.y, tri.pointing);
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
+      });
+
+      svgContent += '</svg>';
+      return { svg: svgContent, width: totalWidth, height: totalHeight };
+    }
+
     // GIF Export functionality
     async function exportGif() {
       const btn = document.getElementById('gifBtn');
@@ -2084,33 +2151,13 @@ export function generateMultiPhraseHtml(phrases) {
         canvas.height = canvasHeight;
         const ctx = canvas.getContext('2d');
 
-        btn.textContent = '0%';
-
-        // Generate each frame
+        // Generate each frame using generateFrameSvg (no DOM manipulation)
         const frameDataList = [];
         for (let i = 0; i < frames.length; i++) {
           const frame = frames[i];
+          const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
 
-          // Temporarily change mode and render
-          const savedMode = displayMode;
-          const savedConfig = currentConfigIndex;
-          const savedVar = currentVariation;
-
-          displayMode = frame.mode;
-          currentConfigIndex = frame.configIndex;
-          currentVariation = frame.variation;
-          render();
-
-          // Capture SVG to canvas
-          const svgElement = document.getElementById('tessellationSvg');
-
-          // Set explicit width/height on SVG for proper image rendering
-          const dim = getDimensionsForMode(frame.mode);
-          svgElement.setAttribute('width', dim.width);
-          svgElement.setAttribute('height', dim.height);
-
-          const svgData = new XMLSerializer().serializeToString(svgElement);
-          const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+          const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
           const url = URL.createObjectURL(svgBlob);
 
           await new Promise((resolve) => {
@@ -2118,18 +2165,10 @@ export function generateMultiPhraseHtml(phrases) {
             img.onload = () => {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-
-              // Center the image
-              const dim = getDimensionsForMode(frame.mode);
-              const scaledW = dim.width * scaleFactor;
-              const scaledH = dim.height * scaleFactor;
-              const offsetX = (canvasWidth - scaledW) / 2;
-              const offsetY = (canvasHeight - scaledH) / 2;
-
-              ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
+              const offsetX = (canvasWidth - frameW) / 2;
+              const offsetY = (canvasHeight - frameH) / 2;
+              ctx.drawImage(img, offsetX, offsetY, frameW, frameH);
               URL.revokeObjectURL(url);
-
-              // Store ImageData object for encodeGif
               frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
               resolve();
             };
@@ -2137,20 +2176,14 @@ export function generateMultiPhraseHtml(phrases) {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, canvasWidth, canvasHeight);
               frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
+              URL.revokeObjectURL(url);
               resolve();
             };
             img.src = url;
           });
 
-          // Restore state
-          displayMode = savedMode;
-          currentConfigIndex = savedConfig;
-          currentVariation = savedVar;
-
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
-
-        render(); // Restore original render
 
         // Encode GIF
         btn.textContent = 'ENC';
