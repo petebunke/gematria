@@ -1889,7 +1889,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={downloadPhraseTable}
                   disabled={clearing || isDownloading}
-                  className="flex items-center justify-center gap-1 px-2 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
+                  className="flex items-center justify-center gap-1 px-2 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title={generatedPhrases.length > 0 ? `Download ${generatedPhrases.length} generated phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'No phrases to download'}
                 >
                   {isDownloading ? (
@@ -1897,14 +1897,14 @@ const GematriaCalculator = () => {
                   ) : (
                     <Download className="w-5 h-5 flex-shrink-0 hidden md:block" />
                   )}
-                  <span>
+                  <span className="text-sm font-semibold">
                     {isDownloading ? (downloadProgress || 'Downloading...') : `Download Phrases ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
                   </span>
                 </button>
                 <button
                   onClick={handleClearPhrases}
                   disabled={clearing}
-                  className="flex items-center justify-center gap-1 px-2 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
+                  className="flex items-center justify-center gap-1 px-2 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   title={generatedPhrases.length > 0 ? 'Clear all generated phrases' : 'No phrases to clear'}
                 >
                   {clearing ? (
@@ -1912,7 +1912,7 @@ const GematriaCalculator = () => {
                   ) : (
                     <Trash2 className="w-5 h-5 flex-shrink-0 hidden md:block" />
                   )}
-                  <span>
+                  <span className="text-sm font-semibold">
                     {clearing ? 'Clearing...' : 'Clear Phrases'}
                   </span>
                 </button>
