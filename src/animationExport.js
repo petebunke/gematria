@@ -821,7 +821,7 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const canvas = document.createElement('canvas');
   canvas.width = gifWidth;
   canvas.height = gifHeight;
-  const ctx = canvas.getContext('2d', { alpha: false });
+  const ctx = canvas.getContext('2d');
 
   // Generate frames (6 configs × 2 variations = 12 frames, then reverse for ping-pong)
   const svgFrames = [];
@@ -859,7 +859,12 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
     });
 
     const imageData = ctx.getImageData(0, 0, gifWidth, gifHeight);
-    frameDataList.push(imageData.data);
+    // Force all pixels fully opaque - GIF doesn't support alpha, canvas already composited
+    const data = imageData.data;
+    for (let j = 3; j < data.length; j += 4) {
+      data[j] = 255;
+    }
+    frameDataList.push(data);
 
     if (progressCallback) progressCallback(0.1 + (i / allSvgFrames.length) * 0.6);
   }
