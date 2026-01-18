@@ -2202,7 +2202,8 @@ export function generateMultiPhraseHtml(phrases) {
         const blob = new Blob([gifData], { type: 'image/gif' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = currentPhrase.replace(/[^a-z0-9]/gi, '_') + '_' + displayMode + '.gif';
+        const suffix = oscActive ? 'auto' : loopMode === 1 ? 'loop1' : loopMode === 2 ? 'loop2' : displayMode;
+        a.download = currentPhrase.replace(/[^a-z0-9]/gi, '-') + '-' + suffix + '.gif';
         a.click();
         URL.revokeObjectURL(a.href);
 
