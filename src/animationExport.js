@@ -2151,27 +2151,23 @@ export function generateMultiPhraseHtml(phrases) {
         canvas.height = canvasHeight;
         const ctx = canvas.getContext('2d');
 
-        // Generate each frame using generateFrameSvg (no DOM manipulation)
+        // Generate all frames
         const frameDataList = [];
         for (let i = 0; i < frames.length; i++) {
           const frame = frames[i];
           const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
 
-          await new Promise((resolve) => {
-            const img = new Image();
-            let done = false;
-            const finish = () => { if (!done) { done = true; resolve(); } };
-            img.onload = function() {
-              ctx.fillStyle = '#f8f8f4';
-              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-              ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH);
-              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
-              finish();
-            };
-            img.onerror = finish;
-            setTimeout(finish, 200);
-            img.src = 'data:image/svg+xml,' + encodeURIComponent(svgStr);
-          });
+          const img = new Image();
+          img.src = 'data:image/svg+xml,' + encodeURIComponent(svgStr);
+
+          if (!img.complete) {
+            await new Promise(r => { img.onload = r; img.onerror = r; });
+          }
+
+          ctx.fillStyle = '#f8f8f4';
+          ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+          ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH);
+          frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
