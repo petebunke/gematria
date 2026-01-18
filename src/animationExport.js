@@ -2157,19 +2157,22 @@ export function generateMultiPhraseHtml(phrases) {
           const frame = frames[i];
           const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
 
-          const img = new Image();
-          img.src = 'data:image/svg+xml,' + encodeURIComponent(svgStr);
-
-          if (!img.complete) {
-            await new Promise(r => { img.onload = r; img.onerror = r; });
-          }
+          const img = await new Promise(resolve => {
+            const image = new Image();
+            const done = () => resolve(image);
+            image.onload = done;
+            image.onerror = done;
+            image.src = 'data:image/svg+xml,' + encodeURIComponent(svgStr);
+            if (image.complete) done();
+          });
 
           ctx.fillStyle = '#f8f8f4';
           ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH);
+          try { ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH); } catch(e) {}
           frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
+          await new Promise(r => setTimeout(r, 0));
         }
 
         // Encode GIF
