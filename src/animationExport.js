@@ -1111,14 +1111,17 @@ export function generateMultiPhraseHtml(phrases) {
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
-      // Yield to browser periodically (longer delay to prevent timeout dialogs)
-      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 10));
+      // Yield to browser periodically
+      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 1));
+
+      // Yield immediately so UI can update
+      if (onProgress) onProgress('CLR');
+      await yieldToBrowser();
 
       // Build global color table with better quantization
       const colorCounts = new Map();
 
       // Count colors across all frames
-      if (onProgress) onProgress('CLR');
       for (let f = 0; f < frames.length; f++) {
         const frame = frames[f];
         for (let i = 0; i < frame.data.length; i += 4) {
@@ -1185,6 +1188,7 @@ export function generateMultiPhraseHtml(phrases) {
       // Frames
       for (let f = 0; f < frames.length; f++) {
         if (onProgress) onProgress('F' + (f+1) + '/' + frames.length);
+        await yieldToBrowser();
         const frame = frames[f];
 
         // Graphics Control Extension
