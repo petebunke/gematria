@@ -1104,8 +1104,167 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // Embedded gifenc library (https://github.com/mattdesl/gifenc)
-    var X={signature:"GIF",version:"89a",trailer:59,extensionIntroducer:33,applicationExtensionLabel:255,graphicControlExtensionLabel:249,imageSeparator:44,signatureSize:3,versionSize:3,globalColorTableFlagMask:128,colorResolutionMask:112,sortFlagMask:8,globalColorTableSizeMask:7,applicationIdentifierSize:8,applicationAuthCodeSize:3,disposalMethodMask:28,userInputFlagMask:2,transparentColorFlagMask:1,localColorTableFlagMask:128,interlaceFlagMask:64,idSortFlagMask:32,localColorTableSizeMask:7};function F(t=256){let e=0,s=new Uint8Array(t);return{get buffer(){return s.buffer},reset(){e=0},bytesView(){return s.subarray(0,e)},bytes(){return s.slice(0,e)},writeByte(r){n(e+1),s[e]=r,e++},writeBytes(r,o=0,i=r.length){n(e+i);for(let c=0;c<i;c++)s[e++]=r[c+o]},writeBytesView(r,o=0,i=r.byteLength){n(e+i),s.set(r.subarray(o,o+i),e),e+=i}};function n(r){var o=s.length;if(o>=r)return;var i=1024*1024;r=Math.max(r,o*(o<i?2:1.125)>>>0),o!=0&&(r=Math.max(r,256));let c=s;s=new Uint8Array(r),e>0&&s.set(c.subarray(0,e),0)}}var O=12,J=5003,lt=[0,1,3,7,15,31,63,127,255,511,1023,2047,4095,8191,16383,32767,65535];function at(t,e,s,n,r=F(512),o=new Uint8Array(256),i=new Int32Array(J),c=new Int32Array(J)){let x=i.length,a=Math.max(2,n);o.fill(0),c.fill(0),i.fill(-1);let l=0,f=0,g=a+1,h=g,b=!1,w=h,_=(1<<w)-1,u=1<<g-1,k=u+1,B=u+2,p=0,A=s[0],z=0;for(let y=x;y<65536;y*=2)++z;z=8-z,r.writeByte(a),I(u);let d=s.length;for(let y=1;y<d;y++){t:{let m=s[y],v=(m<<O)+A,M=m<<z^A;if(i[M]===v){A=c[M];break t}let V=M===0?1:x-M;for(;i[M]>=0;)if(M-=V,M<0&&(M+=x),i[M]===v){A=c[M];break t}I(A),A=m,B<1<<O?(c[M]=B++,i[M]=v):(i.fill(-1),B=u+2,b=!0,I(u))}}return I(A),I(k),r.writeByte(0),r.bytesView();function I(y){for(l&=lt[f],f>0?l|=y<<f:l=y,f+=w;f>=8;)o[p++]=l&255,p>=254&&(r.writeByte(p),r.writeBytesView(o,0,p),p=0),l>>=8,f-=8;if((B>_||b)&&(b?(w=h,_=(1<<w)-1,b=!1):(++w,_=w===O?1<<w:(1<<w)-1)),y==k){for(;f>0;)o[p++]=l&255,p>=254&&(r.writeByte(p),r.writeBytesView(o,0,p),p=0),l>>=8,f-=8;p>0&&(r.writeByte(p),r.writeBytesView(o,0,p),p=0)}}}var $=at;function D(t,e,s){return t<<8&63488|e<<2&992|s>>3}function G(t,e,s,n){return t>>4|e&240|(s&240)<<4|(n&240)<<8}function j(t,e,s){return t>>4<<8|e&240|s>>4}function R(t,e,s){return t<e?e:t>s?s:t}function T(t){return t*t}function tt(t,e,s){var n=0,r=1e100;let o=t[e],i=o.cnt,c=o.ac,x=o.rc,a=o.gc,l=o.bc;for(var f=o.fw;f!=0;f=t[f].fw){let h=t[f],b=h.cnt,w=i*b/(i+b);if(!(w>=r)){var g=0;s&&(g+=w*T(h.ac-c),g>=r)||(g+=w*T(h.rc-x),!(g>=r)&&(g+=w*T(h.gc-a),!(g>=r)&&(g+=w*T(h.bc-l),!(g>=r)&&(r=g,n=f))))}}o.err=r,o.nn=n}function Q(){return{ac:0,rc:0,gc:0,bc:0,cnt:0,nn:0,fw:0,bk:0,tm:0,mtm:0,err:0}}function ut(t,e){let s=e==="rgb444"?4096:65536,n=new Array(s),r=t.length;if(e==="rgba4444")for(let o=0;o<r;++o){let i=t[o],c=i>>24&255,x=i>>16&255,a=i>>8&255,l=i&255,f=G(l,a,x,c),g=f in n?n[f]:n[f]=Q();g.rc+=l,g.gc+=a,g.bc+=x,g.ac+=c,g.cnt++}else if(e==="rgb444")for(let o=0;o<r;++o){let i=t[o],c=i>>16&255,x=i>>8&255,a=i&255,l=j(a,x,c),f=l in n?n[l]:n[l]=Q();f.rc+=a,f.gc+=x,f.bc+=c,f.cnt++}else for(let o=0;o<r;++o){let i=t[o],c=i>>16&255,x=i>>8&255,a=i&255,l=D(a,x,c),f=l in n?n[l]:n[l]=Q();f.rc+=a,f.gc+=x,f.bc+=c,f.cnt++}return n}function quantize(t,e,s={}){let{format:n="rgb565",clearAlpha:r=!0,clearAlphaColor:o=0,clearAlphaThreshold:i=0,oneBitAlpha:c=!1}=s;if(!t||!t.buffer)throw new Error("quantize() expected RGBA Uint8Array data");if(!(t instanceof Uint8Array)&&!(t instanceof Uint8ClampedArray))throw new Error("quantize() expected RGBA Uint8Array data");let x=new Uint32Array(t.buffer),a=s.useSqrt!==!1,l=n==="rgba4444",f=ut(x,n),g=f.length,h=g-1,b=new Uint32Array(g+1);for(var w=0,u=0;u<g;++u){let C=f[u];if(C!=null){var _=1/C.cnt;l&&(C.ac*=_),C.rc*=_,C.gc*=_,C.bc*=_,f[w++]=C}}T(e)/w<.022&&(a=!1);for(var u=0;u<w-1;++u)f[u].fw=u+1,f[u+1].bk=u,a&&(f[u].cnt=Math.sqrt(f[u].cnt));a&&(f[u].cnt=Math.sqrt(f[u].cnt));var k,B,p;for(u=0;u<w;++u){tt(f,u,!1);var A=f[u].err;for(B=++b[0];B>1&&(p=B>>1,!(f[k=b[p]].err<=A));B=p)b[B]=k;b[B]=u}var z=w-e;for(u=0;u<z;){for(var d;;){var I=b[1];if(d=f[I],d.tm>=d.mtm&&f[d.nn].mtm<=d.tm)break;d.mtm==h?I=b[1]=b[b[0]--]:(tt(f,I,!1),d.tm=u);var A=f[I].err;for(B=1;(p=B+B)<=b[0]&&(p<b[0]&&f[b[p]].err>f[b[p+1]].err&&p++,!(A<=f[k=b[p]].err));B=p)b[B]=k;b[B]=I}var y=f[d.nn],m=d.cnt,v=y.cnt,_=1/(m+v);l&&(d.ac=_*(m*d.ac+v*y.ac)),d.rc=_*(m*d.rc+v*y.rc),d.gc=_*(m*d.gc+v*y.gc),d.bc=_*(m*d.bc+v*y.bc),d.cnt+=y.cnt,d.mtm=++u,f[y.bk].fw=y.fw,f[y.fw].bk=y.bk,y.mtm=h}let M=[];var V=0;for(u=0;;++V){let L=R(Math.round(f[u].rc),0,255),C=R(Math.round(f[u].gc),0,255),Y=R(Math.round(f[u].bc),0,255),E=255;if(l){if(E=R(Math.round(f[u].ac),0,255),c){let st=typeof c=="number"?c:127;E=E<=st?0:255}r&&E<=i&&(L=C=Y=o,E=0)}let K=l?[L,C,Y,E]:[L,C,Y];if(xt(M,K)||M.push(K),(u=f[u].fw)==0)break}return M}function xt(t,e){for(let s=0;s<t.length;s++){let n=t[s],r=n[0]===e[0]&&n[1]===e[1]&&n[2]===e[2],o=n.length>=4&&e.length>=4?n[3]===e[3]:!0;if(r&&o)return!0}return!1}function applyPalette(t,e,s="rgb565"){if(!t||!t.buffer)throw new Error("quantize() expected RGBA Uint8Array data");if(!(t instanceof Uint8Array)&&!(t instanceof Uint8ClampedArray))throw new Error("quantize() expected RGBA Uint8Array data");if(e.length>256)throw new Error("applyPalette() only works with 256 colors or less");let n=new Uint32Array(t.buffer),r=n.length,o=s==="rgb444"?4096:65536,i=new Uint8Array(r),c=new Array(o),x=s==="rgba4444";if(s==="rgba4444")for(let a=0;a<r;a++){let l=n[a],f=l>>24&255,g=l>>16&255,h=l>>8&255,b=l&255,w=G(b,h,g,f),_=w in c?c[w]:c[w]=gt(b,h,g,f,e);i[a]=_}else{let a=s==="rgb444"?j:D;for(let l=0;l<r;l++){let f=n[l],g=f>>16&255,h=f>>8&255,b=f&255,w=a(b,h,g),_=w in c?c[w]:c[w]=bt(b,h,g,e);i[l]=_}}return i}function gt(t,e,s,n,r){let o=0,i=1e100;for(let c=0;c<r.length;c++){let x=r[c],a=x[3],l=q(a-n);if(l>i)continue;let f=x[0];if(l+=q(f-t),l>i)continue;let g=x[1];if(l+=q(g-e),l>i)continue;let h=x[2];l+=q(h-s),!(l>i)&&(i=l,o=c)}return o}function bt(t,e,s,n){let r=0,o=1e100;for(let i=0;i<n.length;i++){let c=n[i],x=c[0],a=q(x-t);if(a>o)continue;let l=c[1];if(a+=q(l-e),a>o)continue;let f=c[2];a+=q(f-s),!(a>o)&&(o=a,r=i)}return r}function q(t){return t*t}function Z(t){return Math.max(Math.ceil(Math.log2(t)),1)}function S(t,e){t.writeByte(e&255),t.writeByte(e>>8&255)}function ft(t,e){for(var s=0;s<e.length;s++)t.writeByte(e.charCodeAt(s))}function wt(t,e,s,n,r){t.writeByte(33),t.writeByte(249),t.writeByte(4),r<0&&(r=0,n=!1);var o,i;n?(o=1,i=2):(o=0,i=0),e>=0&&(i=e&7),i<<=2;let c=0;t.writeByte(0|i|c|o),S(t,s),t.writeByte(r||0),t.writeByte(0)}function pt(t,e,s,n,r=8){let o=1,i=0,c=Z(n.length)-1,x=o<<7|r-1<<4|i<<3|c,a=0,l=0;S(t,e),S(t,s),t.writeBytes([x,a,l])}function dt(t,e){t.writeByte(33),t.writeByte(255),t.writeByte(11),ft(t,"NETSCAPE2.0"),t.writeByte(3),t.writeByte(1),S(t,e),t.writeByte(0)}function it(t,e){let s=1<<Z(e.length);for(let n=0;n<s;n++){let r=[0,0,0];n<e.length&&(r=e[n]),t.writeByte(r[0]),t.writeByte(r[1]),t.writeByte(r[2])}}function ht(t,e,s,n){if(t.writeByte(44),S(t,0),S(t,0),S(t,e),S(t,s),n){let r=0,o=0,i=Z(n.length)-1;t.writeByte(128|r|o|0|i)}else t.writeByte(0)}function yt(t,e,s,n,r=8,o,i,c){$(s,n,e,r,t,o,i,c)}function GIFEncoder(t={}){let{initialCapacity:e=4096}=t,n=F(e),r=5003,o=new Uint8Array(256),i=new Int32Array(r),c=new Int32Array(r),x=!1;return{reset(){n.reset(),x=!1},finish(){n.writeByte(X.trailer)},bytes(){return n.bytes()},bytesView(){return n.bytesView()},get buffer(){return n.buffer},get stream(){return n},writeFrame(l,f,g,h={}){let{transparent:b=!1,transparentIndex:w=0,delay:_=0,palette:u=null,repeat:k=0,colorDepth:B=8,dispose:p=-1}=h,A=!1;x||(A=!0,x=!0);if(f=Math.max(0,Math.floor(f)),g=Math.max(0,Math.floor(g)),A){if(!u)throw new Error("First frame must include a { palette } option");pt(n,f,g,u,B),it(n,u),k>=0&&dt(n,k)}let z=Math.round(_/10);wt(n,p,z,b,w);let d=Boolean(u)&&!A;ht(n,f,g,d?u:null),d&&it(n,u),yt(n,l,f,g,B,o,i,c)}}}
+    // GIF encoder with proper color quantization
+    function encodeGif(frames, width, height, delay) {
+      const buf = [];
+      const write = (b) => buf.push(b);
+      const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
+      const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
+
+      // Build global color table with better quantization
+      const colorCounts = new Map();
+
+      // Count colors across all frames
+      frames.forEach(frame => {
+        for (let i = 0; i < frame.data.length; i += 4) {
+          // Quantize to 5 bits per channel to reduce unique colors
+          const r = frame.data[i] & 0xf8;
+          const g = frame.data[i+1] & 0xf8;
+          const b = frame.data[i+2] & 0xf8;
+          const key = (r << 16) | (g << 8) | b;
+          colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+        }
+      });
+
+      // Sort by frequency and take top 256
+      const sortedColors = [...colorCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 256)
+        .map(([key]) => key);
+
+      const colorMap = new Map();
+      const colors = [];
+      sortedColors.forEach((key, idx) => {
+        colorMap.set(key, idx);
+        colors.push([(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
+      });
+      while (colors.length < 256) colors.push([0, 0, 0]);
+
+      // Find nearest color function
+      const findNearest = (r, g, b) => {
+        const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
+        const key = (qr << 16) | (qg << 8) | qb;
+        if (colorMap.has(key)) return colorMap.get(key);
+
+        // Find closest color
+        let minDist = Infinity, closest = 0;
+        for (let i = 0; i < colors.length; i++) {
+          const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
+          const dist = dr*dr + dg*dg + db*db;
+          if (dist < minDist) { minDist = dist; closest = i; }
+        }
+        return closest;
+      };
+
+      // Header
+      writeStr('GIF89a');
+      writeShort(width);
+      writeShort(height);
+      write(0xf7); // GCT flag, 8 bits color
+      write(0);    // BG color
+      write(0);    // Aspect ratio
+
+      // Global Color Table
+      colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+
+      // Netscape extension for looping
+      write(0x21); write(0xff); write(0x0b);
+      writeStr('NETSCAPE2.0');
+      write(0x03); write(0x01);
+      writeShort(0); // Loop forever
+      write(0x00);
+
+      // Frames
+      frames.forEach(frame => {
+        // Graphics Control Extension
+        write(0x21); write(0xf9); write(0x04);
+        write(0x00); // No transparency
+        writeShort(delay);
+        write(0x00); write(0x00);
+
+        // Image Descriptor
+        write(0x2c);
+        writeShort(0); writeShort(0);
+        writeShort(width); writeShort(height);
+        write(0x00); // No local color table
+
+        // Image Data with LZW
+        const minCodeSize = 8;
+        write(minCodeSize);
+
+        const pixels = [];
+        for (let i = 0; i < frame.data.length; i += 4) {
+          pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
+        }
+
+        const lzwData = lzwEncode(pixels, minCodeSize);
+        for (let i = 0; i < lzwData.length; i += 255) {
+          const chunk = lzwData.slice(i, i + 255);
+          write(chunk.length);
+          chunk.forEach(b => write(b));
+        }
+        write(0x00);
+      });
+
+      write(0x3b); // Trailer
+      return new Uint8Array(buf);
+    }
+
+    function lzwEncode(pixels, minCodeSize) {
+      const clearCode = 1 << minCodeSize;
+      const eoiCode = clearCode + 1;
+      let codeSize = minCodeSize + 1;
+      let nextCode = eoiCode + 1;
+      const table = new Map();
+      for (let i = 0; i < clearCode; i++) table.set(String(i), i);
+
+      const output = [];
+      let bits = 0, bitCount = 0;
+      const emit = (code) => {
+        bits |= code << bitCount;
+        bitCount += codeSize;
+        while (bitCount >= 8) {
+          output.push(bits & 0xff);
+          bits >>= 8;
+          bitCount -= 8;
+        }
+      };
+
+      emit(clearCode);
+      if (pixels.length === 0) {
+        emit(eoiCode);
+        if (bitCount > 0) output.push(bits & 0xff);
+        return output;
+      }
+
+      let prefix = String(pixels[0]);
+
+      for (let i = 1; i < pixels.length; i++) {
+        const suffix = String(pixels[i]);
+        const combined = prefix + ',' + suffix;
+        if (table.has(combined)) {
+          prefix = combined;
+        } else {
+          emit(table.get(prefix));
+          if (nextCode < 4096) {
+            table.set(combined, nextCode++);
+            if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
+          } else {
+            // Clear table when full
+            emit(clearCode);
+            table.clear();
+            for (let j = 0; j < clearCode; j++) table.set(String(j), j);
+            nextCode = eoiCode + 1;
+            codeSize = minCodeSize + 1;
+          }
+          prefix = suffix;
+        }
+      }
+      emit(table.get(prefix));
+      emit(eoiCode);
+      if (bitCount > 0) output.push(bits & 0xff);
+      return output;
+    }
 
     // Constants
     const TRI_SIZE = 32;
@@ -2037,16 +2196,14 @@ export function generateMultiPhraseHtml(phrases) {
               ctx.drawImage(img, offsetX, offsetY, scaledW, scaledH);
               URL.revokeObjectURL(url);
 
-              const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-              // Must copy the data - imageData.data buffer can be reused
-              frameDataList.push(new Uint8Array(imageData.data));
+              // Store full ImageData object for encodeGif
+              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
               resolve();
             };
             img.onerror = () => {
               ctx.fillStyle = '#f8f8f4';
               ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-              const imageData = ctx.getImageData(0, 0, canvasWidth, canvasHeight);
-              frameDataList.push(new Uint8Array(imageData.data));
+              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
               resolve();
             };
             img.src = url;
@@ -2065,26 +2222,12 @@ export function generateMultiPhraseHtml(phrases) {
 
         render(); // Restore original render
 
-        // Encode GIF
+        // Encode GIF using custom encoder
         btn.textContent = 'ENC';
-        const gif = GIFEncoder();
-
-        for (let i = 0; i < frameDataList.length; i++) {
-          const rgba = frameDataList[i];
-          const palette = quantize(rgba, 256, { format: 'rgb444' });
-          const index = applyPalette(rgba, palette, 'rgb444');
-          gif.writeFrame(index, canvasWidth, canvasHeight, { palette, delay, dispose: 1 });
-
-          // Yield to browser every 10 frames to prevent timeout
-          if (i % 10 === 0) {
-            btn.textContent = 'ENC ' + Math.round((i / frameDataList.length) * 100) + '%';
-            await new Promise(r => setTimeout(r, 0));
-          }
-        }
-        gif.finish();
+        const gifData = encodeGif(frameDataList, canvasWidth, canvasHeight, delay);
 
         // Download
-        const blob = new Blob([gif.bytes()], { type: 'image/gif' });
+        const blob = new Blob([gifData], { type: 'image/gif' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = currentPhrase.replace(/[^a-z0-9]/gi, '_') + '_' + displayMode + '.gif';
