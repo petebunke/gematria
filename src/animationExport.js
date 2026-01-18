@@ -1114,9 +1114,9 @@ export function generateMultiPhraseHtml(phrases) {
       const colorCounts = new Map();
       frames.forEach(frame => {
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i] & 0xf8;
-          const g = frame.data[i+1] & 0xf8;
-          const b = frame.data[i+2] & 0xf8;
+          const r = frame.data[i];
+          const g = frame.data[i+1];
+          const b = frame.data[i+2];
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
@@ -1132,8 +1132,7 @@ export function generateMultiPhraseHtml(phrases) {
       while (colors.length < 256) colors.push([0, 0, 0]);
 
       const findNearest = (r, g, b) => {
-        const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
-        const key = (qr << 16) | (qg << 8) | qb;
+        const key = (r << 16) | (g << 8) | b;
         if (colorMap.has(key)) return colorMap.get(key);
         let minDist = Infinity, closest = 0;
         for (let i = 0; i < colors.length; i++) {
