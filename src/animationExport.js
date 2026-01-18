@@ -2154,11 +2154,9 @@ export function generateMultiPhraseHtml(phrases) {
           maxHeight = Math.max(maxHeight, dim.height);
         }
 
-        // Scale if extremely large
-        const maxDim = Math.max(maxWidth, maxHeight);
-        const scaleFactor = maxDim > 2000 ? 2000 / maxDim : 1;
-        const canvasWidth = Math.round(maxWidth * scaleFactor);
-        const canvasHeight = Math.round(maxHeight * scaleFactor);
+        // Full resolution
+        const canvasWidth = maxWidth;
+        const canvasHeight = maxHeight;
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasWidth;
@@ -2182,8 +2180,7 @@ export function generateMultiPhraseHtml(phrases) {
 
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          const sw = frameW * scaleFactor, sh = frameH * scaleFactor;
-          try { ctx.drawImage(img, (canvasWidth - sw) / 2, (canvasHeight - sh) / 2, sw, sh); } catch(e) {}
+          try { ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH); } catch(e) {}
           frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
