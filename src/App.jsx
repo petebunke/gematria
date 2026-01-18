@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -148,7 +150,7 @@ const GematriaCalculator = () => {
     }
   };
 
-  const downloadPhraseTable = () => {
+  const downloadPhraseTable = async () => {
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
       return;
@@ -162,9 +164,406 @@ const GematriaCalculator = () => {
       return (a.aiqBekar || 0) - (b.aiqBekar || 0);
     });
 
-    // Create HTML content for PDF
-    const htmlContent = `
-<!DOCTYPE html>
+    // Create phrases JSON for the interactive HTML
+    const phrasesJson = JSON.stringify(sorted);
+
+    // Interactive HTML with dropdown, Single mode, Auto toggle, and auto-scaling
+    const interactiveHtml = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gematria Generator - ${new Date().toLocaleDateString()}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #000;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 20px;
+    }
+    .container {
+      width: 100%;
+      max-width: 900px;
+      background: #18181b;
+      border-radius: 12px;
+      border: 1px solid #27272a;
+      overflow: hidden;
+      transform-origin: top center;
+    }
+    .header {
+      background: #000;
+      border-bottom: 1px solid #27272a;
+      padding: 24px;
+      text-align: center;
+    }
+    .header h1 {
+      font-size: 28px;
+      font-weight: bold;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+    }
+    .header h1 svg { color: #dc2626; }
+    .header p { color: #9ca3af; margin-top: 8px; font-size: 14px; }
+    .content { padding: 32px; }
+    .card {
+      background: #fff;
+      border-radius: 8px;
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+    .controls {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 20px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .control-group label {
+      font-size: 14px;
+      font-weight: 600;
+      color: #374151;
+    }
+    .toggle {
+      position: relative;
+      width: 44px;
+      height: 24px;
+      background: #d1d5db;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle.active { background: #dc2626; }
+    .toggle::after {
+      content: '';
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 20px;
+      height: 20px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+    .toggle.active::after { transform: translateX(20px); }
+    select, input[type="text"] {
+      padding: 10px 14px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 14px;
+      background: #fff;
+      color: #1f2937;
+      min-width: 200px;
+    }
+    select:focus, input:focus {
+      outline: none;
+      border-color: #dc2626;
+    }
+    .section-title {
+      font-size: 16px;
+      font-weight: bold;
+      color: #1f2937;
+      margin-bottom: 16px;
+    }
+    .results { margin-top: 24px; }
+    .result-card {
+      background: #27272a;
+      padding: 20px;
+      border-radius: 8px;
+      border: 1px solid #3f3f46;
+      margin-bottom: 16px;
+    }
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .result-title {
+      font-size: 18px;
+      font-weight: bold;
+      color: #fff;
+    }
+    .result-value {
+      font-size: 28px;
+      font-weight: bold;
+      color: #dc2626;
+    }
+    .result-breakdown {
+      font-family: monospace;
+      font-size: 12px;
+      color: #9ca3af;
+      margin-top: 8px;
+      word-break: break-all;
+    }
+    .phrase-display {
+      text-align: center;
+      padding: 20px;
+      background: #27272a;
+      border-radius: 8px;
+      margin-bottom: 24px;
+    }
+    .phrase-display h2 {
+      font-size: 14px;
+      color: #9ca3af;
+      margin-bottom: 8px;
+    }
+    .phrase-display .phrase {
+      font-size: 24px;
+      font-weight: bold;
+      color: #fff;
+    }
+    .meta-info {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-top: 12px;
+      justify-content: center;
+    }
+    .meta-item {
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .footer {
+      background: #000;
+      border-top: 1px solid #27272a;
+      padding: 24px;
+      text-align: center;
+      font-size: 12px;
+      color: #6b7280;
+    }
+    .footer a { color: #dc2626; text-decoration: underline; }
+    @media (max-width: 600px) {
+      .controls { flex-direction: column; align-items: stretch; }
+      select { width: 100%; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container" id="container">
+    <div class="header">
+      <h1>
+        <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"/><line x1="8" y1="6" x2="16" y2="6"/><line x1="16" y1="14" x2="16" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></svg>
+        Gematria Generator
+      </h1>
+      <p>Generated phrases with repdigit gematria values</p>
+    </div>
+    <div class="content">
+      <div class="card">
+        <div class="section-title">Display Settings</div>
+        <div class="controls">
+          <div class="control-group">
+            <label>Single Mode:</label>
+            <div class="toggle active" id="singleModeToggle" onclick="toggleSingleMode()"></div>
+          </div>
+          <div class="control-group">
+            <label>Auto:</label>
+            <div class="toggle active" id="autoToggle" onclick="toggleAuto()"></div>
+          </div>
+        </div>
+        <div class="section-title">Select Phrase</div>
+        <select id="phraseSelect" onchange="onPhraseChange()">
+          ${sorted.map((p, i) => `<option value="${i}">${p.phrase} (${p.hebrew}/${p.english}/${p.simple}/${p.aiqBekar || '-'})</option>`).join('')}
+        </select>
+      </div>
+
+      <div class="phrase-display" id="phraseDisplay">
+        <h2>Current Phrase</h2>
+        <div class="phrase" id="currentPhrase">-</div>
+        <div class="meta-info">
+          <span class="meta-item" id="sourceInfo">Source: -</span>
+          <span class="meta-item" id="genTimeInfo">Gen Time: -</span>
+        </div>
+      </div>
+
+      <div class="results" id="resultsContainer"></div>
+    </div>
+    <div class="footer">
+      <p>Generated on ${new Date().toLocaleString()} | Total Phrases: ${sorted.length}</p>
+      <p>Based on <a href="https://gematrix.org" target="_blank">gematrix.org</a>. Created with Gematria Generator.</p>
+    </div>
+  </div>
+
+  <script>
+    const phrases = ${phrasesJson};
+
+    const hebrewValues = {
+      a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+      j: 600, k: 10, l: 20, m: 30, n: 40, o: 50, p: 60, q: 70,
+      r: 80, s: 90, t: 100, u: 200, v: 700, w: 900, x: 300,
+      y: 400, z: 500
+    };
+    const englishValues = {
+      a: 6, b: 12, c: 18, d: 24, e: 30, f: 36, g: 42, h: 48,
+      i: 54, j: 60, k: 66, l: 72, m: 78, n: 84, o: 90, p: 96,
+      q: 102, r: 108, s: 114, t: 120, u: 126, v: 132, w: 138,
+      x: 144, y: 150, z: 156
+    };
+    const simpleValues = {
+      a: 1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9,
+      j: 10, k: 11, l: 12, m: 13, n: 14, o: 15, p: 16, q: 17,
+      r: 18, s: 19, t: 20, u: 21, v: 22, w: 23, x: 24, y: 25, z: 26
+    };
+    const aiqBekarValues = {
+      a: 1, b: 20, c: 13, d: 6, e: 25, f: 18, g: 11, h: 4, i: 23,
+      j: 16, k: 9, l: 2, m: 21, n: 14, o: 7, p: 26, q: 19, r: 12,
+      s: 5, t: 24, u: 17, v: 10, w: 3, x: 22, y: 15, z: 8
+    };
+
+    let singleMode = true;
+    let autoMode = true;
+    let currentIndex = 0;
+    let autoInterval = null;
+
+    function calculateGematria(text, values) {
+      const breakdown = [];
+      let total = 0;
+      const cleanText = text.toLowerCase().replace(/[^a-z]/g, '');
+      for (let char of cleanText) {
+        const value = values[char] || 0;
+        breakdown.push(char + value);
+        total += value;
+      }
+      return { total, breakdown: breakdown.join(' + ') };
+    }
+
+    function toggleSingleMode() {
+      singleMode = !singleMode;
+      document.getElementById('singleModeToggle').classList.toggle('active', singleMode);
+      displayPhrase(currentIndex);
+    }
+
+    function toggleAuto() {
+      autoMode = !autoMode;
+      document.getElementById('autoToggle').classList.toggle('active', autoMode);
+      if (autoMode) {
+        startAuto();
+      } else {
+        stopAuto();
+      }
+    }
+
+    function startAuto() {
+      stopAuto();
+      autoInterval = setInterval(() => {
+        currentIndex = (currentIndex + 1) % phrases.length;
+        document.getElementById('phraseSelect').value = currentIndex;
+        displayPhrase(currentIndex);
+      }, 3000);
+    }
+
+    function stopAuto() {
+      if (autoInterval) {
+        clearInterval(autoInterval);
+        autoInterval = null;
+      }
+    }
+
+    function onPhraseChange() {
+      currentIndex = parseInt(document.getElementById('phraseSelect').value);
+      displayPhrase(currentIndex);
+      if (autoMode) {
+        startAuto();
+      }
+    }
+
+    function displayPhrase(index) {
+      const p = phrases[index];
+      document.getElementById('currentPhrase').textContent = p.phrase;
+      document.getElementById('sourceInfo').textContent = 'Source: ' + p.source;
+      document.getElementById('genTimeInfo').textContent = 'Gen Time: ' + (p.generationTime ? (p.generationTime / 1000).toFixed(2) + 's' : '-');
+
+      if (singleMode) {
+        const heb = calculateGematria(p.phrase, hebrewValues);
+        const eng = calculateGematria(p.phrase, englishValues);
+        const sim = calculateGematria(p.phrase, simpleValues);
+        const aiq = calculateGematria(p.phrase, aiqBekarValues);
+
+        document.getElementById('resultsContainer').innerHTML = \`
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-title">Hebrew</span>
+              <span class="result-value">\${heb.total}</span>
+            </div>
+            <div class="result-breakdown">\${p.phrase} = \${heb.breakdown} = \${heb.total}</div>
+          </div>
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-title">English</span>
+              <span class="result-value">\${eng.total}</span>
+            </div>
+            <div class="result-breakdown">\${p.phrase} = \${eng.breakdown} = \${eng.total}</div>
+          </div>
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-title">English (Simple)</span>
+              <span class="result-value">\${sim.total}</span>
+            </div>
+            <div class="result-breakdown">\${p.phrase} = \${sim.breakdown} = \${sim.total}</div>
+          </div>
+          <div class="result-card">
+            <div class="result-header">
+              <span class="result-title">English (Aik Bekar\\u2079)</span>
+              <span class="result-value">\${aiq.total}</span>
+            </div>
+            <div class="result-breakdown">\${p.phrase} = \${aiq.breakdown} = \${aiq.total}</div>
+          </div>
+        \`;
+      } else {
+        let html = '<div style="max-height: 400px; overflow-y: auto;">';
+        phrases.forEach((phrase, i) => {
+          const isActive = i === index;
+          html += \`<div class="result-card" style="\${isActive ? 'border-color: #dc2626; background: #3f3f46;' : ''}">
+            <div class="result-header">
+              <span class="result-title" style="font-size: 14px;">\${phrase.phrase}</span>
+              <span class="result-value" style="font-size: 16px;">\${phrase.hebrew}/\${phrase.english}/\${phrase.simple}/\${phrase.aiqBekar || '-'}</span>
+            </div>
+          </div>\`;
+        });
+        html += '</div>';
+        document.getElementById('resultsContainer').innerHTML = html;
+      }
+    }
+
+    // Auto-scale to fit frame
+    function autoScale() {
+      const container = document.getElementById('container');
+      const viewportWidth = window.innerWidth - 40;
+      const viewportHeight = window.innerHeight - 40;
+      const containerWidth = 900;
+
+      const scaleX = Math.min(1, viewportWidth / containerWidth);
+      container.style.transform = 'scale(' + scaleX + ')';
+      container.style.transformOrigin = 'top center';
+    }
+
+    window.addEventListener('resize', autoScale);
+    autoScale();
+
+    // Initialize
+    displayPhrase(0);
+    if (autoMode) {
+      startAuto();
+    }
+  </script>
+</body>
+</html>`;
+
+    // PDF-ready HTML (table format)
+    const pdfHtml = `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
@@ -240,7 +639,7 @@ const GematriaCalculator = () => {
         <th>Hebrew</th>
         <th>English</th>
         <th>Simple</th>
-        <th>Aik Bekar⁹</th>
+        <th>Aik Bekar\u2079</th>
         <th>Combination</th>
         <th>Source</th>
         <th>Gen Time</th>
@@ -264,19 +663,32 @@ const GematriaCalculator = () => {
     </tbody>
   </table>
 </body>
-</html>
-    `;
+</html>`;
 
-    // Open in new window for printing/saving as PDF
-    const printWindow = window.open('', '_blank');
-    printWindow.document.write(htmlContent);
-    printWindow.document.close();
+    // Create ZIP with all files in one folder
+    const zip = new JSZip();
 
-    // Trigger print dialog after content loads
-    printWindow.onload = () => {
-      printWindow.focus();
-      printWindow.print();
-    };
+    // Add the interactive HTML
+    zip.file('gematria-viewer.html', interactiveHtml);
+
+    // Add the PDF-ready HTML
+    zip.file('gematria-phrases.html', pdfHtml);
+
+    // Fetch and add the decoration GIF
+    try {
+      const gifResponse = await fetch('/results-decoration.gif');
+      if (gifResponse.ok) {
+        const gifBlob = await gifResponse.blob();
+        zip.file('results-decoration.gif', gifBlob);
+      }
+    } catch (e) {
+      console.log('Could not include decoration GIF:', e);
+    }
+
+    // Generate and download the ZIP
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const dateStr = new Date().toISOString().split('T')[0];
+    saveAs(zipBlob, `gematria-phrases-${dateStr}.zip`);
   };
 
   const formatBreakdown = (breakdown) => {
