@@ -2172,11 +2172,15 @@ export function generateMultiPhraseHtml(phrases) {
           frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
-          await new Promise(r => setTimeout(r, 0));
         }
 
-        // Encode GIF
         btn.textContent = 'ENC';
+        await new Promise(r => setTimeout(r, 10));
+
+        if (frameDataList.length === 0) {
+          throw new Error('No frames captured');
+        }
+
         const gifData = encodeGif(frameDataList, canvasWidth, canvasHeight, delay);
 
         // Download
