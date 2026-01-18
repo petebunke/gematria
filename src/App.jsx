@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Calculator, Copy, Check, Download, Loader2, Trash2 } from 'lucide-react';
+import JSZip from 'jszip';
 
 const GematriaCalculator = () => {
   const [input, setInput] = useState('');
@@ -19,6 +20,7 @@ const GematriaCalculator = () => {
   const [errorModal, setErrorModal] = useState({ show: false, message: '' });
   const [copied, setCopied] = useState(false);
   const [clearing, setClearing] = useState(false);
+  const [downloading, setDownloading] = useState(false);
   const [generatedPhrases, setGeneratedPhrases] = useState(() => {
     // Load from localStorage on initial render
     try {
@@ -148,17 +150,241 @@ const GematriaCalculator = () => {
     }
   };
 
-  const downloadPhraseTable = () => {
+  // ============ GIF Generation Constants and Helpers ============
+  const GIF_TRI_SIZE = 32;
+  const GIF_TRI_HEIGHT = GIF_TRI_SIZE * Math.sqrt(3) / 2;
+  const GIF_COLS = 9;
+  const GIF_BASE_ROWS = 3;
+  const GIF_ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const GIF_ROW_COLORS = { 0: '#c41e3a', 1: '#2e8b57', 2: '#1e4d8c' };
+
+  const GIF_CONFIGS = {
+    'a-*-z': { name: 'a-*-z', getSymbol: (pos) => pos < 13 ? GIF_ALPHABET[pos] : pos === 13 ? '*' : GIF_ALPHABET[pos - 1] },
+    '*-a-z': { name: '*-a-z', getSymbol: (pos) => pos === 0 ? '*' : GIF_ALPHABET[pos - 1] },
+    'a-z-*': { name: 'a-z-*', getSymbol: (pos) => pos === 26 ? '*' : GIF_ALPHABET[pos] },
+    'z-*-a': { name: 'z-*-a', getSymbol: (pos) => pos < 13 ? GIF_ALPHABET[25 - pos] : pos === 13 ? '*' : GIF_ALPHABET[25 - (pos - 1)] },
+    '*-z-a': { name: '*-z-a', getSymbol: (pos) => pos === 0 ? '*' : GIF_ALPHABET[26 - pos] },
+    'z-a-*': { name: 'z-a-*', getSymbol: (pos) => pos === 26 ? '*' : GIF_ALPHABET[25 - pos] }
+  };
+  const GIF_CONFIG_KEYS = Object.keys(GIF_CONFIGS);
+
+  const gifGetLetterFrequency = (phrase) => {
+    const freq = {};
+    const cleanPhrase = phrase.toUpperCase().replace(/[^A-Z]/g, '');
+    for (const char of cleanPhrase) freq[char] = (freq[char] || 0) + 1;
+    const maxFreq = Math.max(...Object.values(freq), 1);
+    return { freq, maxFreq, totalLetters: cleanPhrase.length };
+  };
+
+  const gifComboToCMYK = (combo) => {
+    const toPercent = (val) => Math.round((val % 1000) / 10);
+    return { c: toPercent(combo[0]), m: toPercent(combo[1]), y: toPercent(combo[2]), k: toPercent(combo[3]) };
+  };
+
+  const gifCmykToRgb = (c, m, y, k) => {
+    c /= 100; m /= 100; y /= 100; k /= 100;
+    return { r: Math.round(255 * (1 - c) * (1 - k)), g: Math.round(255 * (1 - m) * (1 - k)), b: Math.round(255 * (1 - y) * (1 - k)) };
+  };
+
+  const gifRgbToHex = (r, g, b) => '#' + [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+
+  const gifGetColor = (combo) => {
+    const cmyk = gifComboToCMYK(combo);
+    const rgb = gifCmykToRgb(cmyk.c, cmyk.m, cmyk.y, cmyk.k);
+    return { cmyk, rgb, hex: gifRgbToHex(rgb.r, rgb.g, rgb.b) };
+  };
+
+  const gifIsLetterInPhrase = (symbol, letterData) => symbol !== '*' && (letterData.freq[symbol] || 0) > 0;
+
+  const gifGetLetterOpacity = (symbol, letterData) => {
+    if (symbol === '*') return 0.15;
+    const { freq, maxFreq } = letterData;
+    const count = freq[symbol] || 0;
+    if (count === 0) return 0.15;
+    return 0.3 + (count / maxFreq) * 0.7;
+  };
+
+  const gifGenerateBasePolyhedron = () => {
+    const triangles = [];
+    for (let row = 0; row < GIF_BASE_ROWS; row++) {
+      for (let col = 0; col < GIF_COLS; col++) {
+        triangles.push({ row, col, pointing: col % 2 === 0 ? 'up' : 'down', index: row * GIF_COLS + col, polyhedronRow: row });
+      }
+    }
+    return triangles;
+  };
+
+  const gifBuildSingle = (variation) => {
+    const base = gifGenerateBasePolyhedron();
+    return base.map(t => {
+      let letterRow = variation === 1 ? (GIF_BASE_ROWS - 1 - t.row) : t.row;
+      return { ...t, x: t.col * (GIF_TRI_SIZE / 2), y: t.row * GIF_TRI_HEIGHT, index: letterRow * GIF_COLS + t.col, polyhedronRow: letterRow };
+    });
+  };
+
+  const gifGetTrianglePath = (x, y, pointing) => {
+    const halfWidth = GIF_TRI_SIZE / 2;
+    if (pointing === 'up') return `M ${x} ${y + GIF_TRI_HEIGHT} L ${x + halfWidth} ${y} L ${x + GIF_TRI_SIZE} ${y + GIF_TRI_HEIGHT} Z`;
+    return `M ${x} ${y} L ${x + GIF_TRI_SIZE} ${y} L ${x + halfWidth} ${y + GIF_TRI_HEIGHT} Z`;
+  };
+
+  const gifGenerateFrameSvg = (phrase, combo, configIdx, variation) => {
+    const config = GIF_CONFIGS[GIF_CONFIG_KEYS[configIdx]];
+    const color = gifGetColor(combo);
+    const letterData = gifGetLetterFrequency(phrase);
+    const triangles = gifBuildSingle(variation);
+    const polyWidth = (GIF_COLS - 1) * (GIF_TRI_SIZE / 2) + GIF_TRI_SIZE;
+    const height = GIF_BASE_ROWS * GIF_TRI_HEIGHT;
+
+    let svgContent = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${polyWidth} ${height}" width="${polyWidth}" height="${height}">`;
+    svgContent += `<rect x="0" y="0" width="${polyWidth}" height="${height}" fill="#f8f8f4"/>`;
+
+    triangles.forEach(tri => {
+      const symbol = config.getSymbol(tri.index % 27);
+      const letterOpacity = gifGetLetterOpacity(symbol, letterData);
+      const isInPhrase = gifIsLetterInPhrase(symbol, letterData);
+      const fill = isInPhrase ? color.hex : '#f8f8f4';
+      const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+      const path = gifGetTrianglePath(tri.x, tri.y, tri.pointing);
+      svgContent += `<path d="${path}" fill="${fill}" fill-opacity="${fillOpacity}" stroke="#333" stroke-width="1"/>`;
+      const textX = tri.x + GIF_TRI_SIZE / 2;
+      const textY = tri.y + (tri.pointing === 'up' ? GIF_TRI_HEIGHT * 0.6 : GIF_TRI_HEIGHT * 0.4);
+      const textColor = isInPhrase ? '#ffffff' : '#000000';
+      svgContent += `<text x="${textX}" y="${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="${textColor}" fill-opacity="${letterOpacity}">${symbol}</text>`;
+    });
+    svgContent += '</svg>';
+    return { svg: svgContent, width: polyWidth, height };
+  };
+
+  const gifLzwEncode = (pixels, minCodeSize) => {
+    const clearCode = 1 << minCodeSize;
+    const eoiCode = clearCode + 1;
+    let codeSize = minCodeSize + 1;
+    let nextCode = eoiCode + 1;
+    const table = new Map();
+    for (let i = 0; i < clearCode; i++) table.set(String(i), i);
+    const output = [];
+    let bits = 0, bitCount = 0;
+    const emit = (code) => { bits |= code << bitCount; bitCount += codeSize; while (bitCount >= 8) { output.push(bits & 0xff); bits >>= 8; bitCount -= 8; } };
+    emit(clearCode);
+    if (pixels.length === 0) { emit(eoiCode); if (bitCount > 0) output.push(bits & 0xff); return output; }
+    let prefix = String(pixels[0]);
+    for (let i = 1; i < pixels.length; i++) {
+      const suffix = String(pixels[i]);
+      const combined = prefix + ',' + suffix;
+      if (table.has(combined)) { prefix = combined; }
+      else {
+        emit(table.get(prefix));
+        if (nextCode < 4096) { table.set(combined, nextCode++); if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++; }
+        else { emit(clearCode); table.clear(); for (let j = 0; j < clearCode; j++) table.set(String(j), j); nextCode = eoiCode + 1; codeSize = minCodeSize + 1; }
+        prefix = suffix;
+      }
+    }
+    emit(table.get(prefix));
+    emit(eoiCode);
+    if (bitCount > 0) output.push(bits & 0xff);
+    return output;
+  };
+
+  const gifEncode = (frames, width, height, delay) => {
+    const buf = [];
+    const write = (b) => buf.push(b);
+    const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
+    const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
+    const colorCounts = new Map();
+    frames.forEach(frame => {
+      for (let i = 0; i < frame.data.length; i += 4) {
+        const r = frame.data[i] & 0xf8, g = frame.data[i+1] & 0xf8, b = frame.data[i+2] & 0xf8;
+        const key = (r << 16) | (g << 8) | b;
+        colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
+      }
+    });
+    const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
+    const colorMap = new Map();
+    const colors = [];
+    sortedColors.forEach((key, idx) => { colorMap.set(key, idx); colors.push([(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]); });
+    while (colors.length < 256) colors.push([0, 0, 0]);
+    const findNearest = (r, g, b) => {
+      const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
+      const key = (qr << 16) | (qg << 8) | qb;
+      if (colorMap.has(key)) return colorMap.get(key);
+      let minDist = Infinity, closest = 0;
+      for (let i = 0; i < colors.length; i++) { const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2]; const dist = dr*dr + dg*dg + db*db; if (dist < minDist) { minDist = dist; closest = i; } }
+      return closest;
+    };
+    writeStr('GIF89a'); writeShort(width); writeShort(height); write(0xf7); write(0); write(0);
+    colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+    write(0x21); write(0xff); write(0x0b); writeStr('NETSCAPE2.0'); write(0x03); write(0x01); writeShort(0); write(0x00);
+    frames.forEach(frame => {
+      write(0x21); write(0xf9); write(0x04); write(0x00); writeShort(delay); write(0x00); write(0x00);
+      write(0x2c); writeShort(0); writeShort(0); writeShort(width); writeShort(height); write(0x00);
+      const minCodeSize = 8; write(minCodeSize);
+      const pixels = [];
+      for (let i = 0; i < frame.data.length; i += 4) pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
+      const lzwData = gifLzwEncode(pixels, minCodeSize);
+      for (let i = 0; i < lzwData.length; i += 255) { const chunk = lzwData.slice(i, i + 255); write(chunk.length); chunk.forEach(b => write(b)); }
+      write(0x00);
+    });
+    write(0x3b);
+    return new Uint8Array(buf);
+  };
+
+  const generateGifForPhrase = async (phrase, combo, frameSpeed) => {
+    const varCount = 2;
+    const framesPerMode = GIF_CONFIG_KEYS.length * varCount;
+    let frameSequence = [];
+    for (let i = 0; i < framesPerMode; i++) frameSequence.push(i);
+    for (let i = framesPerMode - 2; i > 0; i--) frameSequence.push(i);
+
+    const { width, height } = gifGenerateFrameSvg(phrase, combo, 0, 0);
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(width);
+    canvas.height = Math.round(height);
+    const ctx = canvas.getContext('2d');
+
+    const frames = [];
+    for (let i = 0; i < frameSequence.length; i++) {
+      const frameIdx = frameSequence[i];
+      const configIdx = Math.floor(frameIdx / varCount);
+      const variation = frameIdx % varCount;
+      const { svg } = gifGenerateFrameSvg(phrase, combo, configIdx, variation);
+      const svgBlob = new Blob([svg], { type: 'image/svg+xml;charset=utf-8' });
+      const url = URL.createObjectURL(svgBlob);
+      await new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+          ctx.fillStyle = '#f8f8f4';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          frames.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+          URL.revokeObjectURL(url);
+          resolve();
+        };
+        img.onerror = reject;
+        img.src = url;
+      });
+    }
+    return gifEncode(frames, canvas.width, canvas.height, Math.round(frameSpeed / 10));
+  };
+
+  // Convert aik bekar value to milliseconds (same as HTML)
+  const aikBekarToMs = (aikBekar) => Math.max(50, Math.min(2000, aikBekar));
+
+  // ============ End GIF Generation Helpers ============
+
+  const downloadPhraseTable = async () => {
     if (generatedPhrases.length === 0) {
       alert('No phrases generated yet!');
       return;
     }
 
-    // Sort by aik bekar value first, then hebrew value (matching the tessellation dropdown order)
-    const sorted = [...generatedPhrases].sort((a, b) => {
-      if ((a.aiqBekar || 0) !== (b.aiqBekar || 0)) return (a.aiqBekar || 0) - (b.aiqBekar || 0);
-      return a.hebrew - b.hebrew;
-    });
+    setDownloading(true);
+    try {
+      // Sort by aik bekar value first, then hebrew value (matching the tessellation dropdown order)
+      const sorted = [...generatedPhrases].sort((a, b) => {
+        if ((a.aiqBekar || 0) !== (b.aiqBekar || 0)) return (a.aiqBekar || 0) - (b.aiqBekar || 0);
+        return a.hebrew - b.hebrew;
+      });
 
     // Generate phrase options for the tessellation dropdown
     const phraseOptions = sorted.map(p => {
@@ -1955,14 +2181,44 @@ const GematriaCalculator = () => {
 </body>
 </html>`;
 
-    // Download as HTML file
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
+    // Create ZIP with HTML and GIFs
+    const zip = new JSZip();
+    const dateStr = new Date().toISOString().split('T')[0];
+
+    // Add HTML file to ZIP
+    zip.file(`gematria-tessellation.html`, htmlContent);
+
+    // Generate GIFs for each phrase
+    for (const p of sorted) {
+      const combo = [p.hebrew, p.english, p.simple, p.aiqBekar || 0];
+      const frameSpeed = aikBekarToMs(p.aiqBekar || 111);
+      try {
+        const gifData = await generateGifForPhrase(p.phrase, combo, frameSpeed);
+        // Create safe filename from phrase
+        const safeFilename = p.phrase.toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-|-$/g, '')
+          .substring(0, 50);
+        zip.file(`${safeFilename}.gif`, gifData);
+      } catch (err) {
+        console.error(`Failed to generate GIF for "${p.phrase}":`, err);
+      }
+    }
+
+    // Generate and download ZIP
+    const zipBlob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(zipBlob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `gematria-tessellation-${new Date().toISOString().split('T')[0]}.html`;
+    a.download = `gematria-tessellation-${dateStr}.zip`;
     a.click();
     URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Download failed. Please try again.');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   const formatBreakdown = (breakdown) => {
@@ -3164,12 +3420,15 @@ const GematriaCalculator = () => {
               <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-2 gap-3">
                 <button
                   onClick={downloadPhraseTable}
-                  disabled={clearing || generatedPhrases.length === 0}
+                  disabled={clearing || downloading || generatedPhrases.length === 0}
                   className="flex items-center justify-center gap-2 px-4 py-3 bg-zinc-700 text-white rounded-lg hover:bg-zinc-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
                   title={generatedPhrases.length > 0 ? `Download tessellation with ${generatedPhrases.length} phrase${generatedPhrases.length !== 1 ? 's' : ''}` : 'Generate phrases first'}
                 >
-                  <Download className="w-5 h-5" />
-                  Download Tessellation {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}
+                  {downloading ? (
+                    <>Generating... <Loader2 className="w-5 h-5 animate-spin" style={{ animationTimingFunction: 'cubic-bezier(0.4, 0, 0.2, 1)', animationDuration: '0.8s' }} /></>
+                  ) : (
+                    <><Download className="w-5 h-5" /> Download Tessellation {generatedPhrases.length > 0 && `(${generatedPhrases.length})`}</>
+                  )}
                 </button>
                 <button
                   onClick={handleClearPhrases}
