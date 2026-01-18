@@ -2157,8 +2157,7 @@ export function generateMultiPhraseHtml(phrases) {
           const frame = frames[i];
           const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
 
-          const svgBlob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
-          const url = URL.createObjectURL(svgBlob);
+          const dataUrl = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
 
           await new Promise((resolve) => {
             const img = new Image();
@@ -2168,18 +2167,11 @@ export function generateMultiPhraseHtml(phrases) {
               const offsetX = (canvasWidth - frameW) / 2;
               const offsetY = (canvasHeight - frameH) / 2;
               ctx.drawImage(img, offsetX, offsetY, frameW, frameH);
-              URL.revokeObjectURL(url);
               frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
               resolve();
             };
-            img.onerror = () => {
-              ctx.fillStyle = '#f8f8f4';
-              ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-              frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
-              URL.revokeObjectURL(url);
-              resolve();
-            };
-            img.src = url;
+            img.onerror = () => resolve();
+            img.src = dataUrl;
           });
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
