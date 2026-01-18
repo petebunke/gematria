@@ -1104,44 +1104,25 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // Async GIF encoder with proper color quantization (yields to browser to prevent timeout)
-    async function encodeGifAsync(frames, width, height, delay, onProgress) {
+    // Simple synchronous GIF encoder
+    function encodeGif(frames, width, height, delay) {
       const buf = [];
       const write = (b) => buf.push(b);
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
-      // Yield to browser periodically - needs 16ms+ for repaint
-      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 16));
-
-      // Yield immediately so UI can update
-      if (onProgress) onProgress('CLR');
-      await yieldToBrowser();
-
-      // Build global color table with better quantization
+      // Build global color table
       const colorCounts = new Map();
-
-      // Count colors across all frames
-      for (let f = 0; f < frames.length; f++) {
-        const frame = frames[f];
-        const totalPixels = frame.data.length / 4;
+      frames.forEach(frame => {
         for (let i = 0; i < frame.data.length; i += 4) {
-          // Quantize to 5 bits per channel to reduce unique colors
           const r = frame.data[i] & 0xf8;
           const g = frame.data[i+1] & 0xf8;
           const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-          if (i % 20000 === 0 && i > 0) {
-            const pct = Math.round((i/4) / totalPixels * 100);
-            if (onProgress) onProgress((f+1) + '/' + frames.length + ' ' + pct + '%');
-            await yieldToBrowser();
-          }
         }
-        await yieldToBrowser();
-      }
+      });
 
-      // Sort by frequency and take top 256
       const sortedColors = [...colorCounts.entries()]
         .sort((a, b) => b[1] - a[1])
         .slice(0, 256)
@@ -1155,13 +1136,10 @@ export function generateMultiPhraseHtml(phrases) {
       });
       while (colors.length < 256) colors.push([0, 0, 0]);
 
-      // Find nearest color function
       const findNearest = (r, g, b) => {
         const qr = r & 0xf8, qg = g & 0xf8, qb = b & 0xf8;
         const key = (qr << 16) | (qg << 8) | qb;
         if (colorMap.has(key)) return colorMap.get(key);
-
-        // Find closest color
         let minDist = Infinity, closest = 0;
         for (let i = 0; i < colors.length; i++) {
           const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
@@ -1175,9 +1153,9 @@ export function generateMultiPhraseHtml(phrases) {
       writeStr('GIF89a');
       writeShort(width);
       writeShort(height);
-      write(0xf7); // GCT flag, 8 bits color
-      write(0);    // BG color
-      write(0);    // Aspect ratio
+      write(0xf7);
+      write(0);
+      write(0);
 
       // Global Color Table
       colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
@@ -1186,53 +1164,43 @@ export function generateMultiPhraseHtml(phrases) {
       write(0x21); write(0xff); write(0x0b);
       writeStr('NETSCAPE2.0');
       write(0x03); write(0x01);
-      writeShort(0); // Loop forever
+      writeShort(0);
       write(0x00);
 
       // Frames
-      for (let f = 0; f < frames.length; f++) {
-        if (onProgress) onProgress('F' + (f+1) + '/' + frames.length);
-        await yieldToBrowser();
-        const frame = frames[f];
-
-        // Graphics Control Extension
+      frames.forEach(frame => {
         write(0x21); write(0xf9); write(0x04);
-        write(0x00); // No transparency
+        write(0x00);
         writeShort(delay);
         write(0x00); write(0x00);
 
-        // Image Descriptor
         write(0x2c);
         writeShort(0); writeShort(0);
         writeShort(width); writeShort(height);
-        write(0x00); // No local color table
+        write(0x00);
 
-        // Image Data with LZW
         const minCodeSize = 8;
         write(minCodeSize);
 
-        // Build pixel array with periodic yields
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
           pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
-          if (i % 20000 === 0 && i > 0) await yieldToBrowser();
         }
 
-        const lzwData = await lzwEncodeAsync(pixels, minCodeSize);
+        const lzwData = lzwEncode(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
           const chunk = lzwData.slice(i, i + 255);
           write(chunk.length);
           chunk.forEach(b => write(b));
         }
         write(0x00);
-        await yieldToBrowser();
-      }
+      });
 
-      write(0x3b); // Trailer
+      write(0x3b);
       return new Uint8Array(buf);
     }
 
-    async function lzwEncodeAsync(pixels, minCodeSize) {
+    function lzwEncode(pixels, minCodeSize) {
       const clearCode = 1 << minCodeSize;
       const eoiCode = clearCode + 1;
       let codeSize = minCodeSize + 1;
@@ -1260,8 +1228,6 @@ export function generateMultiPhraseHtml(phrases) {
       }
 
       let prefix = String(pixels[0]);
-      const yieldInterval = 10000; // Yield every 10k pixels
-
       for (let i = 1; i < pixels.length; i++) {
         const suffix = String(pixels[i]);
         const combined = prefix + ',' + suffix;
@@ -1273,7 +1239,6 @@ export function generateMultiPhraseHtml(phrases) {
             table.set(combined, nextCode++);
             if (nextCode > (1 << codeSize) && codeSize < 12) codeSize++;
           } else {
-            // Clear table when full
             emit(clearCode);
             table.clear();
             for (let j = 0; j < clearCode; j++) table.set(String(j), j);
@@ -1281,10 +1246,6 @@ export function generateMultiPhraseHtml(phrases) {
             codeSize = minCodeSize + 1;
           }
           prefix = suffix;
-        }
-        // Yield periodically to prevent browser timeout
-        if (i % yieldInterval === 0) {
-          await new Promise(resolve => setTimeout(resolve, 16));
         }
       }
       emit(table.get(prefix));
@@ -2239,11 +2200,9 @@ export function generateMultiPhraseHtml(phrases) {
 
         render(); // Restore original render
 
-        // Encode GIF using custom encoder (async to prevent browser timeout)
+        // Encode GIF
         btn.textContent = 'ENC';
-        const gifData = await encodeGifAsync(frameDataList, canvasWidth, canvasHeight, delay, (status) => {
-          btn.textContent = status;
-        });
+        const gifData = encodeGif(frameDataList, canvasWidth, canvasHeight, delay);
 
         // Download
         const blob = new Blob([gifData], { type: 'image/gif' });
