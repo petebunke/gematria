@@ -1100,7 +1100,7 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <div class="tessellation-container" id="container">
-    <svg id="tessellationSvg" preserveAspectRatio="xMidYMid meet"></svg>
+    <svg id="tessellationSvg" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
   </div>
 
   <script>
