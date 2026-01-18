@@ -878,7 +878,7 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
 
     // Quantize to 256 color palette with high quality settings
     const palette = quantize(rgba, 256, { format: 'rgb444' });
-    const index = applyPalette(rgba, palette, { format: 'rgb444' });
+    const index = applyPalette(rgba, palette, 'rgb444');
 
     gif.writeFrame(index, scaledWidth, scaledHeight, {
       palette,
@@ -2054,8 +2054,14 @@ export function generateMultiPhraseHtml(phrases) {
         for (let i = 0; i < frameDataList.length; i++) {
           const rgba = frameDataList[i];
           const palette = quantize(rgba, 256, { format: 'rgb444' });
-          const index = applyPalette(rgba, palette, { format: 'rgb444' });
+          const index = applyPalette(rgba, palette, 'rgb444');
           gif.writeFrame(index, canvasWidth, canvasHeight, { palette, delay, dispose: 1 });
+
+          // Yield to browser every 10 frames to prevent timeout
+          if (i % 10 === 0) {
+            btn.textContent = 'ENC ' + Math.round((i / frameDataList.length) * 100) + '%';
+            await new Promise(r => setTimeout(r, 0));
+          }
         }
         gif.finish();
 
