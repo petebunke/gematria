@@ -1114,9 +1114,9 @@ export function generateMultiPhraseHtml(phrases) {
       const colorCounts = new Map();
       frames.forEach(frame => {
         for (let i = 0; i < frame.data.length; i += 4) {
-          const r = frame.data[i];
-          const g = frame.data[i+1];
-          const b = frame.data[i+2];
+          const r = frame.data[i] & 0xf8;
+          const g = frame.data[i+1] & 0xf8;
+          const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
@@ -1124,27 +1124,9 @@ export function generateMultiPhraseHtml(phrases) {
 
       const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
       const colorMap = new Map();
-      const colors = [];
-      sortedColors.forEach((key, idx) => {
-        colorMap.set(key, idx);
-        colors.push([(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
-      });
-      while (colors.length < 256) colors.push([0, 0, 0]);
-
-      const nearestCache = new Map();
-      const findNearest = (r, g, b) => {
-        const key = (r << 16) | (g << 8) | b;
-        if (colorMap.has(key)) return colorMap.get(key);
-        if (nearestCache.has(key)) return nearestCache.get(key);
-        let minDist = Infinity, closest = 0;
-        for (let i = 0; i < colors.length; i++) {
-          const dr = r - colors[i][0], dg = g - colors[i][1], db = b - colors[i][2];
-          const dist = dr*dr + dg*dg + db*db;
-          if (dist < minDist) { minDist = dist; closest = i; }
-        }
-        nearestCache.set(key, closest);
-        return closest;
-      };
+      sortedColors.forEach((key, idx) => colorMap.set(key, idx));
+      const palette = sortedColors.map(key => [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
+      while (palette.length < 256) palette.push([0, 0, 0]);
 
       writeStr('GIF89a');
       writeShort(width);
@@ -1152,7 +1134,7 @@ export function generateMultiPhraseHtml(phrases) {
       write(0xf7);
       write(0);
       write(0);
-      colors.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+      palette.forEach(([r, g, b]) => { write(r); write(g); write(b); });
       write(0x21); write(0xff); write(0x0b);
       writeStr('NETSCAPE2.0');
       write(0x03); write(0x01);
@@ -1172,7 +1154,11 @@ export function generateMultiPhraseHtml(phrases) {
         write(minCodeSize);
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
-          pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
+          const r = frame.data[i] & 0xf8;
+          const g = frame.data[i+1] & 0xf8;
+          const b = frame.data[i+2] & 0xf8;
+          const key = (r << 16) | (g << 8) | b;
+          pixels.push(colorMap.get(key) || 0);
         }
         const lzwData = lzwEncode(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
