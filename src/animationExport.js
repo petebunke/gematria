@@ -1871,7 +1871,14 @@ export function generateMultiPhraseHtml(phrases) {
 
       try {
         // Load gifenc from CDN
-        const { GIFEncoder, quantize, applyPalette } = await import('https://esm.sh/gifenc@1.0.3');
+        const gifenc = await import('https://esm.sh/gifenc@1.0.3');
+        const GIFEncoder = gifenc.GIFEncoder || gifenc.default?.GIFEncoder;
+        const quantize = gifenc.quantize || gifenc.default?.quantize;
+        const applyPalette = gifenc.applyPalette || gifenc.default?.applyPalette;
+
+        if (!GIFEncoder || !quantize || !applyPalette) {
+          throw new Error('Failed to load gifenc functions');
+        }
 
         // Determine frame sequence based on current settings
         const frames = [];
