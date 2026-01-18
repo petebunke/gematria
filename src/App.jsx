@@ -1904,7 +1904,7 @@ const GematriaCalculator = () => {
                 <button
                   onClick={handleClearPhrases}
                   disabled={clearing}
-                  className="flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold"
+                  className="flex items-center justify-center gap-1 px-2 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-semibold text-sm"
                   title={generatedPhrases.length > 0 ? 'Clear all generated phrases' : 'No phrases to clear'}
                 >
                   {clearing ? (
