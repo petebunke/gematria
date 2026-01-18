@@ -902,12 +902,13 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
 // Generate multi-phrase HTML with full UI matching the reference template
 // Includes: controls overlay, background pattern, zoom/pan, all modes, auto oscillation
 export function generateMultiPhraseHtml(phrases) {
-  // Sort phrases by aik bekar first, then hebrew value
+  // Sort phrases by hebrew, then simple, then aik bekar (all low to high)
   const sortedPhrases = [...phrases].sort((a, b) => {
+    if (a.hebrew !== b.hebrew) return a.hebrew - b.hebrew;
+    if (a.simple !== b.simple) return a.simple - b.simple;
     const aAiq = a.aiqBekar || 0;
     const bAiq = b.aiqBekar || 0;
-    if (aAiq !== bAiq) return aAiq - bAiq;
-    return a.hebrew - b.hebrew;
+    return aAiq - bAiq;
   });
 
   // Build phrase options for dropdown
