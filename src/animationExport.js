@@ -1089,7 +1089,7 @@ export function generateMultiPhraseHtml(phrases) {
       <button id="playPause" style="width: 32px;">⏸</button>
       <button id="prevVar" class="secondary">◀</button>
       <button id="nextVar" class="secondary">▶</button>
-      <button id="loopBtn" class="secondary" style="width:58px">LOOP</button>
+      <button id="loopBtn" class="secondary" style="width:58px;margin-left:7px">LOOP</button>
     </div>
 
     <div class="control-group">
