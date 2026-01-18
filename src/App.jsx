@@ -1898,7 +1898,7 @@ const GematriaCalculator = () => {
                     <Download className="w-5 h-5 flex-shrink-0 hidden md:block" />
                   )}
                   <span className="truncate">
-                    {isDownloading ? (downloadProgress || 'Downloading...') : <>Download<span className="hidden sm:inline"> Phrases</span> {generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}</>}
+                    {isDownloading ? (downloadProgress || 'Downloading...') : `Download Phrases ${generatedPhrases.length > 0 ? `(${generatedPhrases.length})` : ''}`}
                   </span>
                 </button>
                 <button
