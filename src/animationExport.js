@@ -814,19 +814,14 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 20); // Min 20ms for GIF
   const delay = Math.round(frameSpeed / 10); // GIF delay is in centiseconds
 
-  // Use 2x scale for highest resolution GIF
-  const scale = 2;
-  const baseWidth = width + STROKE_WIDTH;
-  const baseHeight = height + STROKE_WIDTH;
-  const scaledWidth = baseWidth * scale;
-  const scaledHeight = baseHeight * scale;
+  // Full resolution - use actual SVG dimensions
+  const gifWidth = width + STROKE_WIDTH;
+  const gifHeight = height + STROKE_WIDTH;
 
   const canvas = document.createElement('canvas');
-  canvas.width = scaledWidth;
-  canvas.height = scaledHeight;
+  canvas.width = gifWidth;
+  canvas.height = gifHeight;
   const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
 
   // Generate frames (6 configs × 2 variations = 12 frames, then reverse for ping-pong)
   const svgFrames = [];
@@ -850,20 +845,20 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
     await new Promise((resolve) => {
       img.onload = () => {
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, scaledWidth, scaledHeight);
-        ctx.drawImage(img, 0, 0, scaledWidth, scaledHeight);
+        ctx.fillRect(0, 0, gifWidth, gifHeight);
+        ctx.drawImage(img, 0, 0, gifWidth, gifHeight);
         URL.revokeObjectURL(url);
         resolve();
       };
       img.onerror = () => {
         ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, scaledWidth, scaledHeight);
+        ctx.fillRect(0, 0, gifWidth, gifHeight);
         resolve();
       };
       img.src = url;
     });
 
-    const imageData = ctx.getImageData(0, 0, scaledWidth, scaledHeight);
+    const imageData = ctx.getImageData(0, 0, gifWidth, gifHeight);
     frameDataList.push(imageData.data);
 
     if (progressCallback) progressCallback(0.1 + (i / allSvgFrames.length) * 0.6);
@@ -876,11 +871,11 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   for (let i = 0; i < frameDataList.length; i++) {
     const rgba = frameDataList[i];
 
-    // Quantize to 256 color palette with high quality settings
-    const palette = quantize(rgba, 256, { format: 'rgb444' });
-    const index = applyPalette(rgba, palette, 'rgb444');
+    // Quantize to 256 color palette
+    const palette = quantize(rgba, 256);
+    const index = applyPalette(rgba, palette);
 
-    gif.writeFrame(index, scaledWidth, scaledHeight, {
+    gif.writeFrame(index, gifWidth, gifHeight, {
       palette,
       delay,
       dispose: 1 // Clear frame before drawing next
