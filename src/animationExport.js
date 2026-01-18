@@ -1111,8 +1111,8 @@ export function generateMultiPhraseHtml(phrases) {
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
 
-      // Yield to browser periodically
-      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 1));
+      // Yield to browser periodically - needs 16ms+ for repaint
+      const yieldToBrowser = () => new Promise(resolve => setTimeout(resolve, 16));
 
       // Yield immediately so UI can update
       if (onProgress) onProgress('CLR');
@@ -1131,7 +1131,7 @@ export function generateMultiPhraseHtml(phrases) {
           const b = frame.data[i+2] & 0xf8;
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
-          if (i % 100000 === 0) await yieldToBrowser();
+          if (i % 20000 === 0 && i > 0) await yieldToBrowser();
         }
         if (onProgress) onProgress('CLR ' + (f+1) + '/' + frames.length);
         await yieldToBrowser();
@@ -1211,7 +1211,7 @@ export function generateMultiPhraseHtml(phrases) {
         const pixels = [];
         for (let i = 0; i < frame.data.length; i += 4) {
           pixels.push(findNearest(frame.data[i], frame.data[i+1], frame.data[i+2]));
-          if (i % 200000 === 0 && i > 0) await yieldToBrowser();
+          if (i % 20000 === 0 && i > 0) await yieldToBrowser();
         }
 
         const lzwData = await lzwEncodeAsync(pixels, minCodeSize);
@@ -1256,7 +1256,7 @@ export function generateMultiPhraseHtml(phrases) {
       }
 
       let prefix = String(pixels[0]);
-      const yieldInterval = 50000; // Yield every 50k pixels
+      const yieldInterval = 10000; // Yield every 10k pixels
 
       for (let i = 1; i < pixels.length; i++) {
         const suffix = String(pixels[i]);
@@ -1280,7 +1280,7 @@ export function generateMultiPhraseHtml(phrases) {
         }
         // Yield periodically to prevent browser timeout
         if (i % yieldInterval === 0) {
-          await new Promise(resolve => setTimeout(resolve, 0));
+          await new Promise(resolve => setTimeout(resolve, 16));
         }
       }
       emit(table.get(prefix));
