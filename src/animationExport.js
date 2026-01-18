@@ -2029,7 +2029,7 @@ export function generateMultiPhraseHtml(phrases) {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
         const isInPhrase = isLetterInPhrase(symbol, letterData);
-        const fill = isInPhrase ? color.hex : '#f8f8f4';
+        const fill = isInPhrase ? color.hex : '#ffffff';
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
         svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
