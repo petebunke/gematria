@@ -464,14 +464,14 @@ function buildSquare(variation, forRectangle = false) {
   return allTriangles;
 }
 
-function buildRectangle(variation) {
+function buildRectangle(variation, forRectangle = true) {
   const allTriangles = [];
   const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
   const GAP = 0;
   const squareWidth = polyWidth * 4;
 
   for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
-    const squareTriangles = buildSquare(variation, true);
+    const squareTriangles = buildSquare(variation, forRectangle);
     const xOffset = gridIndex * (squareWidth + GAP);
     const shouldXFlip = gridIndex % 2 === 1;
 
@@ -1610,13 +1610,13 @@ export function generateMultiPhraseHtml(phrases) {
       return allTriangles;
     }
 
-    function buildRectangle(variation) {
+    function buildRectangle(variation, forRectangle = true) {
       const allTriangles = [];
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
       const GAP = 0;
       const squareWidth = polyWidth * 4;
       for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
-        const squareTriangles = buildSquare(variation, true);
+        const squareTriangles = buildSquare(variation, forRectangle);
         const xOffset = gridIndex * (squareWidth + GAP);
         const shouldXFlip = gridIndex % 2 === 1;
         squareTriangles.forEach(tri => {
@@ -1637,7 +1637,7 @@ export function generateMultiPhraseHtml(phrases) {
       const squareHeight = octaHeight * 2 + GAP;
       const rectangleHeight = squareHeight;
       for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
-        const rectangleTriangles = buildRectangle(variation);
+        const rectangleTriangles = buildRectangle(variation, false);
         const yOffset = rowIndex * (rectangleHeight + GAP);
         const shouldXFlip = rowIndex % 2 === 0;
         rectangleTriangles.forEach(tri => {
