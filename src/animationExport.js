@@ -1106,15 +1106,18 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // GIF encoder from working example
-    function encodeGif(frames, width, height, delay) {
+    // GIF encoder from working example - async to prevent browser timeout
+    async function encodeGif(frames, width, height, delay, progressCallback) {
       const buf = [];
       const write = (b) => buf.push(b);
       const writeStr = (s) => { for (let i = 0; i < s.length; i++) write(s.charCodeAt(i)); };
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
+      const yieldToMain = () => new Promise(r => setTimeout(r, 0));
 
+      // Count colors with yields to prevent blocking
       const colorCounts = new Map();
-      frames.forEach(frame => {
+      for (let fi = 0; fi < frames.length; fi++) {
+        const frame = frames[fi];
         for (let i = 0; i < frame.data.length; i += 4) {
           const r = frame.data[i];
           const g = frame.data[i+1];
@@ -1122,10 +1125,10 @@ export function generateMultiPhraseHtml(phrases) {
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
-      });
+        if (fi % 4 === 0) await yieldToMain(); // Yield every 4 frames
+      }
 
       const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
-      const paletteSet = new Set(sortedColors);
       const colorMap = new Map();
       sortedColors.forEach((key, idx) => colorMap.set(key, idx));
       const palette = sortedColors.map(key => [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
@@ -1157,7 +1160,9 @@ export function generateMultiPhraseHtml(phrases) {
       writeShort(0);
       write(0x00);
 
-      frames.forEach(frame => {
+      // Encode frames with yields
+      for (let fi = 0; fi < frames.length; fi++) {
+        const frame = frames[fi];
         write(0x21); write(0xf9); write(0x04);
         write(0x00);
         writeShort(delay);
@@ -1185,7 +1190,10 @@ export function generateMultiPhraseHtml(phrases) {
           chunk.forEach(b => write(b));
         }
         write(0x00);
-      });
+        // Yield after each frame to prevent timeout
+        if (progressCallback) progressCallback(fi, frames.length);
+        await yieldToMain();
+      }
       write(0x3b);
       return new Uint8Array(buf);
     }
@@ -2199,14 +2207,16 @@ export function generateMultiPhraseHtml(phrases) {
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
         }
 
-        btn.textContent = 'ENC';
-        await new Promise(r => setTimeout(r, 10));
-
         if (frameDataList.length === 0) {
           throw new Error('No frames captured');
         }
 
-        const gifData = encodeGif(frameDataList, canvasWidth, canvasHeight, delay);
+        btn.textContent = 'ENC';
+        await new Promise(r => setTimeout(r, 10));
+
+        const gifData = await encodeGif(frameDataList, canvasWidth, canvasHeight, delay, (fi, total) => {
+          btn.textContent = 'E' + Math.round((fi + 1) / total * 100) + '%';
+        });
 
         // Download
         const blob = new Blob([gifData], { type: 'image/gif' });
