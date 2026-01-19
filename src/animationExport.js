@@ -381,7 +381,7 @@ function getSquareDimensions() {
   };
 }
 
-function buildSquare(variation) {
+function buildSquare(variation, cubeReflectionFix = true) {
   const base = generateBasePolyhedron();
   const allTriangles = [];
   const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -412,8 +412,8 @@ function buildSquare(variation) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
 
-      // Bottom half (halfRow 1) needs inverted yFlip for proper vertical reflection
-      const effectiveYFlip = halfRow === 1 ? !yFlipAll : yFlipAll;
+      // Bottom half (halfRow 1) needs inverted yFlip for proper vertical reflection (cube mode only)
+      const effectiveYFlip = (cubeReflectionFix && halfRow === 1) ? !yFlipAll : yFlipAll;
 
       let columns;
       if (combinedXFlip) {
@@ -470,7 +470,7 @@ function buildRectangle(variation) {
   const squareWidth = polyWidth * 4;
 
   for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
-    const squareTriangles = buildSquare(variation);
+    const squareTriangles = buildSquare(variation, false);
     const xOffset = gridIndex * (squareWidth + GAP);
     const shouldXFlip = gridIndex % 2 === 1;
 
@@ -1540,7 +1540,7 @@ export function generateMultiPhraseHtml(phrases) {
       return allTriangles;
     }
 
-    function buildSquare(variation) {
+    function buildSquare(variation, cubeReflectionFix = true) {
       const base = generateBasePolyhedron();
       const allTriangles = [];
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -1562,7 +1562,7 @@ export function generateMultiPhraseHtml(phrases) {
           const quadXOffset = qCol * quadWidth;
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
-          const effectiveYFlip = halfRow === 1 ? !yFlipAll : yFlipAll;
+          const effectiveYFlip = (cubeReflectionFix && halfRow === 1) ? !yFlipAll : yFlipAll;
           let columns;
           if (combinedXFlip) {
             columns = effectiveYFlip ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
@@ -1614,7 +1614,7 @@ export function generateMultiPhraseHtml(phrases) {
       const GAP = 0;
       const squareWidth = polyWidth * 4;
       for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
-        const squareTriangles = buildSquare(variation);
+        const squareTriangles = buildSquare(variation, false);
         const xOffset = gridIndex * (squareWidth + GAP);
         const shouldXFlip = gridIndex % 2 === 1;
         squareTriangles.forEach(tri => {
