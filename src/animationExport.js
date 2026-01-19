@@ -412,8 +412,8 @@ function buildSquare(variation, forRectangle = false) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
 
-      // Rectangle: x-flip top half (halfRow 0). Cube: x-flip rows 2 & 4 (qRow 1)
-      const extraXFlip = forRectangle ? (halfRow === 0) : (qRow === 1);
+      // x-flip for top half
+      const extraXFlip = halfRow === 0;
 
       let columns;
       if (combinedXFlip) {
@@ -1564,7 +1564,7 @@ export function generateMultiPhraseHtml(phrases) {
           const quadXOffset = qCol * quadWidth;
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
-          const extraXFlip = forRectangle ? (halfRow === 0) : (qRow === 1);
+          const extraXFlip = halfRow === 0;
           let columns;
           if (combinedXFlip) {
             columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
