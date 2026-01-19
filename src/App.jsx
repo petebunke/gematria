@@ -429,24 +429,24 @@ const GematriaCalculator = () => {
             <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
             <p><strong>Total Phrases:</strong> ${sorted.length}</p>
           </div>
-          <table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 9px; table-layout: fixed;">
             <thead>
               <tr>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold;">Phrase</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; width: 450px;">Definitions</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Hebrew</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">English</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Simple</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; white-space: nowrap;">Aik Bekar⁹</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Combo</th>
-                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold;">Source</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; width: 12%;">Phrase</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: left; font-weight: bold; width: 40%;">Definitions</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 6%;">Hebrew</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 6%;">English</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 6%;">Simple</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 6%; white-space: nowrap;">Aik Bekar⁹</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 14%;">Combo</th>
+                <th style="background-color: #dc2626; color: white; padding: 6px; text-align: center; font-weight: bold; width: 10%;">Source</th>
               </tr>
             </thead>
             <tbody>
               ${sorted.map((p, i) => `
                 <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9f9f9'};">
-                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap;">${p.phrase}</td>
-                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; width: 450px; word-wrap: break-word;">${phraseMeanings[p.phrase] || '-'}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${p.phrase}</td>
+                  <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; color: #4b5563; font-size: 8px; word-wrap: break-word; overflow-wrap: break-word; white-space: normal;">${phraseMeanings[p.phrase] || '-'}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.hebrew}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.english}</td>
                   <td style="padding: 5px 6px; border-bottom: 1px solid #ddd; text-align: center; font-family: monospace; color: #dc2626;">${p.simple}</td>
