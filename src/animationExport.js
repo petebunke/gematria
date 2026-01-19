@@ -1106,7 +1106,7 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // GIF encoder with LOCAL color tables per frame for full quality
+    // GIF encoder - async with yields to prevent browser timeout
     async function encodeGif(frames, width, height, delay, progressCallback) {
       const buf = [];
       const write = (b) => buf.push(b);
@@ -1114,28 +1114,9 @@ export function generateMultiPhraseHtml(phrases) {
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
       const yieldToMain = () => new Promise(r => setTimeout(r, 0));
 
-      // GIF header
-      writeStr('GIF89a');
-      writeShort(width);
-      writeShort(height);
-      // Global color table: minimal (2 colors), not actually used since we use local tables
-      write(0x70); // No global color table, 8 bits color resolution
-      write(0);    // Background color index
-      write(0);    // Pixel aspect ratio
-
-      // NETSCAPE extension for looping
-      write(0x21); write(0xff); write(0x0b);
-      writeStr('NETSCAPE2.0');
-      write(0x03); write(0x01);
-      writeShort(0); // Loop forever
-      write(0x00);
-
-      // Encode each frame with its own local color table
+      const colorCounts = new Map();
       for (let fi = 0; fi < frames.length; fi++) {
         const frame = frames[fi];
-
-        // Build local palette for THIS frame only
-        const colorCounts = new Map();
         for (let i = 0; i < frame.data.length; i += 4) {
           const r = frame.data[i];
           const g = frame.data[i+1];
@@ -1143,49 +1124,50 @@ export function generateMultiPhraseHtml(phrases) {
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
+        if (fi % 4 === 0) await yieldToMain();
+      }
 
-        const sortedColors = [...colorCounts.entries()]
-          .sort((a, b) => b[1] - a[1])
-          .slice(0, 256)
-          .map(([key]) => key);
-        const colorMap = new Map();
-        sortedColors.forEach((key, idx) => colorMap.set(key, idx));
-        const localPalette = sortedColors.map(key => [
-          (key >> 16) & 0xff,
-          (key >> 8) & 0xff,
-          key & 0xff
-        ]);
-        while (localPalette.length < 256) localPalette.push([0, 0, 0]);
+      const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
+      const colorMap = new Map();
+      sortedColors.forEach((key, idx) => colorMap.set(key, idx));
+      const palette = sortedColors.map(key => [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
+      while (palette.length < 256) palette.push([0, 0, 0]);
 
-        // Find nearest color for any not in palette
-        function findNearest(r, g, b) {
-          let best = 0, bestDist = Infinity;
-          for (let i = 0; i < sortedColors.length; i++) {
-            const pr = (sortedColors[i] >> 16) & 0xff;
-            const pg = (sortedColors[i] >> 8) & 0xff;
-            const pb = sortedColors[i] & 0xff;
-            const d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
-            if (d < bestDist) { bestDist = d; best = i; }
-          }
-          return best;
+      function findNearest(r, g, b) {
+        let best = 0, bestDist = Infinity;
+        for (let i = 0; i < sortedColors.length; i++) {
+          const pr = (sortedColors[i] >> 16) & 0xff;
+          const pg = (sortedColors[i] >> 8) & 0xff;
+          const pb = sortedColors[i] & 0xff;
+          const d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
+          if (d < bestDist) { bestDist = d; best = i; }
         }
+        return best;
+      }
 
-        // Graphics Control Extension
+      writeStr('GIF89a');
+      writeShort(width);
+      writeShort(height);
+      write(0xf7);
+      write(0);
+      write(0);
+      palette.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+      write(0x21); write(0xff); write(0x0b);
+      writeStr('NETSCAPE2.0');
+      write(0x03); write(0x01);
+      writeShort(0);
+      write(0x00);
+
+      for (let fi = 0; fi < frames.length; fi++) {
+        const frame = frames[fi];
         write(0x21); write(0xf9); write(0x04);
-        write(0x00); // No transparency
+        write(0x00);
         writeShort(delay);
         write(0x00); write(0x00);
-
-        // Image Descriptor
         write(0x2c);
-        writeShort(0); writeShort(0); // Position
+        writeShort(0); writeShort(0);
         writeShort(width); writeShort(height);
-        write(0x87); // Local color table flag + 256 colors (2^(7+1) = 256)
-
-        // Write local color table
-        localPalette.forEach(([r, g, b]) => { write(r); write(g); write(b); });
-
-        // Build pixel indices
+        write(0x00);
         const minCodeSize = 8;
         write(minCodeSize);
         const pixels = [];
@@ -1198,21 +1180,17 @@ export function generateMultiPhraseHtml(phrases) {
           if (idx === undefined) idx = findNearest(r, g, b);
           pixels.push(idx);
         }
-
-        // LZW encode
         const lzwData = lzwEncode(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
           const chunk = lzwData.slice(i, i + 255);
           write(chunk.length);
           chunk.forEach(b => write(b));
         }
-        write(0x00); // Block terminator
-
+        write(0x00);
         if (progressCallback) progressCallback(fi, frames.length);
         await yieldToMain();
       }
-
-      write(0x3b); // GIF trailer
+      write(0x3b);
       return new Uint8Array(buf);
     }
 
@@ -2016,21 +1994,10 @@ export function generateMultiPhraseHtml(phrases) {
     window.addEventListener('resize', () => { render(); renderBackground(); });
 
     // Generate SVG frame without touching live DOM
-    function generateFrameSvg(mode, configIdx, variation, forGif = false) {
+    function generateFrameSvg(mode, configIdx, variation) {
       const config = CONFIGS[CONFIG_KEYS[configIdx]];
       const color = getColor();
       const letterData = getLetterFrequency(currentPhrase);
-
-      // Pre-composite color with opacity onto white background for GIF
-      function blendWithWhite(hexColor, opacity) {
-        const r = parseInt(hexColor.slice(1,3), 16);
-        const g = parseInt(hexColor.slice(3,5), 16);
-        const b = parseInt(hexColor.slice(5,7), 16);
-        const blendedR = Math.round(r * opacity + 255 * (1 - opacity));
-        const blendedG = Math.round(g * opacity + 255 * (1 - opacity));
-        const blendedB = Math.round(b * opacity + 255 * (1 - opacity));
-        return '#' + [blendedR, blendedG, blendedB].map(x => x.toString(16).padStart(2, '0')).join('');
-      }
 
       let triangles, totalWidth, totalHeight;
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -2072,39 +2039,21 @@ export function generateMultiPhraseHtml(phrases) {
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       }
 
-      // For GIF: use crisp rendering, no anti-aliasing
-      const shapeRendering = forGif ? ' shape-rendering="crispEdges"' : '';
-      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}"\${shapeRendering}>\`;
+      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}">\`;
       svgContent += \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#ffffff"/>\`;
 
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
         const isInPhrase = isLetterInPhrase(symbol, letterData);
+        const fill = isInPhrase ? color.hex : '#ffffff';
+        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-
-        if (forGif) {
-          // GIF: pre-composite colors, no opacity, crisp strokes
-          const baseFill = isInPhrase ? color.hex : '#ffffff';
-          const fillOpacity = isInPhrase ? letterOpacity : 0.08;
-          const solidFill = blendWithWhite(baseFill, fillOpacity);
-          svgContent += \`<path d="\${path}" fill="\${solidFill}" stroke="#333333" stroke-width="1"/>\`;
-          const textX = tri.x + TRI_SIZE / 2;
-          const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
-          // Pre-composite text color
-          const baseTextColor = isInPhrase ? '#ffffff' : '#000000';
-          const solidTextColor = blendWithWhite(baseTextColor, letterOpacity);
-          svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${solidTextColor}">\${symbol}</text>\`;
-        } else {
-          // Normal: use opacity for smooth rendering
-          const fill = isInPhrase ? color.hex : '#ffffff';
-          const fillOpacity = isInPhrase ? letterOpacity : 0.08;
-          svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
-          const textX = tri.x + TRI_SIZE / 2;
-          const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
-          const textColor = isInPhrase ? '#ffffff' : '#000000';
-          svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
-        }
+        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
+        const textX = tri.x + TRI_SIZE / 2;
+        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+        const textColor = isInPhrase ? '#ffffff' : '#000000';
+        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
       });
 
       svgContent += '</svg>';
@@ -2230,13 +2179,12 @@ export function generateMultiPhraseHtml(phrases) {
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
         const ctx = canvas.getContext('2d');
-        ctx.imageSmoothingEnabled = false; // Crisp pixels for GIF
 
         // Generate all frames
         const frameDataList = [];
         for (let i = 0; i < frames.length; i++) {
           const frame = frames[i];
-          const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation, true);
+          const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
 
           const img = await new Promise(resolve => {
             const image = new Image();
