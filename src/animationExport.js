@@ -1633,11 +1633,8 @@ export function generateMultiPhraseHtml(phrases) {
       for (let rowIndex = 0; rowIndex < 4; rowIndex++) {
         const rectangleTriangles = buildRectangle(variation);
         const yOffset = rowIndex * (rectangleHeight + GAP);
-        const shouldXFlip = rowIndex >= 2;
         rectangleTriangles.forEach(tri => {
-          let newPointing = tri.pointing;
-          if (shouldXFlip) newPointing = tri.pointing === 'up' ? 'down' : 'up';
-          allTriangles.push({ ...tri, x: tri.x, y: tri.y + yOffset, pointing: newPointing, rowIndex });
+          allTriangles.push({ ...tri, x: tri.x, y: tri.y + yOffset, rowIndex });
         });
       }
       return allTriangles;
