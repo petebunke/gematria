@@ -433,10 +433,10 @@ const GematriaCalculator = () => {
               <tr>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: left; font-weight: bold;">Phrase</th>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: left; font-weight: bold;">Definitions</th>
-                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Heb</th>
-                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Eng</th>
-                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Sim</th>
-                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Aik</th>
+                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Hebrew</th>
+                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">English</th>
+                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Simple</th>
+                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Aik Bekar</th>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Source</th>
               </tr>
             </thead>
