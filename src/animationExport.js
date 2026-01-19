@@ -814,14 +814,17 @@ export async function generateSimpleGif(phrase, combo, progressCallback) {
   const frameSpeed = Math.max(aikBekarToMs(combo[3] || 111), 20); // Min 20ms for GIF
   const delay = Math.round(frameSpeed / 10); // GIF delay is in centiseconds
 
-  // Full resolution - use actual SVG dimensions
-  const gifWidth = width + STROKE_WIDTH;
-  const gifHeight = height + STROKE_WIDTH;
+  // 2x scale for high quality GIF
+  const scale = 2;
+  const gifWidth = (width + STROKE_WIDTH) * scale;
+  const gifHeight = (height + STROKE_WIDTH) * scale;
 
   const canvas = document.createElement('canvas');
   canvas.width = gifWidth;
   canvas.height = gifHeight;
   const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
 
   // Generate frames (6 configs × 2 variations = 12 frames, then reverse for ping-pong)
   const svgFrames = [];
@@ -1089,12 +1092,12 @@ export function generateMultiPhraseHtml(phrases) {
     </div>
 
     <div class="control-group">
-      <span class="control-label">Zoom</span>
-      <span class="info-display" id="zoomLevel">100%</span>
+      <button id="gifBtn" class="secondary" style="font-weight:bold;">GIF</button>
     </div>
 
     <div class="control-group">
-      <button id="gifBtn" class="secondary" style="font-weight:bold;">GIF</button>
+      <span class="control-label">Zoom</span>
+      <span class="info-display" id="zoomLevel">100%</span>
     </div>
   </div>
 
