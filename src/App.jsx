@@ -409,8 +409,7 @@ const GematriaCalculator = () => {
           .map(w => {
             const def = allDefinitions[w];
             if (def && def.definition) {
-              const shortDef = def.definition.length > 60 ? def.definition.slice(0, 60) + '...' : def.definition;
-              return `<b>${w}</b>: ${shortDef}`;
+              return `<b>${w}</b>: ${def.definition}`;
             }
             return `<b>${w}</b>: -`;
           })
