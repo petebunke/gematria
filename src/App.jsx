@@ -436,7 +436,7 @@ const GematriaCalculator = () => {
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Heb</th>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Eng</th>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Sim</th>
-                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">AiK</th>
+                <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Aik</th>
                 <th style="background-color: #dc2626; color: white; padding: 4px; text-align: center; font-weight: bold;">Source</th>
               </tr>
             </thead>
