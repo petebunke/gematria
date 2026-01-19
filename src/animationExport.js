@@ -2171,14 +2171,17 @@ export function generateMultiPhraseHtml(phrases) {
           maxHeight = Math.max(maxHeight, dim.height);
         }
 
-        // Full resolution
-        const canvasWidth = maxWidth;
-        const canvasHeight = maxHeight;
+        // 2x scale for high quality GIF (matches main site)
+        const scale = 2;
+        const canvasWidth = maxWidth * scale;
+        const canvasHeight = maxHeight * scale;
 
         const canvas = document.createElement('canvas');
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
 
         // Generate all frames
         const frameDataList = [];
@@ -2197,7 +2200,10 @@ export function generateMultiPhraseHtml(phrases) {
 
           ctx.fillStyle = '#ffffff';
           ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-          try { ctx.drawImage(img, (canvasWidth - frameW) / 2, (canvasHeight - frameH) / 2, frameW, frameH); } catch(e) {}
+          // Scale the frame to 2x and center it
+          const scaledW = frameW * scale;
+          const scaledH = frameH * scale;
+          try { ctx.drawImage(img, (canvasWidth - scaledW) / 2, (canvasHeight - scaledH) / 2, scaledW, scaledH); } catch(e) {}
           frameDataList.push(ctx.getImageData(0, 0, canvasWidth, canvasHeight));
 
           btn.textContent = Math.round((i + 1) / frames.length * 100) + '%';
