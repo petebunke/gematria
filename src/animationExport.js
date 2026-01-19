@@ -412,7 +412,7 @@ function buildSquare(variation, forRectangle = false) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
       const rowYFlip = forRectangle && (halfRow === qRow);
-      const rectRowXFlip = forRectangle && (qRow === 1);
+      const rectRowXFlip = forRectangle && (halfRow === 1);
       const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
 
       let columns;
@@ -1569,7 +1569,7 @@ export function generateMultiPhraseHtml(phrases) {
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
           const rowYFlip = forRectangle && (halfRow === qRow);
-          const rectRowXFlip = forRectangle && (qRow === 1);
+          const rectRowXFlip = forRectangle && (halfRow === 1);
           const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
           let columns;
           if (combinedXFlip) {
