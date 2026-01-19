@@ -411,6 +411,8 @@ function buildSquare(variation, forRectangle = false) {
       const quadXOffset = qCol * quadWidth;
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
+      const rowYFlip = forRectangle && (halfRow === qRow);
+      const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
 
       let columns;
       if (combinedXFlip) {
@@ -430,6 +432,8 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
@@ -449,6 +453,8 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
@@ -1559,6 +1565,8 @@ export function generateMultiPhraseHtml(phrases) {
           const quadXOffset = qCol * quadWidth;
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
+          const rowYFlip = forRectangle && (halfRow === qRow);
+          const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
           let columns;
           if (combinedXFlip) {
             columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
@@ -1576,6 +1584,8 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
               allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
@@ -1594,6 +1604,8 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
               allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });

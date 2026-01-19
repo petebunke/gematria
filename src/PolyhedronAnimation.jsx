@@ -333,7 +333,7 @@ function buildOcta(variation) {
   return allTriangles;
 }
 
-function buildSquare(variation) {
+function buildSquare(variation, forRectangle = false) {
   const base = generateBasePolyhedron();
   const allTriangles = [];
   const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -363,6 +363,8 @@ function buildSquare(variation) {
       const quadXOffset = qCol * quadWidth;
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
+      const rowYFlip = forRectangle && (halfRow === qRow);
+      const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
 
       let columns;
       if (combinedXFlip) {
@@ -382,6 +384,8 @@ function buildSquare(variation) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
@@ -401,6 +405,8 @@ function buildSquare(variation) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
@@ -419,7 +425,7 @@ function buildRectangle(variation) {
   const squareWidth = polyWidth * 4;
 
   for (let gridIndex = 0; gridIndex < 4; gridIndex++) {
-    const squareTriangles = buildSquare(variation);
+    const squareTriangles = buildSquare(variation, true);
     const xOffset = gridIndex * (squareWidth + GAP);
     const shouldXFlip = gridIndex % 2 === 1;
 
