@@ -2016,10 +2016,21 @@ export function generateMultiPhraseHtml(phrases) {
     window.addEventListener('resize', () => { render(); renderBackground(); });
 
     // Generate SVG frame without touching live DOM
-    function generateFrameSvg(mode, configIdx, variation) {
+    function generateFrameSvg(mode, configIdx, variation, forGif = false) {
       const config = CONFIGS[CONFIG_KEYS[configIdx]];
       const color = getColor();
       const letterData = getLetterFrequency(currentPhrase);
+
+      // Pre-composite color with opacity onto white background for GIF
+      function blendWithWhite(hexColor, opacity) {
+        const r = parseInt(hexColor.slice(1,3), 16);
+        const g = parseInt(hexColor.slice(3,5), 16);
+        const b = parseInt(hexColor.slice(5,7), 16);
+        const blendedR = Math.round(r * opacity + 255 * (1 - opacity));
+        const blendedG = Math.round(g * opacity + 255 * (1 - opacity));
+        const blendedB = Math.round(b * opacity + 255 * (1 - opacity));
+        return '#' + [blendedR, blendedG, blendedB].map(x => x.toString(16).padStart(2, '0')).join('');
+      }
 
       let triangles, totalWidth, totalHeight;
       const polyWidth = (COLS - 1) * (TRI_SIZE / 2) + TRI_SIZE;
@@ -2061,21 +2072,39 @@ export function generateMultiPhraseHtml(phrases) {
         totalHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       }
 
-      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}">\`;
+      // For GIF: use crisp rendering, no anti-aliasing
+      const shapeRendering = forGif ? ' shape-rendering="crispEdges"' : '';
+      let svgContent = \`<svg xmlns="http://www.w3.org/2000/svg" width="\${totalWidth}" height="\${totalHeight}" viewBox="0 0 \${totalWidth} \${totalHeight}"\${shapeRendering}>\`;
       svgContent += \`<rect x="0" y="0" width="\${totalWidth}" height="\${totalHeight}" fill="#ffffff"/>\`;
 
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
         const isInPhrase = isLetterInPhrase(symbol, letterData);
-        const fill = isInPhrase ? color.hex : '#ffffff';
-        const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-        svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
-        const textX = tri.x + TRI_SIZE / 2;
-        const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
-        const textColor = isInPhrase ? '#ffffff' : '#000000';
-        svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
+
+        if (forGif) {
+          // GIF: pre-composite colors, no opacity, crisp strokes
+          const baseFill = isInPhrase ? color.hex : '#ffffff';
+          const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+          const solidFill = blendWithWhite(baseFill, fillOpacity);
+          svgContent += \`<path d="\${path}" fill="\${solidFill}" stroke="#333333" stroke-width="1"/>\`;
+          const textX = tri.x + TRI_SIZE / 2;
+          const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+          // Pre-composite text color
+          const baseTextColor = isInPhrase ? '#ffffff' : '#000000';
+          const solidTextColor = blendWithWhite(baseTextColor, letterOpacity);
+          svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${solidTextColor}">\${symbol}</text>\`;
+        } else {
+          // Normal: use opacity for smooth rendering
+          const fill = isInPhrase ? color.hex : '#ffffff';
+          const fillOpacity = isInPhrase ? letterOpacity : 0.08;
+          svgContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#333" stroke-width="1" stroke-linejoin="round"/>\`;
+          const textX = tri.x + TRI_SIZE / 2;
+          const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
+          const textColor = isInPhrase ? '#ffffff' : '#000000';
+          svgContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity}">\${symbol}</text>\`;
+        }
       });
 
       svgContent += '</svg>';
@@ -2201,12 +2230,13 @@ export function generateMultiPhraseHtml(phrases) {
         canvas.width = canvasWidth;
         canvas.height = canvasHeight;
         const ctx = canvas.getContext('2d');
+        ctx.imageSmoothingEnabled = false; // Crisp pixels for GIF
 
         // Generate all frames
         const frameDataList = [];
         for (let i = 0; i < frames.length; i++) {
           const frame = frames[i];
-          const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation);
+          const { svg: svgStr, width: frameW, height: frameH } = generateFrameSvg(frame.mode, frame.configIndex, frame.variation, true);
 
           const img = await new Promise(resolve => {
             const image = new Image();
