@@ -391,8 +391,8 @@ function buildSquare(variation, forRectangle = false) {
   const GAP = 0;
 
   const octaHalves = [
-    { halfRow: 0, globalXFlip: true },
-    { halfRow: 1, globalXFlip: false }
+    { halfRow: 0, globalXFlip: false },
+    { halfRow: 1, globalXFlip: true }
   ];
 
   const octaQuadrants = [
@@ -412,9 +412,6 @@ function buildSquare(variation, forRectangle = false) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
 
-      // x-flip for top half
-      const extraXFlip = halfRow === 0;
-
       let columns;
       if (combinedXFlip) {
         columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
@@ -433,7 +430,6 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
-          if (extraXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
@@ -453,7 +449,6 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
-          if (extraXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
           allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });
@@ -1550,7 +1545,7 @@ export function generateMultiPhraseHtml(phrases) {
       const quadHeight = BASE_ROWS * 2 * TRI_HEIGHT;
       const xFlipRows = [0, 2, 4];
       const GAP = 0;
-      const octaHalves = [{ halfRow: 0, globalXFlip: true }, { halfRow: 1, globalXFlip: false }];
+      const octaHalves = [{ halfRow: 0, globalXFlip: false }, { halfRow: 1, globalXFlip: true }];
       const octaQuadrants = [
         { qRow: 0, qCol: 0, xFlipAll: false, yFlipAll: false },
         { qRow: 0, qCol: 1, xFlipAll: false, yFlipAll: true },
@@ -1564,7 +1559,6 @@ export function generateMultiPhraseHtml(phrases) {
           const quadXOffset = qCol * quadWidth;
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
-          const extraXFlip = halfRow === 0;
           let columns;
           if (combinedXFlip) {
             columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
@@ -1582,7 +1576,6 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
-              if (extraXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
               allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'top' });
@@ -1601,7 +1594,6 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipRows.includes(row)) pointing = pointing === 'up' ? 'down' : 'up';
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
-              if (extraXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
               allTriangles.push({ ...t, col, pointing, polyhedronRow: polyRow, x, y, yMirror, section: 'bottom' });

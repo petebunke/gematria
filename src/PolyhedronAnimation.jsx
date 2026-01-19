@@ -343,8 +343,8 @@ function buildSquare(variation) {
   const GAP = 0;
 
   const octaHalves = [
-    { halfRow: 0, globalXFlip: true },
-    { halfRow: 1, globalXFlip: false }
+    { halfRow: 0, globalXFlip: false },
+    { halfRow: 1, globalXFlip: true }
   ];
 
   const octaQuadrants = [
