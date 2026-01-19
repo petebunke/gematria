@@ -1106,7 +1106,7 @@ export function generateMultiPhraseHtml(phrases) {
   </div>
 
   <script>
-    // GIF encoder from working example - async to prevent browser timeout
+    // GIF encoder with LOCAL color tables per frame for full quality
     async function encodeGif(frames, width, height, delay, progressCallback) {
       const buf = [];
       const write = (b) => buf.push(b);
@@ -1114,10 +1114,28 @@ export function generateMultiPhraseHtml(phrases) {
       const writeShort = (v) => { write(v & 0xff); write((v >> 8) & 0xff); };
       const yieldToMain = () => new Promise(r => setTimeout(r, 0));
 
-      // Count colors with yields to prevent blocking
-      const colorCounts = new Map();
+      // GIF header
+      writeStr('GIF89a');
+      writeShort(width);
+      writeShort(height);
+      // Global color table: minimal (2 colors), not actually used since we use local tables
+      write(0x70); // No global color table, 8 bits color resolution
+      write(0);    // Background color index
+      write(0);    // Pixel aspect ratio
+
+      // NETSCAPE extension for looping
+      write(0x21); write(0xff); write(0x0b);
+      writeStr('NETSCAPE2.0');
+      write(0x03); write(0x01);
+      writeShort(0); // Loop forever
+      write(0x00);
+
+      // Encode each frame with its own local color table
       for (let fi = 0; fi < frames.length; fi++) {
         const frame = frames[fi];
+
+        // Build local palette for THIS frame only
+        const colorCounts = new Map();
         for (let i = 0; i < frame.data.length; i += 4) {
           const r = frame.data[i];
           const g = frame.data[i+1];
@@ -1125,52 +1143,49 @@ export function generateMultiPhraseHtml(phrases) {
           const key = (r << 16) | (g << 8) | b;
           colorCounts.set(key, (colorCounts.get(key) || 0) + 1);
         }
-        if (fi % 4 === 0) await yieldToMain(); // Yield every 4 frames
-      }
 
-      const sortedColors = [...colorCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 256).map(([key]) => key);
-      const colorMap = new Map();
-      sortedColors.forEach((key, idx) => colorMap.set(key, idx));
-      const palette = sortedColors.map(key => [(key >> 16) & 0xff, (key >> 8) & 0xff, key & 0xff]);
-      while (palette.length < 256) palette.push([0, 0, 0]);
+        const sortedColors = [...colorCounts.entries()]
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 256)
+          .map(([key]) => key);
+        const colorMap = new Map();
+        sortedColors.forEach((key, idx) => colorMap.set(key, idx));
+        const localPalette = sortedColors.map(key => [
+          (key >> 16) & 0xff,
+          (key >> 8) & 0xff,
+          key & 0xff
+        ]);
+        while (localPalette.length < 256) localPalette.push([0, 0, 0]);
 
-      // For colors not in palette, find nearest
-      function findNearest(r, g, b) {
-        let best = 0, bestDist = Infinity;
-        for (let i = 0; i < sortedColors.length; i++) {
-          const pr = (sortedColors[i] >> 16) & 0xff;
-          const pg = (sortedColors[i] >> 8) & 0xff;
-          const pb = sortedColors[i] & 0xff;
-          const d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
-          if (d < bestDist) { bestDist = d; best = i; }
+        // Find nearest color for any not in palette
+        function findNearest(r, g, b) {
+          let best = 0, bestDist = Infinity;
+          for (let i = 0; i < sortedColors.length; i++) {
+            const pr = (sortedColors[i] >> 16) & 0xff;
+            const pg = (sortedColors[i] >> 8) & 0xff;
+            const pb = sortedColors[i] & 0xff;
+            const d = (r-pr)*(r-pr) + (g-pg)*(g-pg) + (b-pb)*(b-pb);
+            if (d < bestDist) { bestDist = d; best = i; }
+          }
+          return best;
         }
-        return best;
-      }
 
-      writeStr('GIF89a');
-      writeShort(width);
-      writeShort(height);
-      write(0xf7);
-      write(0);
-      write(0);
-      palette.forEach(([r, g, b]) => { write(r); write(g); write(b); });
-      write(0x21); write(0xff); write(0x0b);
-      writeStr('NETSCAPE2.0');
-      write(0x03); write(0x01);
-      writeShort(0);
-      write(0x00);
-
-      // Encode frames with yields
-      for (let fi = 0; fi < frames.length; fi++) {
-        const frame = frames[fi];
+        // Graphics Control Extension
         write(0x21); write(0xf9); write(0x04);
-        write(0x00);
+        write(0x00); // No transparency
         writeShort(delay);
         write(0x00); write(0x00);
+
+        // Image Descriptor
         write(0x2c);
-        writeShort(0); writeShort(0);
+        writeShort(0); writeShort(0); // Position
         writeShort(width); writeShort(height);
-        write(0x00);
+        write(0x87); // Local color table flag + 256 colors (2^(7+1) = 256)
+
+        // Write local color table
+        localPalette.forEach(([r, g, b]) => { write(r); write(g); write(b); });
+
+        // Build pixel indices
         const minCodeSize = 8;
         write(minCodeSize);
         const pixels = [];
@@ -1183,18 +1198,21 @@ export function generateMultiPhraseHtml(phrases) {
           if (idx === undefined) idx = findNearest(r, g, b);
           pixels.push(idx);
         }
+
+        // LZW encode
         const lzwData = lzwEncode(pixels, minCodeSize);
         for (let i = 0; i < lzwData.length; i += 255) {
           const chunk = lzwData.slice(i, i + 255);
           write(chunk.length);
           chunk.forEach(b => write(b));
         }
-        write(0x00);
-        // Yield after each frame to prevent timeout
+        write(0x00); // Block terminator
+
         if (progressCallback) progressCallback(fi, frames.length);
         await yieldToMain();
       }
-      write(0x3b);
+
+      write(0x3b); // GIF trailer
       return new Uint8Array(buf);
     }
 
