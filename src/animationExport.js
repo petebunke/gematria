@@ -412,12 +412,15 @@ function buildSquare(variation) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
 
+      // Bottom half (halfRow 1) needs inverted yFlip for proper vertical reflection
+      const effectiveYFlip = halfRow === 1 ? !yFlipAll : yFlipAll;
+
       let columns;
       if (combinedXFlip) {
-        columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+        columns = effectiveYFlip ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
                            : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
       } else {
-        columns = yFlipAll ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+        columns = effectiveYFlip ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
                            : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
       }
 
@@ -1559,12 +1562,13 @@ export function generateMultiPhraseHtml(phrases) {
           const quadXOffset = qCol * quadWidth;
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
+          const effectiveYFlip = halfRow === 1 ? !yFlipAll : yFlipAll;
           let columns;
           if (combinedXFlip) {
-            columns = yFlipAll ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
+            columns = effectiveYFlip ? [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }]
                                : [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }];
           } else {
-            columns = yFlipAll ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
+            columns = effectiveYFlip ? [{ colIndex: 0, yMirror: false }, { colIndex: 1, yMirror: true }]
                                : [{ colIndex: 0, yMirror: true }, { colIndex: 1, yMirror: false }];
           }
           columns.forEach(({ colIndex, yMirror }) => {
