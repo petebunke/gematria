@@ -412,6 +412,7 @@ function buildSquare(variation, forRectangle = false) {
       const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
       const combinedXFlip = xFlipAll !== globalXFlip;
       const rowYFlip = forRectangle && (halfRow === qRow);
+      const rectRowXFlip = forRectangle && (qRow === 1);
       const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
 
       let columns;
@@ -433,6 +434,7 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rectRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
@@ -454,6 +456,7 @@ function buildSquare(variation, forRectangle = false) {
           if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
           if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+          if (rectRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
           const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
           const y = quadYOffset + row * TRI_HEIGHT;
@@ -1566,6 +1569,7 @@ export function generateMultiPhraseHtml(phrases) {
           const quadYOffset = halfYOffset + qRow * (quadHeight + GAP);
           const combinedXFlip = xFlipAll !== globalXFlip;
           const rowYFlip = forRectangle && (halfRow === qRow);
+          const rectRowXFlip = forRectangle && (qRow === 1);
           const cubeRowXFlip = !forRectangle && (halfRow !== qRow);
           let columns;
           if (combinedXFlip) {
@@ -1585,6 +1589,7 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (rectRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
@@ -1605,6 +1610,7 @@ export function generateMultiPhraseHtml(phrases) {
               if (xFlipAll) pointing = pointing === 'up' ? 'down' : 'up';
               if (globalXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               if (rowYFlip) pointing = pointing === 'up' ? 'down' : 'up';
+              if (rectRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               if (cubeRowXFlip) pointing = pointing === 'up' ? 'down' : 'up';
               const x = quadXOffset + colIndex * polyWidth + col * (TRI_SIZE / 2);
               const y = quadYOffset + row * TRI_HEIGHT;
