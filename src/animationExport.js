@@ -1818,6 +1818,7 @@ export function generateMultiPhraseHtml(phrases) {
       bgSvg.setAttribute('viewBox', \`0 0 \${totalWidth} \${screenHeight}\`);
 
       let tileContent = '';
+      let tileFlippedContent = '';
       triangles.forEach(tri => {
         const symbol = config.getSymbol(tri.index % 27);
         const letterOpacity = getLetterOpacity(symbol, letterData);
@@ -1825,15 +1826,20 @@ export function generateMultiPhraseHtml(phrases) {
         const fill = isInPhrase ? color.hex : '#f8f8f4';
         const fillOpacity = isInPhrase ? letterOpacity : 0.08;
         const path = getTrianglePath(tri.x, tri.y, tri.pointing);
-        tileContent += \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#999" stroke-width="0.5"/>\`;
+        const pathEl = \`<path d="\${path}" fill="\${fill}" fill-opacity="\${fillOpacity}" stroke="#999" stroke-width="0.5"/>\`;
+        tileContent += pathEl;
+        tileFlippedContent += pathEl;
         const textX = tri.x + TRI_SIZE / 2;
         const textY = tri.y + (tri.pointing === 'up' ? TRI_HEIGHT * 0.6 : TRI_HEIGHT * 0.4);
         const textColor = isInPhrase ? '#ffffff' : '#000000';
+        // Normal text for normal columns
         tileContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity * 0.7}">\${symbol}</text>\`;
+        // Counter-flipped text for flipped columns (scale(-1,1) centered on text position)
+        tileFlippedContent += \`<text x="\${textX}" y="\${textY}" text-anchor="middle" dominant-baseline="middle" font-family="Arial" font-size="9" font-weight="bold" fill="\${textColor}" fill-opacity="\${letterOpacity * 0.7}" transform="translate(\${textX * 2}, 0) scale(-1, 1)">\${symbol}</text>\`;
       });
 
       let svgContent = \`<rect x="0" y="0" width="\${totalWidth}" height="\${screenHeight}" fill="#f5f5f0"/>\`;
-      svgContent += \`<defs><g id="tile">\${tileContent}</g></defs>\`;
+      svgContent += \`<defs><g id="tile">\${tileContent}</g><g id="tileFlipped">\${tileFlippedContent}</g></defs>\`;
 
       const totalColumnHeight = tilesY * bgTileHeight;
       if (bgColumns.length !== tilesX) {
@@ -1851,10 +1857,11 @@ export function generateMultiPhraseHtml(phrases) {
       for (let col = 0; col < tilesX; col++) {
         const xPos = col * tileWidth;
         const yFlip = col % 2 === 1;
+        const tileId = yFlip ? 'tileFlipped' : 'tile';
         const flipTransform = yFlip ? \`translate(\${2 * xPos + tileWidth}, 0) scale(-1, 1)\` : '';
         svgContent += \`<g id="bgCol\${col}" \${yFlip ? \`transform="\${flipTransform}"\` : ''}>\`;
         for (let row = -1; row < tilesY; row++) {
-          svgContent += \`<use href="#tile" x="\${xPos}" y="\${row * bgTileHeight}"/>\`;
+          svgContent += \`<use href="#\${tileId}" x="\${xPos}" y="\${row * bgTileHeight}"/>\`;
         }
         svgContent += '</g>';
       }
